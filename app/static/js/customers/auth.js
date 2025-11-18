@@ -69,15 +69,20 @@ if (loginForm) {
 }
 
 // ==================== REGISTRATION ====================
+// ==================== REGISTRATION ====================
 const registerForm = document.getElementById('registerForm');
 if (registerForm) {
+    // Xóa action để chắc chắn không submit traditional
+    registerForm.removeAttribute('action');
+    
     registerForm.addEventListener('submit', async function(e) {
         e.preventDefault();
+        e.stopPropagation(); // Thêm dòng này
         
         const formData = new FormData(registerForm);
         const data = Object.fromEntries(formData);
         
-        // ... (Validate passwords, phone, email)
+        // Validation
         if (data.matkhau !== data.confirm_password) {
             showAlert('error', 'Mật khẩu xác nhận không khớp!');
             return;
@@ -103,9 +108,7 @@ if (registerForm) {
             const result = await response.json();
             
             if (result.success) {
-                // ✅ SỬA LỖI 2: Lưu email để trang OTP có thể gửi lại
                 sessionStorage.setItem('otp_email', data.email);
-                
                 showAlert('success', 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.');
                 setTimeout(() => {
                     window.location.href = '/auth/verify-otp';
@@ -119,7 +122,6 @@ if (registerForm) {
         }
     });
 }
-
 // ==================== OTP VERIFICATION ====================
 const otpInputs = document.querySelectorAll('.otp-input');
 if (otpInputs.length > 0) {
