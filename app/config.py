@@ -1,10 +1,21 @@
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
-load_dotenv()
+
+# Chỉ tải file .env khi ứng dụng chạy local
+load_dotenv() 
+
+# Lấy DATABASE_URL từ môi trường (OS) trước, nếu không có thì dùng giá trị mặc định
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/Spa1")
+
+# Điều chỉnh tiền tố URL cho SQLAlchemy
+# Nếu đang ở môi trường Production (Render), Render cung cấp postgres://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 class Config:
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/Spa1")
+    # Sử dụng biến đã được kiểm tra và điều chỉnh tiền tố
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
@@ -19,11 +30,12 @@ class Config:
     MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "True") == "True"
     MAIL_FROM = os.getenv("MAIL_FROM")
 
-    # Twilio
+    # Twilio (Chỉ bao gồm các biến bạn đã định nghĩa)
     TWILIO_SID = os.getenv("TWILIO_SID")
     TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
     TWILIO_FROM = os.getenv("TWILIO_FROM")
     
+    # MoMo
     MOMO_PARTNER_CODE_SANDBOX = os.getenv("MOMO_PARTNER_CODE_SANDBOX")
     MOMO_ACCESS_KEY_SANDBOX = os.getenv("MOMO_ACCESS_KEY_SANDBOX")
     MOMO_SECRET_KEY_SANDBOX = os.getenv("MOMO_SECRET_KEY_SANDBOX")
