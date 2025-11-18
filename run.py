@@ -1,13 +1,9 @@
-# run.py
-
 from app import create_app
-from waitress import serve 
+import os
 
 app = create_app()
 
-if __name__ == "__main__":
-    if app.debug:
-        app.run(debug=True)
-    else:
-        print("Serving production app with Waitress on port 8000...")
-        serve(app, host='0.0.0.0', port=8000)
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    app.run(host='0.0.0.0', port=port, debug=debug)
