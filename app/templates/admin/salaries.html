@@ -1,0 +1,75 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Quản lý Lương - Bin Spa{% endblock %}
+
+{% block page_title %}Quản lý Lương Nhân viên{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="openCalculateSalaryModal()">
+            <i class="fas fa-calculator"></i> Tổng hợp lương tháng
+        </button>
+    </div>
+</div>
+
+<div class="stats-and-search-header">
+    <div class="stat-card">
+        <div class="stat-card-icon bg-success">
+            <i class="fas fa-money-bill-wave"></i>
+        </div>
+        <div class="stat-card-info">
+            <span class="stat-card-number" id="total-salary-stat">0₫</span>
+            <span class="stat-card-label" id="total-salary-title">Tổng Lương (Đã lọc)</span>
+        </div>
+    </div>
+
+    <div class="d-flex align-items-end gap-3 flex-wrap"> 
+        
+        <div class="filter-group d-flex flex-column" style="min-width: 150px;">
+            <label for="filter-type">Lọc theo:</label>
+            <select id="filter-type" class="form-control" onchange="toggleFilterInputs()">
+                <option value="month">Lọc theo tháng</option>
+                <option value="day">Lọc theo ngày </option>
+            </select>
+        </div>
+        
+        <div id="filter-month-group" class="filter-group d-flex flex-column gap-1" style="min-width: 160px;">
+            <label for="filter-month-input">Chọn tháng:</label>
+            <input type="month" id="filter-month-input" class="form-control" style="width: auto;">
+        </div>
+        
+        <div id="filter-day-group" class="filter-group d-flex flex-column gap-1" style="display: none; min-width: 160px;">
+            <label for="filter-day-input">Chọn ngày:</label>
+            <input type="date" id="filter-day-input" class="form-control" style="width: auto;">
+        </div>
+
+        <div class="filter-group-actions d-flex gap-2">
+            <button class="btn btn-info" onclick="applySalaryFilter()">
+                <i class="fas fa-filter"></i> Lọc
+            </button>
+            
+            <button class="btn btn-danger" onclick="exportSalaryPDF()">
+                <i class="fas fa-file-pdf"></i> Xuất PDF
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <table id="salaries-table" class="data-table">
+        <thead id="salaries-table-head">
+            </thead>
+        <tbody id="salaries-table-body">
+            <tr>
+                <td colspan="7" class="text-center">Đang tải dữ liệu...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/salaries.js') }}"></script>
+{% endblock %}

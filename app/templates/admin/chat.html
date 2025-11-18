@@ -1,0 +1,56 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Chat Khách hàng - Bin Spa{% endblock %}
+
+{% block page_title %}Chat Khách hàng{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <!-- SIDEBAR: Danh sách hội thoại -->
+    <div class="chat-sidebar">
+        <div class="chat-sidebar-header">
+            <input type="text" id="search-conversations" class="form-control" placeholder="Tìm kiếm hội thoại...">
+        </div>
+        <div id="conversations-list">
+            <div class="loading-messages">
+                <i class="fas fa-spinner fa-spin"></i> Đang tải...
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN: Nội dung chat -->
+    <div class="chat-main">
+        <!-- Header với nút close -->
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <h4 id="chat-customer-name">Dashboard</h4>
+                <span id="chat-customer-status" class="chat-status"></span>
+            </div>
+            <button id="close-conversation-btn" class="btn-close-chat" style="display: none;" title="Đóng hội thoại">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Container tin nhắn / Dashboard -->
+        <div class="messages-container" id="messages-container">
+            <!-- Dashboard sẽ được render ở đây -->
+        </div>
+
+        <!-- Input gửi tin nhắn -->
+        <div class="chat-input-area" id="chat-input-area">
+            <textarea id="message-input" class="form-control" placeholder="Nhập tin nhắn..." rows="1"></textarea>
+            <button id="send-message-btn" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/chat.js') }}"></script>
+{% endblock %}

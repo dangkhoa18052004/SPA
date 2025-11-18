@@ -1,0 +1,138 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Quản lý Ca làm - Bin Spa{% endblock %}
+
+{% block page_title %}Quản lý Ca làm{% endblock %}
+
+
+{% block content %}
+
+<div class="stats-and-search-header">
+    
+    <div class="stat-card">
+        <div class="stat-card-icon">
+            <i class="fas fa-calendar-alt"></i> 
+        </div>
+        <div class="stat-card-info">
+            <span class="stat-card-number" id="total-shifts-count">0</span>
+            <span class="stat-card-label">Tổng số ca làm</span>
+        </div>
+    </div>
+    
+    <form id="filterForm" class="filter-and-search-wrapper">
+        
+        <div class="filter-controls-flex">
+            
+            <div class="filter-group-horizontal filter-date-group">
+                <label for="filter-date-from" class="form-label d-none">Từ ngày</label>
+                <input type="date" id="filter-date-from" class="form-control" placeholder="Từ ngày">
+            </div>
+            
+            <div class="filter-group-horizontal filter-date-group">
+                <label for="filter-date-to" class="form-label d-none">Đến ngày</label>
+                <input type="date" id="filter-date-to" class="form-control" placeholder="Đến ngày">
+            </div>
+            
+            <div class="filter-group-horizontal filter-status-container">
+                <i class="fas fa-filter filter-icon-inline"></i>
+                <select id="filter-assignment" class="form-control">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="assigned">Đã có NV</option>
+                    <option value="unassigned">Chưa có NV</option>
+                </select>
+            </div>
+
+            <div class="filter-group-horizontal filter-button-container">
+                <button type="submit" class="btn btn-primary w-100 h-100">
+                    <i class="fas fa-filter"></i> Lọc
+                </button>
+            </div>
+            <div class="filter-group-horizontal filter-button-container">
+            <button type="button" class="btn btn-secondary w-100 h-100" onclick="resetFilter()">
+                <i class="fas fa-sync-alt"></i> Reset
+            </button>
+            </div>
+        </div>
+
+    </form>
+</div>
+<div class="page-header">
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="openShiftModal()">
+            <i class="fas fa-plus"></i> Tạo ca làm
+        </button>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <table id="shifts-table" class="data-table">
+        <thead>
+            <tr>
+                <th>Mã ca</th>
+                <th>Ngày</th>
+                <th>Giờ bắt đầu</th>
+                <th>Giờ kết thúc</th>
+                <th>Số giờ</th>
+                <th>Nhân Viên</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody id="shifts-table-body">
+            <tr>
+                <td colspan="7" class="text-center">Đang tải dữ liệu ca làm...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div id="shiftModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">Tạo ca làm mới</h3>
+            <span class="close" onclick="closeShiftModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="shiftForm">
+                <input type="hidden" id="shift-id">
+                
+                <div class="form-group">
+                    <label>Ngày <span class="required">*</span></label>
+                    <input type="date" id="shift-date" class="form-control" required>
+                </div>
+
+                <div class="form-group form-row" style="display: flex; gap: 16px;">
+                    
+                    <div class="form-group" style="flex: 1;">
+                        <label>Giờ bắt đầu <span class="required">*</span></label>
+                        <div class="time-picker-group" style="display: flex; gap: 8px;">
+                            <select id="shift-start-hour" class="form-control" required>
+                                </select>
+                            <select id="shift-start-minute" class="form-control" required>
+                                </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="flex: 1;">
+                        <label>Giờ kết thúc <span class="required">*</span></label>
+                           <div class="time-picker-group" style="display: flex; gap: 8px;">
+                            <select id="shift-end-hour" class="form-control" required>
+                                </select>
+                            <select id="shift-end-minute" class="form-control" required>
+                                </select>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeShiftModal()">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/shifts.js') }}"></script>
+{% endblock %}

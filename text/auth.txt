@@ -1,0 +1,247 @@
+from flask import Blueprint, request, jsonify, current_app, send_from_directory
+from ..extensions import db
+from ..models import KhachHang
+from ..utils import generate_code, send_email, send_sms
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timedelta
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+import os
+from werkzeug.utils import secure_filename
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+auth_bp = Blueprint("auth", __name__)
+
+# --- Đăng ký ---
+@auth_bp.route("/register", methods=["POST"])
+def register():
+    data = request.get_json() or {}
+    taikhoan = data.get("taikhoan")
+    matkhau = data.get("matkhau")
+    hoten = data.get("hoten")
+    email = data.get("email")
+    sdt = data.get("sdt")
+
+    if not taikhoan or not matkhau or not hoten:
+        return jsonify({"msg": "thiếu trường taikhoan/matkhau/hoten"}), 400
+
+    if KhachHang.query.filter_by(taikhoan=taikhoan).first():
+        return jsonify({"msg": "tài khoản đã tồn tại"}), 400
+    if email and KhachHang.query.filter_by(email=email).first():
+        return jsonify({"msg": "email đã tồn tại"}), 400
+    if sdt and KhachHang.query.filter_by(sdt=sdt).first():
+        return jsonify({"msg": "sđt đã tồn tại"}), 400
+
+    user = KhachHang(
+        taikhoan=taikhoan,
+        matkhau=generate_password_hash(matkhau),
+        hoten=hoten,
+        email=email,
+        sdt=sdt,
+    )
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({"msg": "Đăng ký thành công"}), 201
+@auth_bp.route("/google-signin", methods=["POST"])
+def google_signin():
+    data = request.get_json() or {}
+    idtoken = data.get("id_token")
+
+    if not idtoken:
+        return jsonify({"msg": "Thiếu id_token từ client"}), 400
+
+    try:
+        # Xác thực token với Google
+        info = id_token.verify_oauth2_token(idtoken, google_requests.Request(), None)
+        # info chứa các thông tin như email, name, sub (google id)
+    except Exception as e:
+        current_app.logger.error(f"Google token verify failed: {e}")
+        return jsonify({"msg": "Token Google không hợp lệ"}), 401
+
+    email = info.get("email")
+    name = info.get("name") or "Người dùng Google"
+    google_id = info.get("sub")
+
+    # Tìm user theo email
+    user = KhachHang.query.filter_by(email=email).first() if email else None
+
+    # Nếu chưa có thì tạo user mới
+    if not user:
+        taikhoan = f"google_{google_id}"
+        user = KhachHang(
+            taikhoan=taikhoan,
+            matkhau="",  # không cần mật khẩu vì dùng Google
+            hoten=name,
+            email=email,
+        )
+        db.session.add(user)
+        db.session.commit()
+
+    # Tạo token truy cập
+    access_token = create_access_token(identity=str(user.makh))
+    return jsonify({
+        "access_token": access_token,
+        "user": {
+            "makh": user.makh,
+            "taikhoan": user.taikhoan,
+            "hoten": user.hoten,
+            "email": user.email,
+        },
+    }), 200
+
+
+# --- Đăng nhập ---
+@auth_bp.route("/login", methods=["POST"])
+def login():
+    data = request.get_json() or {}
+    identifier = data.get("taikhoan") or data.get("email") or data.get("sdt")
+    matkhau = data.get("matkhau")
+    if not identifier or not matkhau:
+        return jsonify({"msg": "thiếu thông tin đăng nhập"}), 400
+
+    user = KhachHang.query.filter(
+        (KhachHang.taikhoan == identifier)
+        | (KhachHang.email == identifier)
+        | (KhachHang.sdt == identifier)
+    ).first()
+
+    if not user or not check_password_hash(user.matkhau, matkhau):
+        return jsonify({"msg": "tài khoản hoặc mật khẩu không đúng"}), 401
+
+    access_token = create_access_token(identity=str(user.makh))
+    return (
+        jsonify(
+            {
+                "access_token": access_token,
+                "user": {
+                    "makh": user.makh,
+                    "taikhoan": user.taikhoan,
+                    "hoten": user.hoten,
+                },
+            }
+        ),
+        200,
+    )
+
+
+# --- Quên mật khẩu ---
+@auth_bp.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    data = request.get_json() or {}
+
+    identifier = data.get("identifier") or data.get("email") or data.get("sdt")
+
+    if not identifier:
+        return jsonify({"msg": "cần cung cấp email hoặc sđt"}), 400
+
+    user = KhachHang.query.filter(
+        (KhachHang.email == identifier) | (KhachHang.sdt == identifier)
+    ).first()
+
+    if not user:
+        return jsonify({"msg": "không tìm thấy người dùng"}), 404
+
+    code = generate_code(6)
+    user.resettoken = code
+    user.resettokenexpire = datetime.utcnow() + timedelta(minutes=15)
+    db.session.commit()
+
+    body = f"Mã đặt lại mật khẩu của bạn là: {code}. Mã có hiệu lực 15 phút."
+    try:
+        if user.email and user.email == identifier:
+            send_email(user.email, "Mã đặt lại mật khẩu", body)
+        elif user.sdt and user.sdt == identifier:
+            send_sms(user.sdt, body)
+        else:
+            if user.email:
+                send_email(user.email, "Mã đặt lại mật khẩu", body)
+            elif user.sdt:
+                send_sms(user.sdt, body)
+
+        return jsonify({"msg": "Mã đã được gửi"}), 200
+    except Exception as e:
+        current_app.logger.error(str(e))
+        return (
+            jsonify({"msg": "Gửi mã thất bại, kiểm tra cấu hình gửi mail"}),
+            500,
+        )
+
+
+# --- Đặt lại mật khẩu ---
+@auth_bp.route("/reset-password", methods=["POST"])
+def reset_password():
+    data = request.get_json() or {}
+    identifier = data.get("identifier")
+    code = data.get("code")
+    new_password = data.get("new_password")
+    if not identifier or not code or not new_password:
+        return (
+            jsonify({"msg": "thiếu dữ liệu (identifier/code/new_password)"}),
+            400,
+        )
+
+    user = KhachHang.query.filter(
+        (KhachHang.email == identifier) | (KhachHang.sdt == identifier)
+    ).first()
+    if not user:
+        return jsonify({"msg": "không tìm thấy người dùng"}), 404
+    if not user.resettoken or user.resettoken != code:
+        return jsonify({"msg": "mã không hợp lệ"}), 400
+    if not user.resettokenexpire or user.resettokenexpire < datetime.utcnow():
+        return jsonify({"msg": "mã đã hết hạn"}), 400
+
+    user.matkhau = generate_password_hash(new_password)
+    user.resettoken = None
+    user.resettokenexpire = None
+    db.session.commit()
+    return jsonify({"msg": "Đặt lại mật khẩu thành công"}), 200
+
+
+# --- Cập nhật thông tin khách hàng ---
+UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads", "avatars")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+@auth_bp.route("/update-profile", methods=["PUT"])
+@jwt_required()
+def update_profile():
+    user_id = get_jwt_identity()
+    user = KhachHang.query.get(int(user_id))
+    if not user:
+        return jsonify({"msg": "Không tìm thấy khách hàng"}), 404
+
+    data = request.form
+    email = data.get("email")
+    sdt = data.get("sdt")
+    diachi = data.get("diachi")
+    hoten = data.get("hoten")
+    matkhau = data.get("matkhau")
+
+    if email:
+        user.email = email
+    if sdt:
+        user.sdt = sdt
+    if diachi:
+        user.diachi = diachi
+    if hoten:
+        user.hoten = hoten
+    if matkhau:
+        user.matkhau = generate_password_hash(matkhau)
+        
+
+    # upload ảnh đại diện
+    if "anhdaidien" in request.files:
+        file = request.files["anhdaidien"]
+        if file.filename != "":
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            file.save(file_path)
+            user.anhdaidien = filename
+
+    db.session.commit()
+    return jsonify({"msg": "Cập nhật thông tin thành công"}), 200
+
+
+# --- Xem ảnh đại diện ---
+@auth_bp.route("/avatar/<filename>", methods=["GET"])
+def get_avatar(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)

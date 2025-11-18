@@ -1,0 +1,185 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Quản lý Chức vụ - Bin Spa{% endblock %}
+
+{% block page_title %}Quản lý Chức vụ{% endblock %}
+
+
+{% block content %}
+<div class="roles-container">
+    <!-- Header -->
+    <div class="stats-and-search-header">
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="openAddRoleModal()">
+                <i class="fas fa-plus-circle"></i>
+                Thêm chức vụ
+            </button>
+            <button class="btn btn-secondary" onclick="refreshRoles()">
+                <i class="fas fa-sync-alt"></i>
+                Làm mới
+            </button>
+            <button class="btn btn-success d-none" onclick="exportRolesToExcel()">
+                <i class="fas fa-file-excel"></i>
+                Xuất Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Combined Stats and Search Section -->
+    <div class="stats-search-section">
+        <!-- Compact Stats -->
+        <div class="stat-card-compact">
+            <div class="stat-icon">
+                <i class="fas fa-briefcase"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-number" id="total-roles">0</div>
+                <div class="stat-label">Tổng số chức vụ</div>
+            </div>
+        </div>
+        
+        <!-- Search -->
+        <div class="search-wrapper">
+            <i class="fas fa-search search-icon"></i>
+            <input 
+                type="text" 
+                class="search-input" 
+                id="searchInput"
+                placeholder="Tìm kiếm theo tên chức vụ hoặc đơn giá..."
+                oninput="handleSearch(this.value)"
+            >
+            <button class="search-clear" id="searchClear" onclick="clearSearch()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+        <table class="data-table" id="rolesTable">
+            <thead>
+                <tr>
+                    <th style="width: 100px;">Mã CV</th>
+                    <th>Tên chức vụ</th>
+                    <th style="width: 180px;">Đơn giá/giờ</th>
+                    <th style="width: 140px; text-align: center;">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody id="rolesTableBody">
+                <tr>
+                    <td colspan="4" class="loading-row">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 15px; color: #666;">Đang tải dữ liệu...</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="roleModal" class="modal" style="display: none;">
+    <div class="modal-content"> 
+        
+        <div class="modal-header">
+            <h3 id="modalTitle">
+                <i class="fas fa-plus-circle"></i> 
+                Thêm chức vụ mới
+            </h3>
+            <button class="close" onclick="closeRoleModal()">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            <form id="roleForm">
+                <input type="hidden" id="roleId">
+                
+                <div class="form-group">
+                    <label for="roleName"> Tên chức vụ <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="roleName" 
+                        class="form-control" placeholder="Ví dụ: Giám đốc, Quản lý, Nhân viên..."
+                        required
+                        minlength="2"
+                        maxlength="50"
+                    >
+                    </div>
+
+                <div class="form-group">
+                    <label for="roleRate">
+                        Đơn giá/giờ (VNĐ) <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="number" 
+                        id="roleRate" 
+                        class="form-control"
+                        placeholder="50000"
+                        required
+                        min="0"
+                        max="10000000"
+                        step="1000"
+                    >
+                </div>
+            </form>
+        </div>
+        
+        <div class="form-actions"> 
+            <button type="button" class="btn btn-secondary" onclick="closeRoleModal()">
+                <i class="fas fa-times"></i>
+                Hủy
+            </button>
+            <button type="submit" form="roleForm" class="btn btn-primary">
+                <i class="fas fa-save"></i>
+                Lưu lại
+            </button>
+        </div>
+        
+    </div>
+</div>
+
+<div id="deleteConfirmModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 450px;">
+        
+        <div class="modal-header">
+            <h3 style="color: #dc3545;">
+                <i class="fas fa-exclamation-triangle"></i> 
+                Xác nhận Xóa
+            </h3>
+            <button class="close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            <p>Bạn có chắc chắn muốn xóa chức vụ này không?</p>
+            
+            <div class="detail-info" style="margin-top: 15px; background: #f8f9fa; padding: 10px; border-radius: 5px;">
+                <div class="info-row">
+                    <strong>Tên chức vụ:</strong>
+                    <span id="deleteRoleName"></span>
+                </div>
+                <div class="info-row">
+                    <strong>Đơn giá:</strong>
+                    <span id="deleteRoleRate"></span>
+                </div>
+            </div>
+            
+            <div class="alert alert-error" style="margin-top: 15px; margin-bottom: 0;">
+                <strong>Lưu ý:</strong> Không thể xóa nếu còn nhân viên đang giữ chức vụ này.
+            </div>
+        </div>
+        
+        <div class="form-actions"> <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
+                <i class="fas fa-times"></i> Hủy
+            </button>
+            <button type="button" id="confirmDeleteBtn" class="btn btn-danger">
+                <i class="fas fa-trash-alt"></i> Xóa
+            </button>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/roles.js') }}"></script>
+{% endblock %}

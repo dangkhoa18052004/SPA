@@ -1,0 +1,1779 @@
+/* Reset & Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-green: #8B9D7C;
+    --secondary-gold: #C9A961;
+    --dark-bg: #2C2C2C;
+    --light-bg: #F5F5F0;
+    --text-dark: #333;
+    --text-light: #666;
+    --white: #FFFFFF;
+    --overlay: rgba(0, 0, 0, 0.5);
+}
+
+body {
+    font-family: 'Times New Roman', serif;
+    color: var(--text-dark);
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Navigation Bar */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: transparent;
+    padding: 15px 0;
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.navbar.scrolled {
+    background: var(--white);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 24px;
+    color: var(--white);
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.navbar.scrolled .nav-logo {
+    color: var(--primary-green);
+}
+
+.nav-logo img {
+    height: 40px;
+    width: auto;
+}
+
+.nav-menu {
+    display: flex;
+    gap: 40px;
+}
+
+.nav-link {
+    color: var(--white);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.navbar.scrolled .nav-link {
+    color: var(--text-dark);
+}
+
+.nav-link:hover {
+    color: var(--secondary-gold);
+}
+
+.nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--secondary-gold);
+    transition: width 0.3s ease;
+}
+
+.nav-link:hover::after {
+    width: 100%;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* Language Selector */
+.language-selector {
+    position: relative;
+}
+
+.lang-btn {
+    background: transparent;
+    border: 1px solid var(--white);
+    color: var(--white);
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.navbar.scrolled .lang-btn {
+    border-color: var(--primary-green);
+    color: var(--text-dark);
+}
+
+.lang-btn:hover {
+    background: var(--primary-green);
+    color: var(--white);
+    border-color: var(--primary-green);
+}
+
+.lang-dropdown {
+    position: absolute;
+    top: 120%;
+    right: 0;
+    background: var(--white);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    min-width: 150px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+}
+
+.lang-dropdown.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.lang-dropdown button {
+    width: 100%;
+    padding: 12px 20px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.lang-dropdown button:hover {
+    background: var(--light-bg);
+}
+
+/* User Menu */
+.user-menu {
+    position: relative;
+}
+
+.user-btn {
+    background: transparent;
+    border: 1px solid var(--white);
+    color: var(--white);
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+.navbar.scrolled .user-btn {
+    border-color: var(--primary-green);
+    color: var(--text-dark);
+}
+
+.user-btn:hover {
+    background: var(--primary-green);
+    color: var(--white);
+    border-color: var(--primary-green);
+}
+
+.user-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.user-dropdown {
+    position: absolute;
+    top: 120%;
+    right: 0;
+    background: var(--white);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    min-width: 200px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+}
+
+.user-dropdown.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.user-dropdown a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    color: var(--text-dark);
+    text-decoration: none;
+    transition: background 0.3s ease;
+}
+
+.user-dropdown a:hover {
+    background: var(--light-bg);
+}
+
+.mobile-menu-btn {
+    display: none;
+    background: transparent;
+    border: none;
+    color: var(--white);
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.navbar.scrolled .mobile-menu-btn {
+    color: var(--text-dark);
+}
+
+/* Hero Section */
+.hero-section {
+    position: relative;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.hero-video {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 100%;
+    min-height: 100%;
+    width: auto;
+    height: auto;
+    transform: translateX(-50%) translateY(-50%);
+    object-fit: cover;
+    z-index: -2;
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: -1;
+}
+
+.hero-content {
+    text-align: center;
+    color: var(--white);
+    z-index: 1;
+    padding: 20px;
+}
+
+.hero-title {
+    font-size: 56px;
+    font-weight: 300;
+    margin-bottom: 40px;
+    line-height: 1.3;
+    letter-spacing: 2px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.hero-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 35px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.btn-primary {
+    background: var(--secondary-gold);
+    color: var(--white);
+    border-color: var(--secondary-gold);
+}
+
+.btn-primary:hover {
+    background: transparent;
+    border-color: var(--secondary-gold);
+    color: var(--secondary-gold);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--white);
+    border-color: var(--white);
+}
+
+.btn-secondary:hover {
+    background: var(--white);
+    color: var(--text-dark);
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--primary-green);
+    border-color: var(--primary-green);
+}
+
+.btn-outline:hover {
+    background: var(--primary-green);
+    color: var(--white);
+}
+
+/* Section Title */
+.section-title {
+    font-size: 42px;
+    font-weight: 300;
+    text-align: center;
+    margin-bottom: 60px;
+    color: var(--primary-green);
+    letter-spacing: 2px;
+}
+
+/* Services Section */
+.services-section {
+    padding: 100px 0;
+    background: var(--light-bg);
+}
+
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 30px;
+    margin-bottom: 50px;
+}
+
+.service-card {
+    background: var(--white);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+
+.service-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.service-image-container {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+}
+
+.service-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.service-card:hover .service-image {
+    transform: scale(1.05);
+}
+
+/* XÓA phần service category badge nếu có */
+.service-category-badge {
+    display: none; /* Ẩn category label */
+}
+
+.service-content {
+    padding: 25px;
+}
+
+/* CHỈ HIỂN THỊ TÊN DỊCH VỤ 1 LẦN */
+.service-name {
+    font-size: 22px;
+    margin-bottom: 10px;
+    color: var(--primary-green);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.service-description {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.service-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.service-price {
+    font-size: 20px;
+    color: var(--secondary-gold);
+    font-weight: 600;
+}
+
+.service-duration {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-light);
+    font-size: 14px;
+}
+
+.service-duration i {
+    color: var(--primary-green);
+}
+
+.service-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.service-actions .btn {
+    flex: 1;
+    padding: 10px 15px;
+    font-size: 13px;
+    text-align: center;
+    justify-content: center;
+}
+
+/* Nếu bạn muốn card giống hình ảnh hơn */
+.service-card-alt {
+    background: var(--white);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.service-card-alt:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.service-image-container-alt {
+    height: 180px;
+    overflow: hidden;
+}
+
+.service-content-alt {
+    padding: 20px;
+}
+
+.service-meta-alt {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.service-price-alt {
+    font-size: 18px;
+    color: var(--secondary-gold);
+    font-weight: bold;
+}
+
+.service-duration-alt {
+    background: var(--light-bg);
+    color: var(--text-light);
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+}
+
+.service-name-alt {
+    font-size: 18px;
+    color: var(--primary-green);
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.service-description-alt {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+
+.service-actions-alt {
+    display: flex;
+    gap: 8px;
+}
+
+.service-actions-alt .btn {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+
+/* About Section */
+.about-section {
+    position: relative;
+    padding: 100px 0;
+    min-height: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.about-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -2;
+}
+
+.about-background img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.about-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+}
+
+.about-content {
+    text-align: center;
+    color: var(--white);
+    max-width: 800px;
+    padding: 40px;
+    z-index: 1;
+}
+
+.about-content .section-title {
+    color: var(--white);
+}
+
+.about-text {
+    font-size: 18px;
+    line-height: 1.8;
+    margin-bottom: 30px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Contact Section */
+.contact-section {
+    padding: 100px 0;
+    background: var(--light-bg);
+}
+
+.contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+}
+
+.map-column iframe {
+    width: 100%;
+    height: 500px;
+    border: none;
+    border-radius: 10px;
+}
+
+.location-card {
+    background: var(--white);
+    padding: 30px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.location-card h3 {
+    color: var(--primary-green);
+    margin-bottom: 20px;
+    font-size: 20px;
+}
+
+.info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    margin-bottom: 15px;
+    color: var(--text-dark);
+}
+
+.info-item i {
+    color: var(--secondary-gold);
+    margin-top: 3px;
+    min-width: 20px;
+}
+
+.info-item a {
+    color: var(--text-dark);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.info-item a:hover {
+    color: var(--primary-green);
+}
+
+.social-links {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.social-links a {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background: var(--primary-green);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: all 0.3s ease;
+}
+
+.social-links a:hover {
+    background: var(--secondary-gold);
+    transform: translateY(-5px);
+}
+
+/* Footer */
+.footer {
+    background: var(--dark-bg);
+    color: var(--white);
+    text-align: center;
+    padding: 30px 0;
+}
+
+/* Chat Float Button */
+.chat-float {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--primary-green);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+    z-index: 999;
+}
+
+.chat-float:hover {
+    background: var(--secondary-gold);
+    transform: scale(1.1);
+}
+
+
+
+/* ✅ Animation cho badge */
+@keyframes badgePulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5);
+    }
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.8);
+    }
+}
+
+@keyframes badgeBounceIn {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.chat-box {
+    position: fixed;
+    background: var(--white);
+    border-radius: 15px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+    display: none;
+    flex-direction: column;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    z-index: 998;
+}
+
+
+.chat-box.show {
+    display: flex;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.chat-header {
+    background: var(--primary-green);
+    color: var(--white);
+    padding: 20px;
+    border-radius: 15px 15px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-header-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+.chat-close {
+    background: transparent;
+    border: none;
+    color: var(--white);
+    font-size: 20px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.chat-close:hover {
+    transform: rotate(90deg);
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background: var(--light-bg);
+}
+
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.chat-message {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    animation: messageSlideIn 0.3s ease;
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.chat-message.user-message {
+    flex-direction: row-reverse;
+}
+
+.message-avatar {
+    width: 40px;
+    height: 40px;
+    background: var(--primary-green);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    flex-shrink: 0;
+}
+
+.message-content {
+    padding: 12px 20px;          
+    border-radius: 18px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: inline-block;  
+    width: fit-content;        
+    word-break: normal;          
+    overflow-wrap: break-word;
+    white-space: normal;        
+}
+
+.user-message .message-content {
+    background: var(--primary-green);
+    color: var(--white);
+}
+
+.message-content p {
+    margin: 0;
+    line-height: 1.4;
+    font-size: 14px;
+}
+
+.message-time {
+    display: block;
+    font-size: 10px; 
+    margin-top: 2px;
+    opacity: 0.7;
+}
+
+.user-message .message-time {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Chat Login Prompt */
+.chat-login-prompt {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.chat-login-prompt p {
+    margin-bottom: 15px;
+    color: #666;
+}
+
+/* Chat Input Area */
+.chat-input-area {
+    padding: 16px;
+    background: var(--white);
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.chat-service-btn {
+    background: var(--primary-green);
+    border: none;
+    color: var(--white);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.chat-service-btn:hover {
+    background: var(--secondary-gold);
+    transform: rotate(45deg);
+}
+
+#chatInput {
+    flex: 1;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    padding: 12px 16px;
+    font-size: 14px;
+    outline: none;
+}
+
+#chatInput:focus {
+    border-color: var(--primary-green);
+    box-shadow: 0 0 0 3px rgba(var(--primary-green-rgb), 0.1);
+}
+
+.chat-send-btn {
+    background: var(--primary-green);
+    border: none;
+    color: var(--white);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.chat-send-btn:hover {
+    background: var(--secondary-gold);
+    transform: scale(1.1);
+}
+
+/* Service Picker */
+.service-picker {
+    position: absolute;
+    bottom: 80px;
+    left: 0;
+    right: 0;
+    background: var(--white);
+    border-top: 1px solid #e5e7eb;
+    max-height: 300px;
+    display: none;
+    flex-direction: column;
+    border-radius: 15px 15px 0 0;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.service-picker.show {
+    display: flex;
+}
+
+.service-picker-header {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+}
+
+.service-picker-header button {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.service-picker-list {
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.service-picker-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.service-picker-item:hover {
+    background: #f3f4f6;
+}
+
+.service-picker-image {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.service-picker-info {
+    flex: 1;
+}
+
+.service-picker-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.service-picker-price {
+    color: var(--primary-green);
+    font-weight: 600;
+}
+
+.service-picker-price {
+    color: var(--secondary-gold);
+    font-size: 14px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .nav-menu {
+        position: fixed;
+        top: 70px;
+        left: -100%;
+        flex-direction: column;
+        background: var(--white);
+        width: 100%;
+        padding: 20px;
+        gap: 20px;
+        transition: left 0.3s ease;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    
+    .nav-menu.show {
+        left: 0;
+    }
+    
+    .mobile-menu-btn {
+        display: block;
+    }
+    
+    .contact-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .hero-title {
+        font-size: 36px;
+    }
+    
+    .chat-box {
+
+        width: 100%;
+        height: 100%;
+        bottom: 0;
+        right: 0;
+        border-radius: 0
+    }
+    .chat-float {
+        bottom: 20px;
+        right: 20px;
+        width: 56px;
+        height: 56px;
+        font-size: 24px;
+    }
+}
+
+@media (max-width: 640px) {
+    .hero-buttons {
+        flex-direction: column;
+    }
+    
+    .services-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.services-header {
+    padding: 120px 0 60px 0;
+    background: var(--light-bg);
+    text-align: center;
+}
+
+.services-header h1 {
+    font-size: 42px;
+    color: var(--primary-green);
+    margin-bottom: 10px;
+}
+
+.services-header p {
+    font-size: 18px;
+    color: var(--text-light);
+}
+
+.services-filter-section {
+    padding: 40px 0;
+    background: var(--white);
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.filter-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.filter-categories {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    background: #f0f0f0;
+    border: 1px solid transparent;
+    border-radius: 20px;
+    padding: 8px 18px;
+    cursor: pointer;
+    font-family: 'Times New Roman', serif;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+    background: #e0e0e0;
+}
+
+.filter-btn.active {
+    background: var(--primary-green);
+    color: var(--white);
+    border-color: var(--primary-green);
+}
+
+.filter-controls {
+    display: flex;
+    gap: 20px;
+}
+
+.filter-controls input,
+.filter-controls select {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-family: 'Times New Roman', serif;
+    font-size: 14px;
+}
+
+.services-grid-section {
+    padding: 60px 0 100px 0;
+    background: var(--light-bg);
+}
+
+/* GHI CHÚ: .services-grid và .service-card đã có trong style.css */
+
+.no-results {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-light);
+}
+
+.no-results i {
+    font-size: 60px;
+    margin-bottom: 20px;
+}
+
+.no-results p {
+    font-size: 20px;
+}
+
+.is-subpage .navbar {
+    background: var(--white);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.is-subpage .nav-logo {
+    color: var(--primary-green);
+}
+
+.is-subpage .nav-link {
+    color: var(--text-dark);
+}
+
+.is-subpage .lang-btn {
+    border-color: var(--primary-green);
+    color: var(--text-dark);
+}
+
+.is-subpage .user-btn {
+    border-color: var(--primary-green);
+    color: var(--text-dark);
+}
+
+.is-subpage .mobile-menu-btn {
+    color: var(--text-dark);
+}
+
+.breadcrumb-section {
+    padding: 20px 0;
+    background: var(--light-bg);
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 14px;
+    /* Đẩy nội dung xuống dưới thanh navbar */
+    padding-top: 100px; 
+}
+
+.breadcrumb-section .container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.breadcrumb-section a {
+    color: var(--primary-green);
+    text-decoration: none;
+}
+
+.breadcrumb-section a:hover {
+    text-decoration: underline;
+}
+
+.breadcrumb-section span {
+    color: var(--text-light);
+}
+
+.breadcrumb-section i {
+    font-size: 12px;
+    color: var(--text-light);
+}
+
+/* 2. Phần nội dung chi tiết */
+.service-detail-section {
+    padding: 60px 0;
+    background: var(--white);
+}
+
+.service-detail-grid {
+    display: grid;
+    /* Chia 2 cột, cột ảnh 45%, cột chữ 55% */
+    grid-template-columns: 45% 1fr; 
+    gap: 50px;
+    align-items: flex-start;
+}
+
+/* === FIX ẢNH BỰ === */
+.service-image-section {
+    position: relative;
+    width: 100%;
+}
+
+.service-main-image {
+    width: 100%;
+    height: 500px; /* Bạn có thể điều chỉnh chiều cao này */
+    object-fit: cover; /* Chống méo ảnh */
+    border-radius: 15px; /* Bo góc */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.service-badge-detail {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0,0,0,0.5);
+    color: var(--white);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+/* === HẾT FIX ẢNH === */
+
+
+/* 3. Cột thông tin bên phải */
+.service-info-section {
+    width: 100%;
+}
+
+.service-category-badge {
+    background: var(--light-bg);
+    color: var(--primary-green);
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.service-detail-name {
+    font-size: 36px;
+    color: var(--primary-green);
+    margin: 15px 0;
+}
+
+.service-detail-price {
+    font-size: 28px;
+    color: var(--secondary-gold);
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.service-meta-info {
+    display: flex;
+    gap: 25px;
+    padding: 20px 0;
+    border-top: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-dark);
+    font-size: 15px;
+}
+
+.meta-item i {
+    color: var(--secondary-gold);
+    font-size: 18px;
+}
+
+.service-detail-description {
+    color: var(--text-light);
+    line-height: 1.7;
+    margin-bottom: 25px;
+}
+
+.service-features h3 {
+    font-size: 18px;
+    color: var(--text-dark);
+    margin-bottom: 15px;
+}
+
+.feature-list {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 25px;
+}
+
+.feature-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    color: var(--text-light);
+}
+
+.feature-list li i {
+    color: var(--primary-green);
+}
+
+.service-note {
+    background: var(--light-bg);
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 5px solid var(--secondary-gold);
+    margin-bottom: 30px;
+}
+
+.service-note h4 {
+    color: var(--text-dark);
+    margin-bottom: 10px;
+}
+
+.service-note p {
+    color: var(--text-light);
+    font-size: 14px;
+}
+
+.service-actions-detail {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+/* 4. Dịch vụ liên quan */
+.related-services-section {
+    padding: 60px 0 100px 0;
+    background: var(--light-bg);
+}
+
+.related-services-section .section-title {
+    font-size: 32px;
+    text-align: center;
+    margin-bottom: 40px;
+    color: var(--primary-green);
+}
+
+/* Responsive cho màn hình nhỏ (điện thoại) */
+@media (max-width: 968px) {
+    .service-detail-grid {
+        grid-template-columns: 1fr; /* Chuyển về 1 cột */
+    }
+    
+    .service-main-image {
+        height: 400px; /* Giảm chiều cao ảnh trên mobile */
+    }
+    
+    .service-detail-name {
+        font-size: 30px;
+    }
+}
+
+/* ===================================================================
+   CHAT UNREAD BADGE - Số đếm tin nhắn chưa đọc
+   =================================================================== */
+
+/* Badge trên nút chat */
+.chat-unread-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ef4444;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5);
+    border: 2px solid white;
+    animation: badgePulse 2s infinite;
+}
+
+/* Animation cho badge */
+@keyframes badge-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* Đảm bảo nút chat có position relative */
+#chatButton {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    z-index: 999;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+#chatButton:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* ===================================================================
+   CHAT MESSAGES - Phân biệt tin nhắn khách hàng vs nhân viên
+   =================================================================== */
+
+/* Container chứa tất cả tin nhắn */
+#chatMessages {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--light-bg);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Mỗi tin nhắn */
+.chat-message {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    max-width: 85%;
+    animation: messageSlideIn 0.3s ease;
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ===================================================================
+   TIN NHẮN CỦA KHÁCH HÀNG (Bên phải - Màu xanh)
+   =================================================================== */
+.chat-message.user-message {
+    align-self: flex-end;
+    flex-direction: row-reverse; /* Avatar ở bên phải */
+}
+
+.chat-message.user-message .message-avatar {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.chat-message.user-message .message-content {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 18px 18px 4px 18px;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* ===================================================================
+   TIN NHẮN CỦA NHÂN VIÊN/BOT (Bên trái - Màu xám)
+   =================================================================== */
+.chat-message.bot-message {
+    align-self: flex-start;
+    flex-direction: row; /* Avatar ở bên trái */
+}
+
+.chat-message.bot-message .message-avatar {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.chat-message.bot-message .message-content {
+    background: #f0f0f0;
+    color: #333;
+    padding: 12px 16px;
+    border-radius: 18px 18px 18px 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Nội dung tin nhắn */
+.message-content p {
+    margin: 0;
+    line-height: 1.4;
+    word-wrap: break-word;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+
+}
+
+/* ===================================================================
+   CHAT BOX - Container chính
+   =================================================================== */
+#chatBox {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 380px;
+    height: 500px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    display: none;
+    flex-direction: column;
+    z-index: 998;
+    overflow: hidden;
+    transform: scale(0.9);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+#chatBox.show {
+    display: flex;
+    transform: scale(1);
+    opacity: 1;
+}
+
+/* Header của chat box */
+.chat-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chat-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.chat-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s ease;
+}
+
+.chat-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Input area */
+.chat-input-area {
+    padding: 16px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    gap: 10px;
+    background: white;
+}
+
+#chatInput {
+    flex: 1;
+    border: 1px solid #e0e0e0;
+    border-radius: 24px;
+    padding: 10px 16px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+#chatInput:focus {
+    border-color: #667eea;
+}
+
+.chat-send-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chat-send-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.chat-send-btn:active {
+    transform: scale(0.95);
+}
+
+/* ===================================================================
+   RESPONSIVE
+   =================================================================== */
+@media (max-width: 480px) {
+    #chatBox {
+        width: calc(100vw - 40px);
+        height: calc(100vh - 140px);
+        right: 20px;
+        bottom: 90px;
+    }
+    
+    .chat-message {
+        max-width: 70%;
+    }
+}
+
+/* ===================================================================
+   SCROLL BAR CHO MESSAGES
+   =================================================================== */
+#chatMessages::-webkit-scrollbar {
+    width: 6px;
+}
+
+#chatMessages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+#chatMessages::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+#chatMessages::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+/* ===================================================================
+   CHAT LOGIN PROMPT
+   =================================================================== */
+.chat-login-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 20px;
+    text-align: center;
+    gap: 16px;
+}
+
+.chat-login-prompt p {
+    color: #666;
+    font-size: 16px;
+    margin: 0;
+}
+
+.chat-login-prompt .btn {
+    padding: 10px 24px;
+    text-decoration: none;
+}

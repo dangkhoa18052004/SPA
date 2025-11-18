@@ -1,0 +1,39 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Profile Cá Nhân{% endblock %}
+
+{% block page_title %}Profile Cá Nhân{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/profile.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+    <div class="profile-card panel">
+        
+        <div class="tabs-navigation text-center">
+            <button class="tab-btn active" data-tab="profile">
+                <i class="fas fa-user-circle"></i> Thông tin chung
+            </button>
+            <button class="tab-btn" data-tab="password">
+                <i class="fas fa-lock"></i> Đổi mật khẩu
+            </button>
+        </div>
+        
+        <div class="tabs-content">
+            <div id="profile" class="tab-pane active">
+                {% include 'admin/profile_info.html' %}
+            </div>
+
+            <div id="password" class="tab-pane">
+                {% include 'admin/change_password.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/profile.js') }}"></script>
+{% endblock %}

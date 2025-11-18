@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin - Bin Spa{% endblock %}</title>
+    
+    <!-- ========== CSS CHÍNH ========== -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/main.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- ========== EXTRA CSS (Nếu cần) ========== -->
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- ========================================= -->
+    <!-- =============== SIDEBAR ================ -->
+    <!-- ========================================= -->
+    <aside class="admin-sidebar" id="adminSidebar">
+        <!-- Sidebar Header -->
+        <div class="sidebar-header">
+            <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="Bin Spa Logo">
+            <h2>Bin Spa</h2>
+        </div>
+        
+        <!-- Sidebar Menu -->
+        <nav>
+            <ul id="sidebar-menu" class="sidebar-menu">
+                <li>
+                    <a href="#">
+                        <i class="fas fa-spinner fa-spin"></i> 
+                        <span>Đang tải...</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <!-- Sidebar Footer -->
+        <div class="sidebar-footer">
+            <button class="logout-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Đăng xuất
+            </button>
+        </div>
+    </aside>
+
+    <!-- ========================================= -->
+    <!-- ============= MAIN CONTENT ============= -->
+    <!-- ========================================= -->
+    <main class="admin-main">
+        <!-- ========== HEADER ========== -->
+        <header class="admin-header">
+            <div class="header-left">
+                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <div>
+                        <span id="admin-username" class="username">Loading...</span>
+                        <span id="admin-role" class="user-role">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <div class="content-wrapper">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+
+    <button class="mobile-toggle" onclick="toggleSidebar()">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+    <div id="toast-container"></div>
+    <script src="{{ url_for('static', filename='js/admin/admin_layout.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+
+    <!-- Extra JS -->
+    {% block extra_js %}{% endblock %}
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('adminSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            sidebar.classList.toggle('mobile-open');
+            overlay.classList.toggle('active');
+            document.body.classList.toggle('no-scroll');
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById('adminSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('active');
+            document.body.classList.remove('no-scroll');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarLinks = document.querySelectorAll('.sidebar-menu a');
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        closeSidebar();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

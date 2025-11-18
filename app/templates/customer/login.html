@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập - Bin Spa</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/auth.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-left">
+            <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="Bin Spa">
+            <div class="auth-overlay">
+                <h1>Chào mừng trở lại</h1>
+                <p>Đăng nhập để trải nghiệm dịch vụ spa tuyệt vời</p>
+            </div>
+        </div>
+        
+        <div class="auth-right">
+            <div class="auth-form-container">
+                <div class="auth-logo">
+                    <a href="/">
+                        <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="Bin Spa">
+                        <span>Bin Spa</span>
+                    </a>
+                </div>
+                
+                <h2>Đăng nhập</h2>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <!-- ✅ ĐÃ XÓA action="" để JavaScript xử lý hoàn toàn -->
+                <form id="loginForm" method="POST">
+                    <div class="form-group">
+                        <label for="taikhoan">
+                            <i class="fas fa-user"></i> Tài khoản
+                        </label>
+                        <input type="text" 
+                               id="taikhoan" 
+                               name="taikhoan" 
+                               placeholder="Nhập tài khoản hoặc email" 
+                               required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="matkhau">
+                            <i class="fas fa-lock"></i> Mật khẩu
+                        </label>
+                        <div class="password-input">
+                            <input type="password" 
+                                   id="matkhau" 
+                                   name="matkhau" 
+                                   placeholder="Nhập mật khẩu" 
+                                   required>
+                            <button type="button" class="toggle-password" onclick="togglePassword()">
+                                <i class="fas fa-eye" id="eyeIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="remember" value="1">
+                            <span>Ghi nhớ đăng nhập</span>
+                        </label>
+                        <a href="/auth/forgot-password" class="forgot-link">Quên mật khẩu?</a>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-sign-in-alt"></i> Đăng nhập
+                    </button>
+                </form>
+                
+                <div class="auth-divider">
+                    <span>HOẶC</span>
+                </div>
+                
+                <div class="auth-footer">
+                    <p>Chưa có tài khoản? <a href="/auth/register">Đăng ký ngay</a></p>
+                </div>
+                
+                <div class="back-home">
+                    <a href="/"><i class="fas fa-arrow-left"></i> Về trang chủ</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/customers/auth.js') }}"></script>
+</body>
+</html>

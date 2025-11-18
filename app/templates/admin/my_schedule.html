@@ -1,0 +1,41 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Lịch làm của tôi - Bin Spa{% endblock %}
+
+{% block page_title %}Lịch làm của tôi{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <p style="margin: 0;">Xem lịch làm của bạn theo tuần:</p>
+    
+    <div class="week-navigation" style="display: flex; align-items: center; gap: 10px;">
+        <button id="prev-week" class="btn btn-secondary" title="Tuần trước">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <strong id="current-week" style="min-width: 250px; text-align: center;">Đang tải...</strong>
+        <button id="next-week" class="btn btn-secondary" title="Tuần sau">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+</div>
+<div class="data-table-container">
+    <table id="my-schedule-table" class="data-table">
+        <thead>
+            <tr>
+                <th>Ngày</th>
+                <th class='d-none'>Ca làm</th>
+                <th>Giờ bắt đầu</th>
+                <th>Giờ kết thúc</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th> </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="6" class="text-center">Đang tải lịch làm...</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/my_schedule.js') }}"></script>
+{% endblock %}

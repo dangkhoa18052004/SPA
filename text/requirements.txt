@@ -1,0 +1,103 @@
+flask
+flask_sqlalchemy
+flask_migrate
+flask_jwt_extended
+flask_mail
+python-dotenv
+psycopg2-binary
+venv\Scripts\activate
+khách hàng: tk: nga mk:123456
+
+Đăng kí post
+http://127.0.0.1:5000/auth/register
+{""hoten": "Nguyễn Văn A",
+"email": "",
+"taikhoan": "",
+"matkhau": "",
+"sdt": ""
+}
+kích hoạt tài khoản: post
+http://127.0.0.1:5000/customer/verify-otp
+{ "email": "nguyennga23042006@gmail.com", "otp": "942127" }
+Đăng nhập post
+http://127.0.0.1:5000/auth/login
+{"taikhoan": "khoa",
+"matkhau": "khoa123"
+}
+Quên mật khẩu post
+http://127.0.0.1:5000/customer/forgot-password
+{
+  "email": "khoaxinhtrai18052004@gmail.com"
+}
+Đặt lại mật khẩu post
+http://127.0.0.1:5000/auth/reset-password
+{
+  "identifier": "khoaxinhtrai18052004@gmail.com"
+  "code": "123456",
+  "new_password": "newpassword"
+}
+
+xem spa có dịch vụ gì get
+http://127.0.0.1:5000/customer/services
+Khách hàng xem lịch làm việc của nhân viên get
+http://127.0.0.1:5000/staff/list
+Xem thanh toán :http://127.0.0.1:5000/customer/invoices
+đặt lịch hẹn post: http://127.0.0.1:5000/customer/appointments
+{
+    "service_id": 1,
+    "staff_id": 1,
+    "appointment_time": "2025-10-31T11:00:00"
+}
+xem lịch hẹn get: http://127.0.0.1:5000/customer/appointments
+
+
+
+Nhân viên:
+đăng nhập http://127.0.0.1:5000/staff/login
+{
+    "taikhoan": "",
+    "matkhau": ""
+}
+đăng kí tài khoản cho nhân viên
+http://127.0.0.1:5000/staff/add
+{ "taikhoan": "nhanvien04", "matkhau": "123", "hoten": "Nhân viên số 4", "macv": 3, "role": "staff" }
+Xóa 1 nhân viên
+http://127.0.0.1:5000/staff/delete/<int:manv>
+QUản lý tạo các ca làm việc cho nhân viên
+http://127.0.0.1:5000/staff/shifts
+{ "ngay": "2025-11-2", "giobatdau": "09:00", "gioketthuc": "17:00" },
+Nhân viên đăng ký ca làm việc
+http://127.0.0.1:5000/staff/shifts/register
+[
+    { "maca":  },
+    { "maca": },
+    { "maca": },
+    { "maca":  },
+    { "maca":  }
+]
+Quản lý duyêt ca làm việc cho nhân viên
+put http://127.0.0.1:5000/staff/shifts/registrations/"maca"/approve
+nhân viên xem ca làm việc đã duyệt
+get http://127.0.0.1:5000/staff/my-schedule?start_date=2025-11-02&end_date=2025-11-03
+Quản lý xem lịch làm việc của nhân viên
+get http://127.0.0.1:5000/staff/mã nhân viên muốn xem/schedule?start_date=2025-11-01&end_date=2025-11-30
+quản lý xem tất cả ca làm việc của nhân viên
+get http://127.0.0.1:5000/staff/all-schedules?start_date=2025-11-01&end_date=2025-11-30
+Quản lý xóa nhân viên khỏi ca làm việc và đổi cả cho nhân viên
+delete http://127.0.0.1:5000/staff/shifts/unassign
+{
+    "maca": 5,
+    "manv": 3
+}
+post http://127.0.0.1:5000/staff/shifts/assign
+{
+    "maca": 6,
+    "manv": 3
+}
+
+tk admin
+khoa
+123
+tk nv
+nhanvien01
+123

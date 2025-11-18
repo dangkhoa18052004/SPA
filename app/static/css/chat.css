@@ -1,0 +1,478 @@
+/* ================================================= */
+/* ============== CHAT CONTAINER ================== */
+/* ================================================= */
+
+.chat-container {
+    display: flex;
+    height: calc(100vh - var(--header-height) - 32px);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    gap: 0;
+}
+
+/* ================================================= */
+/* ============== CHAT SIDEBAR (TRÁI) ============= */
+/* ================================================= */
+
+.chat-sidebar {
+    width: 350px;
+    background: var(--bg-card);
+    border-right: 2px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.chat-sidebar-header {
+    padding: var(--spacing-lg);
+    border-bottom: 2px solid var(--border-color);
+    background: var(--bg-hover);
+}
+
+.chat-sidebar-header input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: var(--font-md);
+}
+
+/* ========== DANH SÁCH HỘI THOẠI ========== */
+#conversations-list {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--bg-card);
+}
+
+.conversation-item {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+    gap: var(--spacing-md);
+}
+
+.conversation-item:hover {
+    background: var(--bg-hover);
+}
+
+.conversation-item.active {
+    background: #ede9fe;
+    border-left: 4px solid var(--primary-color);
+}
+
+/* ========== AVATAR ========== */
+.conversation-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--bg-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--border-color);
+}
+
+.conversation-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.conversation-avatar i {
+    font-size: 28px;
+    color: var(--text-light);
+}
+
+/* ========== THÔNG TIN HỘI THOẠI ========== */
+.conversation-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.conversation-name {
+    font-weight: var(--font-semibold);
+    font-size: var(--font-md);
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.conversation-preview {
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ========== THỜI GIAN & BADGE ========== */
+.conversation-time {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    font-size: var(--font-xs);
+    color: var(--text-light);
+}
+
+.unread-badge {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    background: var(--danger-color);
+    color: var(--text-white);
+    border-radius: var(--radius-full);
+    padding: 2px 8px;
+    font-size: var(--font-xs);
+    font-weight: var(--font-bold);
+    min-width: 20px;
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* ========== TRẠNG THÁI LOADING/EMPTY ========== */
+.loading-messages,
+.no-conversations {
+    padding: var(--spacing-xl);
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.loading-messages i {
+    font-size: var(--font-2xl);
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-sm);
+}
+
+/* ================================================= */
+/* ============== CHAT MAIN (PHẢI) ================ */
+/* ================================================= */
+
+.chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    min-width: 0;
+}
+
+/* ========== CHAT HEADER ========== */
+.chat-header {
+    padding: var(--spacing-lg) var(--spacing-xl);
+    background: var(--gradient-primary);
+    color: var(--text-white);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow-sm);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.chat-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chat-header h4 {
+    margin: 0;
+    font-size: var(--font-xl);
+    font-weight: var(--font-semibold);
+    color: var(--text-white);
+}
+
+.chat-status {
+    font-size: var(--font-sm);
+    opacity: 0.9;
+}
+
+/* ========== NÚT ĐÓNG ========== */
+.btn-close-chat {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: var(--text-white);
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-xl);
+    transition: all var(--transition-fast);
+}
+
+.btn-close-chat:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+/* ========== MESSAGES CONTAINER ========== */
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    background: #f8f9fa;
+}
+
+/* ========== TRẠNG THÁI KHÔNG CHỌN HỘI THOẠI ========== */
+.no-conversation-selected {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+}
+
+.no-conversation-selected::before {
+    content: '\f086';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    font-size: 80px;
+    color: var(--border-color);
+    margin-bottom: var(--spacing-lg);
+    opacity: 0.3;
+}
+
+.no-conversation-selected::after {
+    content: 'Chọn một hội thoại để bắt đầu';
+    font-size: var(--font-lg);
+    color: var(--text-light);
+    margin-top: var(--spacing-md);
+}
+
+.no-messages {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--text-secondary);
+    font-size: var(--font-md);
+}
+
+/* ========== TIN NHẮN ========== */
+.message {
+    display: flex;
+    margin-bottom: var(--spacing-md);
+    animation: messageIn 0.3s ease;
+}
+
+@keyframes messageIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Tin nhắn nhận (khách hàng) */
+.message-received {
+    justify-content: flex-start;
+}
+
+.message-received .message-content {
+    background: var(--bg-card);
+    border-radius: 18px 18px 18px 4px;
+    box-shadow: var(--shadow-sm);
+}
+
+/* Tin nhắn gửi (admin/staff) */
+.message-sent {
+    justify-content: flex-end;
+}
+
+.message-sent .message-content {
+    background: var(--gradient-primary);
+    color: var(--text-white);
+    border-radius: 18px 18px 4px 18px;
+    box-shadow: var(--shadow-sm);
+}
+
+/* Nội dung tin nhắn */
+.message-content {
+    max-width: 70%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.message-text {
+    font-size: var(--font-md);
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+.message-time {
+    font-size: var(--font-xs);
+    opacity: 0.7;
+    text-align: right;
+}
+
+.message-sent .message-time {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.message-received .message-time {
+    color: var(--text-light);
+}
+
+/* ================================================= */
+/* ============== CHAT INPUT AREA ================= */
+/* ================================================= */
+
+.chat-input-area {
+    padding: var(--spacing-lg);
+    background: var(--bg-card);
+    border-top: 2px solid var(--border-color);
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: flex-end;
+}
+
+#message-input {
+    flex: 1;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-md);
+    resize: none;
+    max-height: 120px;
+    overflow-y: auto;
+    transition: all var(--transition-fast);
+}
+
+#message-input:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+#message-input:disabled {
+    background: var(--bg-hover);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+#send-message-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-lg);
+    flex-shrink: 0;
+    background: var(--gradient-primary);
+    border: none;
+    color: var(--text-white);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+#send-message-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+#send-message-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ================================================= */
+/* ================ RESPONSIVE ==================== */
+/* ================================================= */
+
+@media (max-width: 768px) {
+    .chat-container {
+        height: calc(100vh - var(--header-height));
+    }
+    
+    .chat-sidebar {
+        width: 280px;
+    }
+    
+    .conversation-item {
+        padding: var(--spacing-sm);
+    }
+    
+    .conversation-avatar {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .message-content {
+        max-width: 85%;
+    }
+    
+    .chat-header {
+        padding: var(--spacing-md);
+    }
+    
+    .chat-input-area {
+        padding: var(--spacing-md);
+    }
+}
+
+@media (max-width: 480px) {
+    .chat-sidebar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 280px;
+        z-index: 100;
+        transform: translateX(-100%);
+        transition: transform var(--transition-normal);
+    }
+    
+    .chat-sidebar.mobile-open {
+        transform: translateX(0);
+    }
+    
+    .message-content {
+        max-width: 90%;
+    }
+}
+
+/* ================================================= */
+/* ============== SCROLLBAR CUSTOM ================ */
+/* ================================================= */
+
+#conversations-list::-webkit-scrollbar,
+.messages-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+#conversations-list::-webkit-scrollbar-track,
+.messages-container::-webkit-scrollbar-track {
+    background: var(--bg-hover);
+}
+
+#conversations-list::-webkit-scrollbar-thumb,
+.messages-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+#conversations-list::-webkit-scrollbar-thumb:hover,
+.messages-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-light);
+}

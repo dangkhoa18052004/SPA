@@ -1,0 +1,41 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Đăng ký ca làm - Bin Spa{% endblock %}
+
+{% block page_title %}Đăng ký ca làm{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <p style="margin: 0;">Chọn ca làm bạn muốn đăng ký:</p>
+    
+    <div class="week-navigation" style="display: flex; align-items: center; gap: 10px;">
+        <button id="prev-week" class="btn btn-secondary" title="Tuần trước">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <strong id="current-week" style="min-width: 150px; text-align: center;">Đang tải...</strong>
+        <button id="next-week" class="btn btn-secondary" title="Tuần sau">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <table id="shifts-table" class="data-table">
+        <thead>
+            <tr>
+                <th>Ngày</th>
+                <th class='d-none'>Ca làm</th>
+                <th>Giờ</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="5" class="text-center">Đang tải ca làm...</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/register_shifts.js') }}"></script>
+{% endblock %}

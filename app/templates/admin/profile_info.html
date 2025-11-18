@@ -1,0 +1,53 @@
+<div class="section-header">
+    <h3><i class="fas fa-id-badge"></i> Thông tin cơ bản</h3>
+    <button class="btn btn-warning btn-sm" id="edit-profile-btn" onclick="toggleEditMode(true)">
+        <i class="fas fa-edit"></i> Chỉnh sửa
+    </button>
+</div>
+
+<div class="avatar-section">
+    <div class="profile-avatar-wrapper">
+        <img id="current-avatar" src="/api/profile/avatar/placeholder.png" alt="Avatar" class="profile-avatar">
+    </div>
+    
+    <div class="avatar-upload-group" style="display: none;">
+        <input type="file" id="avatar-file-input" accept="image/*" class="form-control">
+        <button class="btn btn-sm btn-primary mt-2" onclick="handleAvatarUpload()">
+            <i class="fas fa-upload"></i> Cập nhật ảnh
+        </button>
+    </div>
+</div>
+
+<form id="profile-form">
+    <div class="form-grid">
+        <div class="form-group">
+            <label>Họ tên</label>
+            <input type="text" id="hoten" class="form-control" readonly>
+        </div>
+        <div class="form-group">
+            <label>Vai trò</label>
+            <input type="text" id="role" class="form-control" readonly>
+        </div>
+        <div class="form-group">
+            <label>Số điện thoại</label>
+            <input type="text" id="sdt" class="form-control" readonly>
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="email" class="form-control" readonly>
+        </div>
+        <div class="form-group-full">
+            <label>Địa chỉ</label>
+            <input type="text" id="diachi" class="form-control" readonly>
+        </div>
+    </div>
+    
+    <div class="form-actions" id="save-actions" style="display: none;">
+        <button type="button" class="btn btn-secondary" onclick="toggleEditMode(false)">
+            <i class="fas fa-times"></i> Hủy
+        </button>
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Lưu thay đổi
+        </button>
+    </div>
+</form>

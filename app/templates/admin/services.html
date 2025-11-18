@@ -1,0 +1,158 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Quản lý Dịch vụ - Bin Spa{% endblock %}
+
+{% block page_title %}Quản lý Dịch vụ{% endblock %}
+
+
+{% block content %}
+
+<div class="stats-and-search-header">
+    <div class="stat-card">
+        <div class="stat-card-icon">
+            <i class="fas fa-list-alt"></i> </div>
+        <div class="stat-card-info">
+            <span class="stat-card-number" id="total-services-stat">0</span>
+            <span class="stat-card-label">Tổng số dịch vụ</span>
+        </div>
+    </div>
+    
+    <div class="filter-container">
+        <i class="fas fa-filter filter-icon"></i>
+        <select id="status-filter" class="form-control">
+            <option value="all">Tất cả trạng thái</option>
+            <option value="true">Hoạt động</option>
+            <option value="false">Ngừng hoạt động</option>
+        </select>
+    </div>
+    
+    <div class="search-bar-container">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="service-search-input" class="form-control" placeholder="Tìm kiếm theo tên dịch vụ...">
+        <button id="clear-search-btn" class="search-clear-btn" style="display: none;">&times;</button>
+    </div>
+</div>
+
+<div class="page-header">
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="openAddServiceModal()">
+            <i class="fas fa-plus"></i> Thêm dịch vụ
+        </button>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <table id="services-table" class="data-table">
+        <thead>
+            <tr>
+                <th class="d-none">Mã DV</th>
+                <th>Hình ảnh</th>
+                <th>Tên dịch vụ</th>
+                <th class="d-none">Giá (VNĐ)</th>
+                <th class="d-none">Thời lượng (phút)</th>
+                <th>Mô tả</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
+</div>
+
+<div class="pagination" id="pagination"></div>
+
+<div id="viewServiceModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="view-modal-title">Chi tiết dịch vụ</h3>
+            <span class="close" onclick="closeViewServiceModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="service-detail-content">
+                <p>Đang tải chi tiết...</p>
+            </div>
+        </div>
+        <div class="form-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" onclick="closeViewServiceModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<div id="serviceModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">Thêm dịch vụ</h3>
+            <span class="close" onclick="closeServiceModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="serviceForm" enctype="multipart/form-data">
+                <input type="hidden" id="service-id">
+                
+                <div class="form-group">
+                    <label>Hình ảnh dịch vụ</label>
+                    <input type="file" id="service-image" class="form-control" accept="image/png, image/jpeg, image/jpg">
+                    <div id="image-preview" style="margin-top: 10px; display: none;">
+                        <img id="preview-img" src="#" alt="Preview" style="max-width: 200px; max-height: 200px; border-radius: 4px; object-fit: cover;">
+                    </div>
+                    <small class="text-muted">Chọn ảnh cho dịch vụ (Tối đa 5MB)</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Tên dịch vụ <span class="required">*</span></label>
+                    <input type="text" id="service-name" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Giá (VNĐ) <span class="required">*</span></label>
+                    <input type="number" id="service-price" class="form-control" required min="0" step="1000">
+                </div>
+
+                <div class="form-group">
+                    <label>Thời lượng (phút)</label>
+                    <input type="number" id="service-duration" class="form-control" min="0" placeholder="Ví dụ: 60">
+                </div>
+
+                <div class="form-group">
+                    <label>Mô tả</label>
+                    <textarea id="service-desc" class="form-control" rows="3" placeholder="Mô tả chi tiết về dịch vụ..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="service-status">Trạng thái</label>
+                    <select id="service-status" class="form-control">
+                        <option value="true">mở dịch vụ</option>
+                        <option value="false">Khóa dịch vụ</option>
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeServiceModal()">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="confirmModal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3>Xác nhận</h3>
+            <span class="close" onclick="closeConfirmModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p id="confirm-message">Bạn có chắc muốn thực hiện hành động này?</p>
+        </div>
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeConfirmModal()">Hủy</button>
+            <button type="button" class="btn btn-primary" id="confirm-btn">Xác nhận</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/services.js') }}"></script>
+{% endblock %}

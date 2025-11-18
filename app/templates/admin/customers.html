@@ -1,0 +1,194 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Quản lý Khách hàng - Bin Spa{% endblock %}
+
+{% block page_title %}Quản lý Khách hàng{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <button class="btn btn-primary" id="add-customer-btn" style="display: none;">
+        <i class="fas fa-user-plus"></i> Thêm khách hàng
+    </button>
+    <button class="btn btn-success" id="quick-add-btn" style="display: none;">
+        <i class="fas fa-walking"></i> Thêm khách vãng lai
+    </button>
+</div>
+
+<div class="stats-and-search-header">
+    <div class="stat-card">
+        <div class="stat-card-icon">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-card-info">
+            <span class="stat-card-number" id="total-customers-stat">0</span>
+            <span class="stat-card-label">Tổng số khách hàng</span>
+        </div>
+    </div>
+    
+    <div class="filter-container">
+        <i class="fas fa-filter filter-icon"></i>
+        <select id="status-filter" class="form-control">
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Hoạt động</option>
+            <option value="pending">Chờ xác thực</option>
+            <option value="blocked">Đã khóa</option>
+        </select>
+    </div>
+    
+    <div class="search-bar-container">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="customer-search-input" class="form-control" placeholder="Tìm kiếm theo tên, SĐT, email...">
+        <button id="clear-search-btn" class="search-clear-btn" style="display: none;">&times;</button>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <table id="customers-table" class="data-table">
+        <thead>
+            <tr>
+                <th>Mã KH</th>
+                <th>Ảnh</th>
+                <th>Họ tên</th>
+                <th>SĐT</th>
+                <th>Email</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="7" class="text-center">Đang tải dữ liệu...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="pagination" id="pagination"></div>
+
+<div class="modal fade" id="customerModal" tabindex="-1" role="dialog" aria-labelledby="customerModalLabel" aria-hidden="true" style="display: none;">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="customerModalLabel">Chi tiết khách hàng</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="customer-form" onsubmit="return false;">
+                    <input type="hidden" id="customer-id">
+                    
+                    <div class="detail-grid" id="detail-view-container" style="display: none;">
+                        </div>
+
+                    <div class="form-grid" id="form-edit-container" style="display: none;">
+                        <div class="form-group">
+                            <label for="hoten">Họ tên <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="hoten" name="hoten" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="sdt">Số điện thoại <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="sdt" name="sdt" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" class="form-control" id="email" name="email">
+                        </div>
+                        <div class="form-group">
+                            <label for="taikhoan">Tên tài khoản <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="taikhoan" name="taikhoan" required>
+                        </div>
+                        <div class="form-group form-group-full">
+                            <label for="diachi">Địa chỉ</label>
+                            <input type="text" class="form-control" id="diachi" name="diachi">
+                        </div>
+                        <div class="form-group">
+                            <label for="matkhau">Mật khẩu</label>
+                            <input type="password" class="form-control" id="matkhau" name="matkhau" autocomplete="new-password">
+                            <small class="form-text text-muted">Bỏ trống nếu không muốn thay đổi</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="trangthai">Trạng thái <span class="text-danger">*</span></label>
+                            <select class="form-control" id="trangthai" name="trangthai" required>
+                                <option value="active">Hoạt động</option>
+                                <option value="pending">Chờ xác thực</option>
+                                <option value="blocked">Đã khóa</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" id="save-button" style="display: none;">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="quickAddModal" tabindex="-1" role="dialog" aria-labelledby="quickAddModalLabel" aria-hidden="true" style="display: none;">
+    <div class="modal-dialog" role="document"> 
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickAddModalLabel">Thêm nhanh khách vãng lai</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="quick-customer-form" onsubmit="return false;">
+                    <div class="form-group">
+                        <label for="hoten-quick">Họ tên <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="hoten-quick" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sdt-quick">Số điện thoại <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="sdt-quick" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" id="save-quick-customer-btn">Lưu khách hàng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Xác Nhận -->
+<div class="modal fade" id="confirmModal" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel" aria-hidden="true" style="display: none;">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="confirmModalLabel">
+                    <i class="fas fa-exclamation-triangle"></i> Xác nhận
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage" style="font-size: 16px; margin: 0;">Bạn có chắc chắn muốn thực hiện hành động này?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    <i class="fas fa-times"></i> Hủy
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmActionBtn">
+                    <i class="fas fa-check"></i> Xác nhận
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/customers.css') }}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/customers.js') }}"></script>
+{% endblock %}

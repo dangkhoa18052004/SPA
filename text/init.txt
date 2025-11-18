@@ -1,0 +1,19 @@
+from .extensions import db
+from datetime import datetime
+
+class KhachHang(db.Model):
+    __tablename__ = 'khachhang'
+    makh = db.Column(db.Integer, primary_key=True)         # tương ứng makh
+    hoten = db.Column(db.String(100), nullable=False)
+    sdt = db.Column(db.String(20), unique=True, nullable=True)
+    diachi = db.Column(db.String(255))
+    email = db.Column(db.String(100), unique=True, nullable=True)
+    taikhoan = db.Column(db.String(50), unique=True, nullable=False)
+    matkhau = db.Column(db.String(255), nullable=False)    # lưu hash
+    anhdaidien = db.Column(db.String(255))
+    ngaytao = db.Column(db.DateTime, default=datetime.utcnow)
+    trangthai = db.Column(db.String(20), default='active')
+
+    # cho quên mật khẩu
+    resettoken = db.Column(db.String(255), nullable=True)
+    resettokenexpire = db.Column(db.DateTime, nullable=True)

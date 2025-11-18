@@ -1,0 +1,73 @@
+{% extends "customer/layout.html" %}
+{% block body_class %}is-subpage{% endblock %}
+
+{% block title %}Dịch vụ - Bin Spa{% endblock %}
+
+{% block content %}
+    <section class="services-header">
+        <div class="container">
+            <h1>Dịch vụ của chúng tôi</h1>
+            <p>Trải nghiệm các dịch vụ chăm sóc sắc đẹp và sức khỏe cao cấp</p>
+        </div>
+    </section>
+
+    <section class="services-filter-section">
+        <div class="container">
+            <div class="filter-container">
+                
+                <div class="filter-categories">
+                    <button class="filter-btn active" onclick="filterByCategory('all')">
+                        <i class="fas fa-spa"></i> Tất cả
+                    </button>
+                    <button class="filter-btn" onclick="filterByCategory('massage')">
+                        <i class="fas fa-hot-tub"></i> Massage
+                    </button>
+                    <button class="filter-btn" onclick="filterByCategory('facial')">
+                        <i class="fas fa-smile-beam"></i> Chăm sóc da
+                    </button>
+                    <button class="filter-btn" onclick="filterByCategory('nail')">
+                        <i class="fas fa-hand-sparkles"></i> Nail & Móng
+                    </button>
+                    <button class="filter-btn" onclick="filterByCategory('hair')">
+                        <i class="fas fa-cut"></i> Tóc & Đầu
+                    </button>
+                    <button class="filter-btn" onclick="filterByCategory('body')">
+                        <i class="fas fa-leaf"></i> Điều trị cơ thể
+                    </button>
+                </div>
+
+                <div class="filter-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Tìm dịch vụ..." onkeyup="filterServices()">
+                    </div>
+                    
+                    <select id="sortSelect" onchange="sortServices()">
+                        <option value="default">Sắp xếp mặc định</option>
+                        <option value="price-asc">Giá: Thấp đến Cao</option>
+                        <option value="price-desc">Giá: Cao đến Thấp</option>
+                        <option value="name-asc">Tên: A-Z</option>
+                        <option value="name-desc">Tên: Z-A</option>
+                    </select>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <section class="services-grid-section">
+        <div class="container">
+            <div class="services-grid" id="servicesGrid">
+                </div>
+            
+            <div id="noResults" class="no-results" style="display: none;">
+                <i class="fas fa-search"></i>
+                <p>Không tìm thấy dịch vụ phù hợp</p>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{{ url_for('static', filename='js/customers/services.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,197 @@
+{% extends "customer/layout.html" %}
+
+{% block body_class %}is-subpage{% endblock %}
+
+{% block title %}Thông tin cá nhân - Bin Spa{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/customers/profile.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <h1 class="page-title">Thông tin cá nhân</h1>
+    
+    <div class="profile-grid">
+        <!-- Sidebar -->
+        <div class="profile-sidebar">
+            <div class="profile-avatar">
+                <div class="avatar-wrapper">
+                    <img src="/static/images/default-avatar.png" alt="Avatar" class="avatar-img" id="avatarImg">
+                    <label class="avatar-upload" for="avatarInput">
+                        <i class="fas fa-camera" style="color: white;"></i>
+                        <input type="file" id="avatarInput" accept="image/*">
+                    </label>
+                </div>
+                <h3 id="userName">Loading...</h3>
+                <p id="userEmail" style="color: #999;">Loading...</p>
+            </div>
+            
+            <ul class="profile-menu">
+                <li>
+                    <a href="#" class="menu-link active" data-section="info">
+                        <i class="fas fa-user"></i>
+                        Thông tin cá nhân
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="menu-link" data-section="edit">
+                        <i class="fas fa-edit"></i>
+                        Chỉnh sửa thông tin
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="menu-link" data-section="password">
+                        <i class="fas fa-lock"></i>
+                        Đổi mật khẩu
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="menu-link" data-section="appointments">
+                        <i class="fas fa-calendar-alt"></i>
+                        Lịch hẹn của tôi
+                    </a>
+                </li>
+                <!-- Trong phần menu sidebar -->
+                <li>
+                    <a href="#" class="menu-link" data-section="invoices">
+                        <i class="fas fa-receipt"></i>
+                        Hóa đơn của tôi
+                    </a>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="profile-content">
+            <!-- Thông tin cá nhân -->
+            <div class="profile-section active" id="info-section">
+                <h2 class="section-title">
+                    <i class="fas fa-user-circle"></i>
+                    Thông tin cá nhân
+                </h2>
+                
+                <div class="info-group">
+                    <span class="info-label">Họ và tên</span>
+                    <span class="info-value" id="infoHoten">Loading...</span>
+                </div>
+                
+                <div class="info-group">
+                    <span class="info-label">Email</span>
+                    <span class="info-value" id="infoEmail">Loading...</span>
+                </div>
+                
+                <div class="info-group">
+                    <span class="info-label">Số điện thoại</span>
+                    <span class="info-value" id="infoSdt">Loading...</span>
+                </div>
+                
+                <div class="info-group">
+                    <span class="info-label">Địa chỉ</span>
+                    <span class="info-value" id="infoDiachi">Chưa cập nhật</span>
+                </div>
+            </div>
+            
+            <!-- Chỉnh sửa thông tin -->
+            <div class="profile-section" id="edit-section">
+                <h2 class="section-title">
+                    <i class="fas fa-edit"></i>
+                    Chỉnh sửa thông tin
+                </h2>
+                
+                <form id="editProfileForm">
+                    <div class="form-group">
+                        <label for="editHoten">Họ và tên</label>
+                        <input type="text" id="editHoten" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editSdt">Số điện thoại</label>
+                        <input type="tel" id="editSdt" pattern="[0-9]{10}" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editDiachi">Địa chỉ</label>
+                        <input type="text" id="editDiachi">
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Lưu thay đổi
+                        </button>
+                        <button type="button" class="btn btn-outline" onclick="switchSection('info')">
+                            Hủy
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Đổi mật khẩu -->
+            <div class="profile-section" id="password-section">
+                <h2 class="section-title">
+                    <i class="fas fa-lock"></i>
+                    Đổi mật khẩu
+                </h2>
+                
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label for="oldPassword">Mật khẩu cũ</label>
+                        <input type="password" id="oldPassword" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newPassword">Mật khẩu mới</label>
+                        <input type="password" id="newPassword" minlength="6" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirmPassword">Xác nhận mật khẩu mới</label>
+                        <input type="password" id="confirmPassword" minlength="6" required>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-key"></i> Đổi mật khẩu
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Lịch hẹn -->
+            <div class="profile-section" id="appointments-section">
+                <h2 class="section-title">
+                    <i class="fas fa-calendar-alt"></i>
+                    Lịch hẹn của tôi
+                </h2>
+                
+                <ul class="appointments-list" id="appointmentsList">
+                    <li style="text-align: center; padding: 40px; color: #999;">
+                        <i class="fas fa-calendar-times" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
+                        Đang tải...
+                    </li>
+                </ul>
+            </div>
+            <div class="profile-section" id="invoices-section">
+                    <h2 class="section-title">
+                        <i class="fas fa-receipt"></i>
+                        Hóa đơn của tôi
+                    </h2>
+                    
+                    <div class="invoices-container">
+                        <ul class="invoices-list" id="invoicesList">
+                            <li style="text-align: center; padding: 40px; color: #999;">
+                                <i class="fas fa-receipt" style="font-size: 48px; margin-bottom: 15px; display: block;"></i>
+                                Đang tải...
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/qrcode.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/customers/profile.js') }}"></script>
+{% endblock %}

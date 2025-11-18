@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Bin Spa - Tìm về nhịp nghỉ vừa vặn{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/style.css') }}">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <!-- Navigation Bar -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="Bin Spa Logo">
+                <span>Bin Spa</span>
+            </div>
+            
+            <div class="nav-menu" id="navMenu">
+                <a href="/" class="nav-link" data-lang-vi="Trang chủ" data-lang-en="Home">TRANG CHỦ</a>
+                <a href="/services" class="nav-link" data-lang-vi="Dịch vụ" data-lang-en="Services">DỊCH VỤ</a>
+                <a href="/#about" class="nav-link" data-lang-vi="Về Bin Spa" data-lang-en="About">VỀ BIN SPA</a>
+                <a href="/#contact" class="nav-link" data-lang-vi="Địa chỉ" data-lang-en="Contact">ĐỊA CHỈ</a>
+            </div>
+
+            <div class="nav-right">
+                <!-- Language Selector -->
+                <div class="language-selector">
+                    <button class="lang-btn" id="langBtn">
+                        <i class="fas fa-globe"></i>
+                        <span id="currentLang">VI</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="lang-dropdown" id="langDropdown">
+                        <button onclick="changeLang('vi')">Tiếng Việt</button>
+                        <button onclick="changeLang('en')">English</button>
+                    </div>
+                </div>
+
+                <!-- User Menu -->
+                <div class="user-menu">
+                    <button class="user-btn" id="userBtn">
+                        {% if session.get('user_id') and session.get('user_type') == 'customer' %}
+                            {% if session.get('avatar') %}
+                                <img src="{{ url_for('profile.get_avatar', filename=session.get('avatar')) }}" alt="Avatar" class="user-avatar">
+                            {% else %}
+                                <i class="fas fa-user-circle"></i>
+                            {% endif %}
+                        {% else %}
+                            <i class="fas fa-user-circle"></i>
+                        {% endif %}
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        {% if session.get('user_id') and session.get('user_type') == 'customer' %}
+                            <a href="/profile" data-lang-vi="Thông tin cá nhân" data-lang-en="Profile">
+                                <i class="fas fa-user"></i> Thông tin cá nhân
+                            </a>
+                            <a href="#" onclick="logout()" data-lang-vi="Đăng xuất" data-lang-en="Logout">
+                                <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                            </a>
+                        {% else %}
+                            <a href="/auth/login" data-lang-vi="Đăng nhập" data-lang-en="Login">
+                                <i class="fas fa-sign-in-alt"></i> Đăng nhập
+                            </a>
+                            <a href="/auth/register" data-lang-vi="Đăng ký" data-lang-en="Register">
+                                <i class="fas fa-user-plus"></i> Đăng ký
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Mobile Menu Toggle -->
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Block -->
+    {% block content %}{% endblock %}
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2024 Bin Spa. All rights reserved.</p>
+    </footer>
+
+    <!-- Floating Chat Icon -->
+    <div class="chat-float" id="chatFloat" onclick="toggleChat()">
+        <i class="fas fa-comment-dots"></i>
+    </div>
+
+    <!-- Chat Box -->
+    <div class="chat-box" id="chatBox">
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <i class="fas fa-comments"></i>
+                <span data-lang-vi="Chat với Bin Spa" data-lang-en="Chat with Bin Spa">Chat với Bin Spa</span>
+            </div>
+            <button onclick="toggleChat()" class="chat-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-message bot-message">
+                <div class="message-avatar">
+                    <i class="fas fa-spa"></i>
+                </div>
+                <div class="message-content">
+                    <p data-lang-vi="Xin chào! Chúng tôi có thể giúp gì cho bạn?" data-lang-en="Hello! How can we help you?">
+                        Xin chào! Chúng tôi có thể giúp gì cho bạn?
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <button class="chat-service-btn" onclick="toggleServicePicker()">
+                <i class="fas fa-plus"></i>
+            </button>
+            <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." data-lang-vi-placeholder="Nhập tin nhắn..." data-lang-en-placeholder="Type a message...">
+            <button class="chat-send-btn" onclick="sendMessage()">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+        
+        <!-- Service Picker -->
+        <div class="service-picker" id="servicePicker">
+            <div class="service-picker-header">
+                <span data-lang-vi="Chọn dịch vụ" data-lang-en="Select Service">Chọn dịch vụ</span>
+                <button onclick="toggleServicePicker()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="service-picker-list" id="servicePickerList">
+                <!-- Services will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+        <script src="{{ url_for('static', filename='js/customers/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

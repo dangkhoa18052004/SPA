@@ -1,0 +1,109 @@
+/* ================================================= */
+/* ============== BIẾN CSS THỐNG NHẤT ============== */
+/* ================================================= */
+
+:root {
+    /* ========== MÀU SẮC CHÍNH ========== */
+    --primary-color: #667eea;
+    --primary-dark: #5a6fd8;
+    --primary-light: #7c8ef0;
+    
+    --secondary-color: #764ba2;
+    --secondary-dark: #5f3d85;
+    --secondary-light: #8a5fb3;
+    
+    --accent-color: #D4A85A;
+    --accent-dark: #b89147;
+    
+    /* ========== MÀU NỀN ========== */
+    --bg-primary: #f4f7fa;
+    --bg-card: #ffffff;
+    --bg-hover: #f8f9fa;
+    --bg-dark: #2c3e50;
+    
+    /* ========== MÀU CHỮ ========== */
+    --text-primary: #2c3e50;
+    --text-secondary: #6c757d;
+    --text-light: #9ca3af;
+    --text-white: #ffffff;
+    
+    /* ========== MÀU VIỀN ========== */
+    --border-color: #e5e7eb;
+    --border-focus: #667eea;
+    
+    /* ========== MÀU TRẠNG THÁI ========== */
+    --success-color: #28a745;
+    --success-bg: #d4edda;
+    --success-text: #155724;
+    
+    --danger-color: #dc3545;
+    --danger-bg: #f8d7da;
+    --danger-text: #721c24;
+    
+    --warning-color: #ffc107;
+    --warning-bg: #fff3cd;
+    --warning-text: #856404;
+    
+    --info-color: #17a2b8;
+    --info-bg: #d1ecf1;
+    --info-text: #0c5460;
+    
+    /* ========== BÓ TRÒN ========== */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-full: 50%;
+    
+    /* ========== KHOẢNG CÁCH ========== */
+    --spacing-xs: 8px;
+    --spacing-sm: 12px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    
+    /* ========== FONT SIZE ========== */
+    --font-xs: 12px;
+    --font-sm: 13px;
+    --font-md: 14px;
+    --font-lg: 16px;
+    --font-xl: 20px;
+    --font-2xl: 24px;
+    --font-3xl: 32px;
+    
+    /* ========== FONT WEIGHT ========== */
+    --font-normal: 400;
+    --font-medium: 500;
+    --font-semibold: 600;
+    --font-bold: 700;
+    
+    /* ========== SHADOW ========== */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.15);
+    
+    /* ========== KÍCH THƯỚC CỐ ĐỊNH ========== */
+    --sidebar-width: 250px;
+    --header-height: 70px;
+    --input-height: 44px;
+    --button-height: 44px;
+    
+    /* ========== Z-INDEX ========== */
+    --z-sidebar: 1000;
+    --z-header: 999;
+    --z-modal: 9999;
+    --z-toast: 10000;
+    
+    /* ========== TRANSITION ========== */
+    --transition-fast: 0.2s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+    
+    /* ========== GRADIENT ========== */
+    --gradient-primary: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --gradient-info: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}

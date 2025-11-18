@@ -1,0 +1,294 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Quản lý Lịch hẹn - Bin Spa{% endblock %}
+
+{% block page_title %}Quản lý Lịch hẹn{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="openAddAppointmentModal()">
+            <i class="fas fa-plus"></i> Thêm lịch hẹn
+        </button>
+        <button class="btn btn-secondary d-none" onclick="exportAppointments()">
+            <i class="fas fa-file-export "></i> Xuất Excel
+        </button>
+    </div>
+</div>
+
+<div class="invoice-dashboard-container">
+    
+    <div class="stats-row flex-wrap gap-4"> 
+        
+        <div class="stat-card-compact flex-grow-1">
+            <div class="stat-icon" style="background: var(--bg-hover); color: var(--text-primary);"><i class="fas fa-calendar-alt"></i></div>
+            <div class="stat-info">
+                <span class="stat-number font-weight-bold" id="stat-total">...</span>
+                <span class="stat-label">Tổng lịch hẹn</span>
+            </div>
+        </div>
+        
+        <div class="stat-card-compact flex-grow-1">
+            <div class="stat-icon" style="background: var(--bg-hover); color: var(--text-primary);"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-info">
+                <span class="stat-number font-weight-bold" id="stat-confirmed">...</span>
+                <span class="stat-label">Đã xác nhận</span>
+            </div>
+        </div>
+
+        <div class="stat-card-compact flex-grow-1">
+            <div class="stat-icon" style="background: var(--bg-hover); color: var(--text-primary);"><i class="fas fa-clock"></i></div>
+            <div class="stat-info">
+                <span class="stat-number font-weight-bold" id="stat-pending-total">...</span>
+                <span class="stat-label">Chưa hoàn thành</span>
+            </div>
+        </div>
+        
+        <div class="stat-card-compact flex-grow-1 d-none">
+            <div class="stat-icon" style="background: var(--bg-hover); color: var(--text-primary);"><i class="fas fa-dollar-sign"></i></div>
+            <div class="stat-info d-none">
+                <span class="stat-number font-weight-bold" id="stat-revenue">...</span>
+                <span class="stat-label">Doanh thu dự kiến</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="filter-row align-items-center gap-3">
+        
+        <div class="filter-group-horizontal" style="max-width: 200px;"> 
+            <select id="filter-date-select" class="form-control" onchange="filterAppointments()">
+                <option value="">Tổng toàn bộ</option>
+                <option value="today">Hôm nay</option>
+                <option value="this_week">Tuần này</option>
+                <option value="this_month">Tháng này</option>
+                <option value="custom">Chọn ngày...</option>
+            </select>
+        </div>
+
+        <div class="filter-group-horizontal" style="max-width: 200px;">
+            <select id="filter-status-select" class="form-control" onchange="filterAppointments()">
+                <option value="">Tất cả trạng thái</option>
+                <option value="confirmed">Đã xác nhận</option>
+                <option value="completed">Hoàn thành</option>
+                <option value="cancelled">Đã hủy</option>
+            </select>
+        </div>
+
+        <div class="search-wrapper flex-grow-1">
+            <i class="fas fa-search search-icon"></i>
+            <input 
+                type="text" 
+                id="search-input" 
+                class="search-input" 
+                placeholder="Tìm kiếm theo tên, mã lịch hẹn"
+                onkeyup="searchAppointments()"
+            >
+            <button class="search-clear" onclick="clearSearch()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="filter-group d-none d-lg-flex gap-2">
+            <button class="btn btn-sm btn-primary" onclick="filterAppointments()">
+                <i class="fas fa-filter"></i> Lọc
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="resetFilters()">
+                <i class="fas fa-redo"></i> Reset
+            </button>
+        </div>
+        
+    </div>
+</div>
+
+
+<div class="data-table-container">
+    <table id="appointments-table" class="data-table">
+        <thead>
+            <tr>
+                <th class="d-none">Mã LH</th>
+                <th>Ngày giờ</th>
+                <th>Khách hàng</th>
+                <th>Dịch vụ</th>
+                <th>Nhân viên</th>
+                <th>Trạng thái</th>
+                <th class= "d-none">Ghi chú</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="8" class="text-center">Đang tải dữ liệu...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="pagination" id="pagination"></div>
+
+<div id="appointmentModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">
+                <i class="fas fa-calendar-plus"></i>
+                Tạo lịch hẹn mới
+            </h3>
+            <span class="close" onclick="closeAppointmentModal()">&times;</span>
+        </div>
+        
+        <div class="modal-body">
+            <form id="appointmentForm">
+                <input type="hidden" id="appointment-id">
+                
+                <div class="form-group">
+                    <label>Khách hàng <span class="required">*</span></label>
+                    <div class="multi-select-container"> 
+                        <input 
+                            type="text" 
+                            class="service-search" 
+                            placeholder="Tìm kiếm khách hàng theo tên hoặc SĐT..."
+                            id="customerSearch" 
+                        >
+                        <div class="service-list" id="customerList">
+                        </div>
+                    </div>
+                    <div class="selected-services" id="selectedCustomer"> 
+                        <span class="empty-selection">Chưa chọn khách hàng nào</span>
+                    </div>
+                    <input type="hidden" id="customer-id" required> 
+                </div>
+
+                <div class="form-group">
+                    <label>Dịch vụ <span class="required">*</span></label>
+                    <div class="multi-select-container">
+                        <input 
+                            type="text" 
+                            class="service-search" 
+                            placeholder="Tìm kiếm dịch vụ"
+                            id="serviceSearch"
+                        >
+                        <div class="service-list" id="serviceList">
+                        </div>
+                    </div>
+                    <div class="selected-services" id="selectedServices">
+                        <span class="empty-selection">Chưa chọn dịch vụ nào</span>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="form-group">
+                        <label>Ngày <span class="required">*</span></label>
+                        <input type="date" id="appointment-date" class="form-control" required onchange="loadAvailableStaff()">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Giờ <span class="required">*</span></label>
+                    <select id="appointment-time" class="form-control" required onchange="loadAvailableStaff()">
+                        <option value="">Chọn giờ</option>
+                        <option value="07:30">07:30</option>
+                        <option value="08:00">08:00</option>
+                        <option value="08:30">08:30</option>
+                        <option value="09:00">09:00</option>
+                        <option value="09:30">09:30</option>
+                        <option value="10:00">10:00</option>
+                        <option value="10:30">10:30</option>
+                        <option value="11:00">11:00</option>
+                        <option value="11:30">11:30</option>
+                        <option value="12:00">12:00</option>
+                        <option value="12:30">12:30</option>
+                        <option value="13:00">13:00</option>
+                        <option value="13:30">13:30</option>
+                        <option value="14:00">14:00</option>
+                        <option value="14:30">14:30</option>
+                        <option value="15:00">15:00</option>
+                        <option value="15:30">15:30</option>
+                        <option value="16:00">16:00</option>
+                        <option value="16:30">16:30</option>
+                        <option value="17:00">17:00</option>
+                        <option value="17:30">17:30</option>
+                        <option value="18:00">18:00</option>
+                        <option value="18:30">18:30</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Nhân viên (Tùy chọn)</label>
+                    <div class="multi-select-container">
+                        <input 
+                            type="text" 
+                            class="service-search" 
+                            placeholder="Tìm kiếm nhân viên..."
+                            id="staffSearch"
+                        >
+                        <div class="service-list" id="staffList">
+                            <div style="padding: 12px; color: #9ca3af; text-align: center;">
+                                Vui lòng chọn ngày, giờ và dịch vụ để xem nhân viên rảnh
+                            </div>
+                        </div>
+                    </div>
+                    <div class="selected-services" id="selectedStaff">
+                        <span class="empty-selection">Chưa chọn nhân viên (Tự động sắp xếp)</span>
+                    </div>
+                    <input type="hidden" id="staff-id">
+                </div>
+
+                <div class="form-group d-none">
+                    <label>Ghi chú</label>
+                    <textarea id="appointment-note" class="form-control" rows="3" placeholder="Nhập ghi chú (nếu có)..."></textarea>
+                </div>
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeAppointmentModal()">
+                <i class="fas fa-times"></i>
+                Hủy
+            </button>
+            <button type="submit" class="btn btn-primary" onclick="handleAppointmentSubmit(event)">
+                <i class="fas fa-save"></i>
+                Lưu lịch hẹn
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="appointmentDetailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="detail-modal-title">
+                <i class="fas fa-info-circle"></i>
+                Chi tiết lịch hẹn <span id="detail-apt-id"></span>
+            </h3>
+            <span class="close" onclick="closeDetailModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="detail-section">
+                <h4><i class="fas fa-user"></i> Thông tin khách hàng</h4>
+                <p><strong>Tên:</strong> <span id="detail-customer-name">...</span></p>
+                <p><strong>SĐT:</strong> <span id="detail-customer-phone">...</span></p>
+            </div>
+            
+            <div class="detail-section">
+                <h4><i class="fas fa-calendar-check"></i> Thông tin lịch hẹn</h4>
+                <p><strong>Thời gian:</strong> <span id="detail-apt-time">...</span></p>
+                <p><strong>Nhân viên:</strong> <span id="detail-apt-staff">...</span></p>
+                <p><strong>Trạng thái:</strong> <span id="detail-apt-status">...</span></p>
+                <p><strong>Ghi chú:</strong> <span id="detail-apt-notes">...</span></p>
+            </div>
+
+            <div class="detail-section">
+                <h4><i class="fas fa-concierge-bell"></i> Dịch vụ đã đặt</h4>
+                <ul id="detail-services-list" class="detail-services">
+                </ul>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDetailModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/appointments.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        body { font-family: 'DejaVu Sans', sans-serif; } /* Dùng font hỗ trợ Unicode */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        h1 { text-align: center; }
+        td:nth-child(n+2) { text-align: right; } /* Căn phải cho số */
+    </style>
+</head>
+<body>
+    <h1>{{ title }}</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Họ tên</th>
+                <th>Lương cơ bản</th>
+                <th>Thưởng</th>
+                <th>Khấu trừ</th>
+                <th>Tổng lương</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in data %}
+            <tr>
+                <td>{{ item.hoten }}</td>
+                <td>{{ item.luongcoban }} ₫</td>
+                <td>{{ item.thuong }} ₫</td>
+                <td>{{ item.khautru }} ₫</td>
+                <td><strong>{{ item.tongluong }} ₫</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

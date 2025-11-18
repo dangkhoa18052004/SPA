@@ -1,0 +1,234 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Dashboard - Bin Spa{% endblock %}
+
+{% block page_title %}Tổng Quan{% endblock %}
+
+
+{% block content %}
+<div class="dashboard-container">
+    
+    <div class="welcome-section">
+        <div class="welcome-avatar-wrapper">
+            <i class="fas fa-user-circle welcome-avatar"></i>
+        </div>
+        <h2 id="welcome-message">Chào mừng trở lại!</h2>
+        <p id="welcome-subtitle">Hôm nay là <span id="current-date"></span> - Cùng đạt mục tiêu hôm nay nhé.</p>
+    </div>
+
+    <div id="admin-dashboard" style="display: none;">
+        
+        <!-- Row for Stats and Quick Actions -->
+        <div class="content-row">
+            <!-- Stats Overview Panel -->
+            <div class="panel stats-overview-panel">
+                <div class="section-header">
+                    <h3><i class="fas fa-chart-line d-none"></i> Tổng quan Hoạt động</h3>
+                </div>
+                <div class="stats-grid-2x2">
+                    <div class="stat-card blue">
+                        <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-label">Lịch hẹn hôm nay</div>
+                            <div class="stat-value" id="stat-today-appointments">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-label">Doanh thu Tháng</div>
+                            <div class="stat-value" id="stat-month-revenue">0đ</div>
+                        </div>
+                    </div>
+                    <div class="stat-card orange">
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-label">Nhân viên có ca</div>
+                            <div class="stat-value" id="stat-working-staff">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-icon"><i class="fas fa-user-friends"></i></div>
+                        <div class="stat-content">
+                            <div class="stat-label">Tổng khách hàng</div>
+                            <div class="stat-value" id="stat-total-customers">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions Panel -->
+            <div class="panel quick-actions-panel">
+                <div class="section-header">
+                    <h3><i class="fas fa-bolt d-none"></i> Hành động Nhanh</h3>
+                </div>
+                <div class="quick-actions grid-4-col">
+                    <a href="/admin/appointments" class="action-btn">
+                        <i class="fas fa-calendar-plus"></i>
+                        <span>Đặt lịch hẹn</span>
+                    </a>
+                    <a href="/admin/invoices" class="action-btn">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>Hóa đơn</span>
+                    </a>
+                    <a href="/admin/chat" class="action-btn">
+                        <i class="fas fa-comments"></i>
+                        <span>Tin nhắn</span>
+                    </a>
+                    <a href="/admin/services" class="action-btn">
+                        <i class="fas fa-spa"></i>
+                        <span>Dịch vụ</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Appointments Table - Full Width -->
+        <div class="panel table-section">
+            <div class="section-header">
+                <h3><i class="fas fa-calendar-alt d-none"></i> Lịch hẹn hôm nay</h3>
+                <a href="/admin/appointments" class="view-all-link">Xem tất cả <i class="fas fa-arrow-right"></i></a>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="d-none">Mã</th>
+                            <th>Giờ</th>
+                            <th>Khách hàng</th>
+                            <th>Dịch vụ</th>
+                            <th>Nhân viên</th>
+                            <th>Trạng thái</th>
+                            <th class="d-none">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-appointments-table">
+                        <tr><td colspan="7" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div id="letan-dashboard" style="display: none;">
+        <div class="stats-grid">
+            <div class="stat-card purple">
+                <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Lịch hẹn hôm nay</div>
+                    <div class="stat-value" id="letan-today-appointments">0</div>
+                </div>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-icon"><i class="fas fa-bell"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Chờ xác nhận</div>
+                    <div class="stat-value" id="letan-pending-appointments">0</div>
+                </div>
+            </div>
+             <div class="stat-card green">
+                <div class="stat-icon"><i class="fas fa-user-plus"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Khách hàng mới (Tháng)</div>
+                    <div class="stat-value" id="letan-new-customers">0</div>
+                </div>
+            </div>
+            <div class="stat-card red">
+                <div class="stat-icon"><i class="fas fa-file-invoice"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Hóa đơn chưa thanh toán</div>
+                    <div class="stat-value" id="letan-unpaid-invoices">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-row" style="grid-template-columns: 1fr;">
+             <div class="panel table-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-list-alt"></i> Lịch hẹn cần xử lý</h3>
+                    <a href="/admin/appointments" class="view-all-link">Quản lý <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div style="overflow-x: auto;">
+                     <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Giờ</th>
+                                <th>Khách hàng</th>
+                                <th>Dịch vụ</th>
+                                <th>Nhân viên</th>
+                                <th>Trạng thái</th>
+                                <th class="d-none">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="letan-appointments-table">
+                            <tr><td colspan="6" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="staff-dashboard" style="display: none;">
+         <div class="stats-grid">
+            <div class="stat-card blue">
+                <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Lịch hẹn hôm nay</div>
+                    <div class="stat-value" id="staff-today-schedule">0</div>
+                </div>
+            </div>
+            <div class="stat-card purple">
+                <div class="stat-icon"><i class="fas fa-calendar-week"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Lịch hẹn tuần này</div>
+                    <div class="stat-value" id="staff-week-schedule">0</div>
+                </div>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-icon"><i class="fas fa-briefcase"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Ca làm tháng này</div>
+                    <div class="stat-value" id="staff-month-shifts">0</div>
+                </div>
+            </div>
+             <div class="stat-card green">
+                <div class="stat-icon"><i class="fas fa-check-double"></i></div>
+                <div class="stat-content">
+                    <div class="stat-label">Lịch hẹn hoàn thành</div>
+                    <div class="stat-value" id="staff-completed-appointments">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-row" style="grid-template-columns: 1fr;">
+             <div class="panel table-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-calendar-day"></i> Lịch làm việc hôm nay</h3>
+                    <a href="/admin/my-schedule" class="view-all-link">Xem chi tiết <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div style="overflow-x: auto;">
+                     <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Giờ</th>
+                                <th>Khách hàng</th>
+                                <th>Dịch vụ</th>
+                                <th>Trạng thái</th>
+                                <th class= "d-none">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staff-appointments-table">
+                            <tr><td colspan="5" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/dashboard.js') }}"></script>
+{% endblock %}

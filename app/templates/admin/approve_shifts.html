@@ -1,0 +1,36 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Duyệt đăng ký ca - Bin Spa{% endblock %}
+
+{% block page_title %}Duyệt đăng ký ca{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-actions">
+        <button class="btn btn-secondary" onclick="loadPendingRegistrations()">
+            <i class="fas fa-sync"></i> Làm mới
+        </button>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <table id="approve-table" class="data-table">
+        <thead>
+            <tr>
+                <th>Ngày đăng ký</th>
+                <th>Nhân viên</th>
+                <th>Ngày làm</th>
+                <th>Ca làm</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody id="approve-table-body">
+            <tr><td colspan="5" class="text-center">Đang tải danh sách chờ...</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/approve_shifts.js') }}"></script>
+{% endblock %}

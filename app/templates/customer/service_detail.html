@@ -1,0 +1,36 @@
+{% extends "customer/layout.html" %}
+
+{% block body_class %}is-subpage{% endblock %}
+
+{% block title %}Chi tiết dịch vụ - Bin Spa{% endblock %}
+
+{% block content %}
+    <section class="breadcrumb-section">
+        <div class="container">
+            <a href="/">Trang chủ</a>
+            <i class="fas fa-chevron-right"></i>
+            <a href="/services">Dịch vụ</a>
+            <i class="fas fa-chevron-right"></i>
+            <span id="serviceName">Đang tải...</span> 
+        </div>
+    </section>
+
+    <section class="service-detail-section">
+        <div class="container">
+            <div id="serviceDetailContainer">
+                </div>
+        </div>
+    </section>
+
+    <section class="related-services-section">
+        <div class="container">
+            <h2 class="section-title">Các dịch vụ liên quan</h2>
+            <div class="services-grid" id="relatedServicesGrid">
+                </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{{ url_for('static', filename='js/customers/service-detail.js') }}"></script>
+{% endblock %}

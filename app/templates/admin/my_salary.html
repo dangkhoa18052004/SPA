@@ -1,0 +1,38 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Lương của tôi - Bin Spa{% endblock %}
+
+{% block page_title %}Lương của tôi{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <div class="stat-card">
+        <i class="fas fa-money-bill-wave" style="color: #28a745;"></i>
+        <div class="stat-info">
+            <span class="stat-number">Đang tải...</span>
+            <p>Lương tháng này</p>
+        </div>
+    </div>
+</div>
+
+<div class="data-table-container" style="margin-top: 20px;">
+    <table id="salary-table" class="data-table">
+        <thead>
+            <tr>
+                <th>Tháng/Năm</th>
+                <th>Lương cơ bản</th>
+                <th>Thưởng</th>
+                <th>Khấu trừ</th>
+                <th>Tổng lương</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="5" class="text-center">Đang tải lịch sử lương...</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/my_salary.js') }}"></script>
+{% endblock %}

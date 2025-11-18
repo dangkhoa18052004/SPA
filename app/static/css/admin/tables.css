@@ -1,0 +1,332 @@
+/* ================================================= */
+/* ================ TABLE STYLES ================== */
+/* ================================================= */
+
+/* ========== TABLE CONTAINER ========== */
+.data-table-container {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+    box-shadow: var(--shadow-md);
+}
+
+/* ========== DATA TABLE ========== */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+
+.data-table thead {
+    background: linear-gradient(135deg, var(--bg-hover) 0%, #ecf0f1 100%);
+}
+
+.data-table th {
+    padding: var(--spacing-md);
+    text-align: left;
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+    font-size: var(--font-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--primary-color);
+    /* THÊM: Buộc tiêu đề không xuống dòng */
+    white-space: nowrap; 
+}
+
+.data-table td {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: var(--font-md);
+    /* SỬA: Buộc nội dung ô không xuống dòng (khắc phục lỗi) */
+    white-space: nowrap !important; 
+}
+
+
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.data-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+/* ========== TABLE ACTIONS ========== */
+.action-buttons {
+    display: flex;
+    gap: var(--spacing-xs);
+    /* SỬA: Buộc các nút thao tác nằm trên một dòng */
+    flex-wrap: nowrap; 
+    flex-shrink: 0; 
+    white-space: nowrap; /* Đảm bảo an toàn */
+}
+.btn-icon {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 18px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-icon:hover {
+    background: var(--bg-hover);
+    color: var(--primary-color);
+}
+
+.btn-icon.btn-success:hover {
+    color: var(--success-color);
+}
+
+.btn-icon.btn-info:hover {
+    color: var(--info-color);
+}
+
+.btn-icon.btn-warning:hover {
+    color: var(--warning-color);
+}
+
+.btn-icon.btn-danger:hover {
+    color: var(--danger-color);
+}
+
+/* ========== AVATAR IN TABLE ========== */
+.table-avatar,
+.avatar-img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.table-avatar-icon,
+.default-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--bg-hover);
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-xl);
+    border: 2px solid var(--border-color);
+    margin: 0 auto; 
+    flex-shrink: 0;
+}
+
+/* ========== SERVICE TAG ========== */
+.service-tag {
+    background: #554830;
+    color: var(--accent-color);
+    padding: 6px var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+    font-weight: var(--font-semibold);
+    white-space: nowrap;
+    border: 1px solid var(--accent-dark);
+    display: inline-block;
+}
+
+/* ========== ROLE ID & RATE ========== */
+.role-id {
+    display: inline-block;
+    padding: 4px var(--spacing-sm);
+    background: #e8eaf6;
+    color: #3f51b5;
+    border-radius: var(--radius-sm);
+    font-weight: var(--font-semibold);
+    font-size: var(--font-xs);
+    white-space: nowrap;
+}
+
+.role-rate {
+    display: inline-block;
+    padding: 6px var(--spacing-sm);
+    background: #e0f2f1;
+    color: #00796b;
+    border-radius: var(--radius-sm);
+    font-weight: var(--font-semibold);
+    font-size: var(--font-sm);
+    white-space: nowrap;
+}
+
+/* ========== INVOICE TABLE ========== */
+.invoice-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: var(--spacing-lg) 0;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.invoice-table thead {
+    background: var(--gradient-primary);
+    color: var(--text-white);
+}
+
+.invoice-table th {
+    padding: var(--spacing-md);
+    text-align: left;
+    font-weight: var(--font-semibold);
+    font-size: var(--font-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.invoice-table tbody tr {
+    background: var(--bg-card);
+    transition: all var(--transition-fast);
+}
+
+.invoice-table tbody tr:nth-child(even) {
+    background: var(--bg-hover);
+}
+
+.invoice-table tbody tr:hover {
+    background: #f0f9ff;
+    transform: scale(1.01);
+}
+
+.invoice-table td {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.invoice-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.invoice-total {
+    background: #f0f9ff;
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    margin-top: var(--spacing-lg);
+    text-align: right;
+}
+
+.invoice-total h5 {
+    font-size: var(--font-2xl);
+    color: var(--primary-color);
+    margin: 0;
+}
+
+/* ========== DETAIL SERVICES LIST ========== */
+.detail-services {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.detail-services li {
+    padding: var(--spacing-sm);
+    background: var(--bg-hover);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-xs);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    white-space: normal; /* Cho phép nội dung trong chi tiết xuống dòng */
+}
+
+.detail-services li span:first-child {
+    color: var(--text-primary);
+    font-weight: var(--font-medium);
+}
+
+.detail-services li span:last-child {
+    color: var(--primary-color);
+    font-weight: var(--font-semibold);
+}
+
+/* ========== STAFF LIST DETAIL ========== */
+.staff-list-detail {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.staff-list-detail li {
+    font-size: var(--font-md);
+    color: var(--text-primary);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: var(--bg-hover);
+    margin-bottom: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    white-space: normal;
+}
+
+.staff-list-detail li i {
+    margin-right: var(--spacing-sm);
+    color: var(--text-secondary);
+}
+
+.staff-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.btn-unassign {
+    background: var(--danger-color);
+    color: var(--text-white);
+    border: none;
+    border-radius: var(--radius-full);
+    width: 22px;
+    height: 22px;
+    font-size: var(--font-sm);
+    font-weight: var(--font-bold);
+    line-height: 20px;
+    text-align: center;
+    padding: 0;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.btn-unassign:hover {
+    background: #c82333;
+}
+
+/* ========== RESPONSIVE TABLE ========== */
+@media (max-width: 768px) {
+    .data-table-container {
+        overflow-x: auto;
+    }
+    
+    .data-table {
+        font-size: var(--font-sm);
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: var(--spacing-sm);
+    }
+    
+    .action-buttons {
+        flex-direction: row;
+        flex-wrap: nowrap;
+    }
+}
+
+.data-table .action-buttons,
+.data-table .status-cell {
+    white-space: nowrap;
+    width: 1%; 
+}

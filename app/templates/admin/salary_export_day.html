@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        body { font-family: 'DejaVu Sans', sans-serif; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        h1 { text-align: center; }
+        /* Căn phải cho số */
+        td:nth-child(n+3), th:nth-child(n+3) { text-align: right; }
+        tfoot tr { background-color: #f9f9f9; font-weight: bold; }
+        tfoot td { border-top: 2px solid #333; }
+        .bonus { color: #28a745; }
+        .deduction { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>{{ title }}</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Họ tên</th>
+                <th>Chức vụ</th>
+                <th>Lương ca (gốc)</th>
+                <th>Thưởng ca</th>
+                <th>Khấu trừ ca</th>
+                <th>Tổng nhận (ca)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in data %}
+            <tr>
+                <td>{{ item.hoten }}</td>
+                <td>{{ item.chucvu }}</td>
+                <td>{{ item.luong_ca | currency }}</td>
+                <td class="bonus">+ {{ item.thuong_ca | currency }}</td>
+                <td class="deduction">- {{ item.khautru_ca | currency }}</td>
+                <td><strong>{{ item.tong_ngay | currency }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="5" style="text-align: right;">TỔNG CỘNG PHẢI TRẢ (CHO NGÀY NÀY):</td>
+                <td style="font-size: 1.1em;"><strong>{{ grand_total | currency }}</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+</body>
+</html>

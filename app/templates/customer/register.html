@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký - Sà Spa</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/auth.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-left">
+            <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="Sà Spa">
+            <div class="auth-overlay">
+                <h1>Tham gia cùng Sà Spa</h1>
+                <p>Đăng ký ngay để trải nghiệm dịch vụ spa tuyệt vời và nhận nhiều ưu đãi hấp dẫn</p>
+            </div>
+        </div>
+        
+        <div class="auth-right">
+            <div class="auth-form-container">
+                <div class="auth-logo">
+                    <a href="/">
+                        <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="Sà Spa">
+                        <span>Sà spa</span>
+                    </a>
+                </div>
+                
+                <h2>Đăng ký tài khoản</h2>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form id="registerForm" method="POST" action="/auth/register">
+                    <div class="form-group">
+                        <label for="hoten">
+                            <i class="fas fa-user"></i> Họ và tên <span class="required">*</span>
+                        </label>
+                        <input type="text" 
+                               id="hoten" 
+                               name="hoten" 
+                               placeholder="Nhập họ và tên" 
+                               required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">
+                            <i class="fas fa-envelope"></i> Email <span class="required">*</span>
+                        </label>
+                        <input type="email" 
+                               id="email" 
+                               name="email" 
+                               placeholder="example@email.com" 
+                               required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sdt">
+                            <i class="fas fa-phone"></i> Số điện thoại <span class="required">*</span>
+                        </label>
+                        <input type="tel" 
+                               id="sdt" 
+                               name="sdt" 
+                               placeholder="Nhập số điện thoại" 
+                               pattern="[0-9]{10}"
+                               required>
+                        
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="diachi">
+                            <i class="fas fa-map-marker-alt"></i> Địa chỉ
+                        </label>
+                        <input type="text" 
+                               id="diachi" 
+                               name="diachi" 
+                               placeholder="Nhập địa chỉ">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="taikhoan">
+                            <i class="fas fa-user-circle"></i> Tên tài khoản <span class="required">*</span>
+                        </label>
+                        <input type="text" 
+                               id="taikhoan" 
+                               name="taikhoan" 
+                               placeholder="Nhập tên tài khoản ít nhất 4 kí tự"
+                               minlength="4"
+                               required>
+                        
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="matkhau">
+                            <i class="fas fa-lock"></i> Mật khẩu <span class="required">*</span>
+                        </label>
+                        <div class="password-input">
+                            <input type="password" 
+                                   id="matkhau" 
+                                   name="matkhau" 
+                                   placeholder="Nhập mật khẩu ít nhất 6 kí tự"
+                                   minlength="6"
+                                   required>
+                            <button type="button" class="toggle-password" onclick="togglePassword()">
+                                <i class="fas fa-eye" id="eyeIcon"></i>
+                            </button>
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm_password">
+                            <i class="fas fa-lock"></i> Xác nhận mật khẩu <span class="required">*</span>
+                        </label>
+                        <div class="password-input">
+                            <input type="password" 
+                                   id="confirm_password" 
+                                   name="confirm_password" 
+                                   placeholder="Nhập lại mật khẩu"
+                                   required>
+                            <button type="button" class="toggle-password" onclick="toggleConfirmPassword()">
+                                <i class="fas fa-eye" id="eyeIcon2"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="agree_terms" required>
+                            <span>Tôi đồng ý với <a href="/terms" target="_blank">Điều khoản dịch vụ</a> và <a href="/privacy" target="_blank">Chính sách bảo mật</a></span>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-user-plus"></i> Đăng ký
+                    </button>
+                </form>
+                
+                <div class="auth-divider">
+                    <span>HOẶC</span>
+                </div>
+                
+                <div class="auth-footer">
+                    <p>Đã có tài khoản? <a href="/auth/login">Đăng nhập ngay</a></p>
+                </div>
+                
+                <div class="back-home">
+                    <a href="/"><i class="fas fa-arrow-left"></i> Về trang chủ</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/customers/auth.js') }}"></script>
+    <script>
+        function toggleConfirmPassword() {
+            const passwordInput = document.getElementById('confirm_password');
+            const eyeIcon = document.getElementById('eyeIcon2');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,634 @@
+/* ==================== APPOINTMENT PAGE STYLES ==================== */
+.appointment-section {
+    padding: 120px 0 80px;
+    min-height: 100vh;
+    background: #F5F5F0;
+}
+
+.page-title {
+    font-size: 42px;
+    font-weight: 300;
+    text-align: center;
+    color: #8B9D7C;
+    margin-bottom: 10px;
+}
+
+.page-subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 50px;
+    font-size: 16px;
+}
+
+/* ==================== LOGIN REQUIRED MODAL ==================== */
+.login-required-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.modal-content {
+    background: white;
+    padding: 50px;
+    border-radius: 15px;
+    text-align: center;
+    max-width: 500px;
+}
+
+.modal-content h2 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.modal-content p {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+/* ==================== APPOINTMENT CONTAINER ==================== */
+.appointment-container {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.appointment-form-section {
+    background: white;
+    border-radius: 15px;
+    padding: 40px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== FORM STEPS ==================== */
+.form-step {
+    display: none;
+}
+
+.form-step.active {
+    display: block;
+}
+
+.step-title {
+    font-size: 24px;
+    color: #333;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    background: #C9A961;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+.step-description {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+/* ==================== SERVICE SEARCH ==================== */
+.service-search {
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.service-search i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+}
+
+.service-search input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.service-search input:focus {
+    outline: none;
+    border-color: #8B9D7C;
+}
+
+/* ==================== SERVICES SELECTION ==================== */
+.services-selection {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+    max-height: 450px;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.service-card-small {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.service-card-small:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    border-color: #C9A961;
+}
+
+.service-card-small.selected {
+    border-color: #C9A961;
+    background: #fffbf5;
+    box-shadow: 0 4px 12px rgba(201, 169, 97, 0.3);
+}
+
+.service-card-small img {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+}
+
+.service-card-small .service-info {
+    padding: 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.service-card-small .service-info h4 {
+    margin: 0 0 8px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.service-card-small .service-info .price {
+    color: #C9A961;
+    font-size: 16px;
+    font-weight: 700;
+    margin: 6px 0;
+}
+
+.service-card-small .service-info .duration {
+    color: #666;
+    font-size: 13px;
+    margin: 4px 0 0 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.service-card-small .service-info .duration i {
+    font-size: 12px;
+}
+
+.service-card-small .service-check {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.service-card-small.selected .service-check {
+    opacity: 1;
+    background: #C9A961;
+    color: white;
+}
+
+.service-card-small .service-check i {
+    font-size: 14px;
+}
+
+/* ==================== PAGINATION ==================== */
+.services-pagination {
+    grid-column: 1/-1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 0 10px 0;
+    border-top: 1px solid #e0e0e0;
+    margin-top: 10px;
+}
+
+.pagination-btn {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #666;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: #C9A961;
+    color: white;
+    border-color: #C9A961;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.pagination-btn i {
+    font-size: 14px;
+}
+
+/* ==================== SELECTED SERVICES TAGS ==================== */
+.selected-services {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    min-height: 50px;
+}
+
+.selected-service-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1px solid #C9A961;
+    border-radius: 20px;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #333;
+}
+
+.selected-service-tag span {
+    font-weight: 500;
+}
+
+.selected-service-tag button {
+    background: none;
+    border: none;
+    color: #C9A961;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.selected-service-tag button:hover {
+    background: #C9A961;
+    color: white;
+}
+
+/* ==================== FORM GROUP ==================== */
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #8B9D7C;
+}
+
+/* ==================== STAFF SELECTION ==================== */
+.staff-selection {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.staff-card {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.staff-card:hover:not(.unavailable) {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    border-color: #C9A961;
+}
+
+.staff-card.selected {
+    border-color: #C9A961;
+    background: #fffbf5;
+    box-shadow: 0 4px 12px rgba(201, 169, 97, 0.3);
+}
+
+.staff-card.unavailable {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f5f5f5;
+}
+
+.staff-avatar {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 15px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0f0f0;
+}
+
+.staff-card.selected .staff-avatar {
+    border-color: #C9A961;
+}
+
+.staff-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.staff-avatar i {
+    font-size: 40px;
+    color: #999;
+}
+
+.staff-info h4 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.staff-info .specialty {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.staff-info .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.staff-info .status.available {
+    background: #d4edda;
+    color: #155724;
+}
+
+.staff-info .status.busy {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.staff-info .status i {
+    font-size: 8px;
+}
+
+/* ==================== FORM ACTIONS ==================== */
+.form-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.form-actions .btn {
+    flex: 1;
+}
+
+/* ==================== APPOINTMENT SUMMARY ==================== */
+.appointment-summary {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 100px;
+    height: fit-content;
+}
+
+.appointment-summary h3 {
+    font-size: 20px;
+    color: #333;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.summary-section {
+    margin-bottom: 20px;
+}
+
+.summary-section h4 {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.summary-section .empty-text {
+    color: #999;
+    font-size: 14px;
+    font-style: italic;
+}
+
+.summary-service-item {
+    padding: 10px;
+    background: #f8f8f8;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.summary-service-item span:first-child {
+    font-weight: 600;
+    color: #333;
+}
+
+.summary-service-item span:last-child {
+    color: #C9A961;
+    font-size: 14px;
+}
+
+.summary-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-top: 2px solid #f0f0f0;
+    margin-top: 20px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.summary-total span:last-child {
+    color: #C9A961;
+}
+
+.summary-note {
+    background: rgba(139, 157, 124, 0.1);
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.summary-note i {
+    color: #8B9D7C;
+    margin-top: 3px;
+}
+
+.summary-note p {
+    font-size: 13px;
+    color: #666;
+    margin: 0;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 968px) {
+    .appointment-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .appointment-summary {
+        position: relative;
+        top: 0;
+    }
+    
+    .services-selection {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .appointment-form-section {
+        padding: 25px;
+    }
+    
+    .services-selection {
+        grid-template-columns: repeat(2, 1fr);
+        max-height: 400px;
+    }
+    
+    .staff-selection {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .service-card-small img {
+        height: 160px;
+    }
+}
+
+@media (max-width: 640px) {
+    .appointment-form-section {
+        padding: 20px;
+    }
+    
+    .services-selection {
+        grid-template-columns: 1fr;
+    }
+    
+    .staff-selection {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-title {
+        font-size: 32px;
+    }
+    
+    .step-title {
+        font-size: 20px;
+    }
+    
+    .service-card-small img {
+        height: 140px;
+    }
+}

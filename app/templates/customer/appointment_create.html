@@ -1,0 +1,217 @@
+{% extends "customer/layout.html" %}
+
+{% block body_class %}is-subpage{% endblock %}
+
+{% block title %}Đặt lịch hẹn - Bin Spa{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/customers/appointments.css') }}">
+{% endblock %}
+
+{% block content %}
+    {% if not session.get('user_id') or session.get('user_type') != 'customer' %}
+    <!-- Login Required Modal -->
+    <div class="login-required-modal" id="loginModal">
+        <div class="modal-content">
+            <i class="fas fa-lock" style="font-size: 64px; color: #C9A961; margin-bottom: 20px;"></i>
+            <h2>Vui lòng đăng nhập</h2>
+            <p>Bạn cần đăng nhập để đặt lịch hẹn</p>
+            <div style="display: flex; gap: 15px; margin-top: 30px; justify-content: center;">
+                <a href="/auth/login?redirect=/appointments/create" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt"></i> Đăng nhập
+                </a>
+                <a href="/auth/register" class="btn btn-outline">
+                    <i class="fas fa-user-plus"></i> Đăng ký
+                </a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Appointment Form -->
+    <section class="appointment-section">
+        <div class="container">
+            <div class="breadcrumb">
+                <a href="/">Trang chủ</a>
+                <i class="fas fa-chevron-right"></i>
+                <span>Đặt lịch hẹn</span>
+            </div>
+
+            <h1 class="page-title">Đặt lịch hẹn</h1>
+            <p class="page-subtitle">Vui lòng điền đầy đủ thông tin để đặt lịch</p>
+
+            <div class="appointment-container">
+                <!-- Form Section -->
+                <div class="appointment-form-section">
+                    <form id="appointmentForm">
+                        <!-- Step 1: Select Service -->
+                        <div class="form-step active" id="step1">
+                            <h2 class="step-title">
+                                <span class="step-number">1</span>
+                                Chọn dịch vụ
+                            </h2>
+                            
+                            <div class="service-search">
+                                <i class="fas fa-search"></i>
+                                <input type="text" 
+                                       id="serviceSearch" 
+                                       placeholder="Tìm kiếm dịch vụ..."
+                                       onkeyup="filterServicesInForm()">
+                            </div>
+
+                            <div class="services-selection" id="servicesSelection">
+                                <!-- Services will be loaded dynamically -->
+                                <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #999;">
+                                    <i class="fas fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 10px;"></i>
+                                    <p>Đang tải dịch vụ...</p>
+                                </div>
+                            </div>
+
+                            <div class="selected-services" id="selectedServices">
+                                <p style="color: #999;">Chưa chọn dịch vụ nào</p>
+                            </div>
+
+                            <button type="button" class="btn btn-primary" onclick="goToStep(2)">
+                                Tiếp theo <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+
+                        <!-- Step 2: Select Date & Time -->
+                        <div class="form-step" id="step2">
+                            <h2 class="step-title">
+                                <span class="step-number">2</span>
+                                Chọn ngày và giờ
+                            </h2>
+
+                            <div class="form-group">
+                                <label for="appointmentDate">
+                                    <i class="fas fa-calendar"></i> Chọn ngày
+                                </label>
+                                <input type="date" 
+                                       id="appointmentDate" 
+                                       name="appointmentDate" 
+                                       required
+                                       onchange="loadAvailableStaff()">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="appointmentTime">
+                                    <i class="fas fa-clock"></i> Chọn giờ
+                                </label>
+                                <select id="appointmentTime" name="appointmentTime" required onchange="loadAvailableStaff()">
+                                    <option value="">-- Chọn giờ --</option>
+                                    <option value="07:30">08:00</option>
+                                    <option value="08:00">08:00</option>
+                                    <option value="08:30">08:30</option>
+                                    <option value="09:00">09:00</option>
+                                    <option value="09:30">09:30</option>
+                                    <option value="10:00">10:00</option>
+                                    <option value="10:30">10:30</option>
+                                    <option value="11:00">11:00</option>
+                                    <option value="11:30">11:30</option>
+                                    <option value="13:00">13:00</option>
+                                    <option value="13:30">13:30</option>
+                                    <option value="14:00">14:00</option>
+                                    <option value="14:30">14:30</option>
+                                    <option value="15:00">15:00</option>
+                                    <option value="15:30">15:30</option>
+                                    <option value="16:00">16:00</option>
+                                    <option value="16:30">16:30</option>
+                                    <option value="17:00">17:00</option>
+                                    <option value="17:30">17:30</option>
+                                    <option value="18:00">18:00</option>
+                                    <option value="18:30">18:30</option>
+                                </select>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-outline" onclick="goToStep(1)">
+                                    <i class="fas fa-arrow-left"></i> Quay lại
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="goToStep(3)">
+                                    Tiếp theo <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Select Staff (Optional) -->
+                        <div class="form-step" id="step3">
+                            <h2 class="step-title">
+                                <span class="step-number">3</span>
+                                Chọn nhân viên (Tùy chọn)
+                            </h2>
+
+                            <p class="step-description">
+                                Bạn có thể chọn nhân viên yêu thích hoặc để spa tự động sắp xếp
+                            </p>
+
+                            <div class="staff-selection" id="staffSelection">
+                                <p style="text-align: center; color: #999; grid-column: 1/-1;">
+                                    Vui lòng chọn ngày giờ để xem nhân viên rảnh
+                                </p>
+                            </div>
+
+                            <div class="form-group">
+                                <label style="cursor: pointer;">
+                                    <input type="checkbox" id="autoAssign" checked style="width: auto; margin-right: 8px;">
+                                    <span>Để spa tự động sắp xếp nhân viên phù hợp</span>
+                                </label>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-outline" onclick="goToStep(2)">
+                                    <i class="fas fa-arrow-left"></i> Quay lại
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-check"></i> Xác nhận đặt lịch
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Appointment Summary -->
+                <div class="appointment-summary">
+                    <h3>Thông tin đặt lịch</h3>
+                    
+                    <div class="summary-section">
+                        <h4><i class="fas fa-spa"></i> Dịch vụ đã chọn</h4>
+                        <div id="summaryServices">
+                            <p class="empty-text">Chưa chọn dịch vụ</p>
+                        </div>
+                    </div>
+
+                    <div class="summary-section">
+                        <h4><i class="fas fa-calendar-alt"></i> Thời gian</h4>
+                        <div id="summaryDateTime">
+                            <p class="empty-text">Chưa chọn thời gian</p>
+                        </div>
+                    </div>
+
+                    <div class="summary-section">
+                        <h4><i class="fas fa-user"></i> Nhân viên</h4>
+                        <div id="summaryStaff">
+                            <p class="empty-text">Tự động sắp xếp</p>
+                        </div>
+                    </div>
+
+                    <div class="summary-total">
+                        <span>Tổng cộng:</span>
+                        <span id="summaryTotal">0đ</span>
+                    </div>
+
+                    <div class="summary-note">
+                        <i class="fas fa-info-circle"></i>
+                        <p>Vui lòng đến trước 10 phút để làm thủ tục. Spa sẽ xác nhận lịch hẹn của bạn trong thời gian sớm nhất.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+    {% if session.get('user_id') and session.get('user_type') == 'customer' %}
+    <script src="{{ url_for('static', filename='js/customers/appointments.js') }}"></script>
+    {% endif %}
+{% endblock %}
