@@ -27,7 +27,7 @@ def send_email(to_email, subject, body):
         raise RuntimeError("RESEND_API_KEY không tồn tại. Vui lòng thêm vào Render Environment.")
     
 
-    from_email = "Bin Spa <noreply@send.binspa.id.vn>"
+    from_email = "Bin Spa <noreply@binspa.id.vn>"
     
 
     
@@ -133,7 +133,7 @@ def send_booking_confirmation(to_email, booking_details):
             - total_price: Tổng tiền
     """
     try:
-        from_email = "Bin Spa <noreply@send.binspa.id.vn>"
+        from_email = "Bin Spa <noreply@binspa.id.vn>"
         
         html_content = f"""
         <!DOCTYPE html>
