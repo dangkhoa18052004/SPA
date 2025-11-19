@@ -29,7 +29,7 @@ def send_email(to_email, subject, body):
     
     # Email người gửi (dùng domain mặc định của Resend cho testing)
     # Sau này có thể thay bằng domain riêng của bạn sau khi verify
-    from_email = "Bin Spa <onboarding@resend.dev>"
+    from_email = "Bin Spa <noreply@send.binspa.id.vn>"
     
     # Nếu muốn dùng email riêng (sau khi verify domain):
     # from_email = f"Bin Spa <noreply@{os.getenv('YOUR_DOMAIN', 'binspa.com')}>"
