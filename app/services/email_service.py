@@ -22,20 +22,16 @@ def send_email(to_email, subject, body):
         Exception: Nếu có lỗi trong quá trình gửi
     """
     
-    # Kiểm tra cấu hình
     if not resend.api_key:
         current_app.logger.error("❌ RESEND_API_KEY chưa được cấu hình trong Environment Variables!")
         raise RuntimeError("RESEND_API_KEY không tồn tại. Vui lòng thêm vào Render Environment.")
     
-    # Email người gửi (dùng domain mặc định của Resend cho testing)
-    # Sau này có thể thay bằng domain riêng của bạn sau khi verify
+
     from_email = "Bin Spa <noreply@send.binspa.id.vn>"
     
-    # Nếu muốn dùng email riêng (sau khi verify domain):
-    # from_email = f"Bin Spa <noreply@{os.getenv('YOUR_DOMAIN', 'binspa.com')}>"
+
     
     try:
-        # Tạo email template với style đẹp hơn
         html_content = f"""
         <!DOCTYPE html>
         <html lang="vi">
@@ -106,7 +102,6 @@ def send_email(to_email, subject, body):
         </html>
         """
         
-        # Gửi email qua Resend
         response = resend.Emails.send({
             "from": from_email,
             "to": [to_email],
@@ -114,15 +109,12 @@ def send_email(to_email, subject, body):
             "html": html_content
         })
         
-        # Log thành công
         current_app.logger.info(f"✅ Email đã gửi thành công tới {to_email} | Response ID: {response.get('id', 'N/A')}")
         return True
         
     except Exception as e:
-        # Log lỗi chi tiết
         current_app.logger.error(f"❌ Gửi email thất bại tới {to_email}: {str(e)}")
         
-        # Raise lại exception để auth_bp.py có thể catch và xử lý
         raise e
 
 
@@ -141,7 +133,7 @@ def send_booking_confirmation(to_email, booking_details):
             - total_price: Tổng tiền
     """
     try:
-        from_email = "Bin Spa <onboarding@resend.dev>"
+        from_email = "Bin Spa <noreply@send.binspa.id.vn>"
         
         html_content = f"""
         <!DOCTYPE html>
