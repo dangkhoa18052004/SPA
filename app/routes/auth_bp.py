@@ -353,3 +353,37 @@ def logout():
     session.clear()
     current_app.logger.info("User logged out, session cleared")
     return jsonify({'success': True, 'message': 'Đăng xuất thành công'})
+
+@auth_bp.route("/reset-password", methods=["POST"]) # <--- THÊM ROUTE NÀY
+def reset_password():
+    """Đặt lại mật khẩu bằng cách sử dụng token và mật khẩu mới."""
+    data = request.get_json() or {}
+    reset_token = data.get("reset_token")
+    new_password = data.get("new_password")
+    
+    if not reset_token or not new_password: 
+        return jsonify({"success": False, "message": "Thiếu token hoặc mật khẩu mới"}), 400
+    
+    # 1. Tìm user bằng reset_token
+    user = KhachHang.query.filter_by(resettoken=reset_token).first()
+    
+    if not user: 
+        return jsonify({"success": False, "message": "Token không hợp lệ hoặc đã được sử dụng"}), 404
+        
+    # 2. Kiểm tra thời hạn token
+    if user.resettokenexpire < datetime.utcnow(): 
+        return jsonify({"success": False, "message": "Token đã hết hạn"}), 400
+
+    try:
+        # 3. Cập nhật mật khẩu và xóa token
+        user.matkhau = generate_password_hash(new_password)
+        user.resettoken = None
+        user.resettokenexpire = None
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "Đặt lại mật khẩu thành công"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi khi đặt lại mật khẩu: {e}")
+        return jsonify({"success": False, "message": "Lỗi hệ thống khi cập nhật mật khẩu"}), 500
