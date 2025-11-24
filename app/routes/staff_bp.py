@@ -11,9 +11,8 @@ def get_all_staff():
     Dùng cho form đặt lịch hẹn
     """
     try:
-        # Lấy tất cả nhân viên đang active
         staff_list = NhanVien.query.filter(
-            NhanVien.role.in_(['staff', 'letan'])  # Chỉ lấy nhân viên và lễ tân
+            NhanVien.role.in_(['staff', 'letan']) 
         ).all()
         
         result = []

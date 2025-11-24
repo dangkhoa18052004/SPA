@@ -17,7 +17,6 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 def get_profile():
     """Lấy thông tin user hiện tại (ĐÃ SỬA LỖI 500)"""
     try:
-        # Lấy identity string từ JWT 
         identity_str = get_jwt_identity() 
         
         if not identity_str:
@@ -28,14 +27,12 @@ def get_profile():
         name = None
         username = None
 
-        # Phân tích identity string
         try:
             user_type, user_id_str = identity_str.split(':')
             user_id = int(user_id_str)
         except (ValueError, TypeError):
              return jsonify({"msg": "Định dạng identity không hợp lệ"}), 401
 
-        # Tải thông tin user dựa trên user_type
         if user_type == 'staff':
             user = NhanVien.query.get(user_id)
             if user:
@@ -45,7 +42,7 @@ def get_profile():
         elif user_type == 'customer':
             user = KhachHang.query.get(user_id)
             if user:
-                role = 'customer' # Khách hàng không có cột role
+                role = 'customer' 
                 name = user.hoten
                 username = user.taikhoan
         
@@ -105,10 +102,8 @@ def register():
                 return jsonify({"success": False, "message": "Lỗi khi gửi lại OTP."}), 500
         
         elif existing_customer_sdt.trangthai == 'blocked':
-            # Tài khoản bị khóa
             return jsonify({"success": False, "message": "Tài khoản này đã bị khóa. Vui lòng liên hệ spa."}), 403
 
-    #Nếu SĐT mới, kiểm tra Tên tài khoản và Email như cũ
     if KhachHang.query.filter(
         (KhachHang.taikhoan == taikhoan) | (KhachHang.email == email)
     ).first(): 
@@ -354,28 +349,26 @@ def logout():
     current_app.logger.info("User logged out, session cleared")
     return jsonify({'success': True, 'message': 'Đăng xuất thành công'})
 
-@auth_bp.route("/reset-password", methods=["POST"]) # <--- THÊM ROUTE NÀY
+@auth_bp.route("/reset-password", methods=["POST"])
 def reset_password():
-    """Đặt lại mật khẩu bằng cách sử dụng token và mật khẩu mới."""
+    """Đặt lại mật khẩu bằng mã khôi phục."""
     data = request.get_json() or {}
-    reset_token = data.get("reset_token")
-    new_password = data.get("new_password")
     
-    if not reset_token or not new_password: 
-        return jsonify({"success": False, "message": "Thiếu token hoặc mật khẩu mới"}), 400
+    reset_code = data.get("reset_code")  
+    new_password = data.get("matkhau")  
     
-    # 1. Tìm user bằng reset_token
-    user = KhachHang.query.filter_by(resettoken=reset_token).first()
+    if not reset_code or not new_password: 
+        return jsonify({"success": False, "message": "Thiếu mã khôi phục hoặc mật khẩu mới"}), 400
+    
+    user = KhachHang.query.filter_by(resettoken=reset_code).first()
     
     if not user: 
-        return jsonify({"success": False, "message": "Token không hợp lệ hoặc đã được sử dụng"}), 404
+        return jsonify({"success": False, "message": "Mã khôi phục không hợp lệ hoặc đã được sử dụng"}), 404
         
-    # 2. Kiểm tra thời hạn token
     if user.resettokenexpire < datetime.utcnow(): 
-        return jsonify({"success": False, "message": "Token đã hết hạn"}), 400
+        return jsonify({"success": False, "message": "Mã khôi phục đã hết hạn"}), 400
 
     try:
-        # 3. Cập nhật mật khẩu và xóa token
         user.matkhau = generate_password_hash(new_password)
         user.resettoken = None
         user.resettokenexpire = None

@@ -696,6 +696,20 @@ function escapeHtml(text) {
 
 function formatMessageTime(timeStr) {
     if (!timeStr) return '';
+    
     const date = new Date(timeStr);
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    if (!timeStr.includes('Z') && !timeStr.includes('+')) {
+        const utcDate = new Date(timeStr.replace(' ', 'T') + 'Z');
+        return utcDate.toLocaleTimeString('vi-VN', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'Asia/Ho_Chi_Minh' 
+        });
+    }
+    
+    return date.toLocaleTimeString('vi-VN', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        timeZone: 'Asia/Ho_Chi_Minh'
+    });
 }
