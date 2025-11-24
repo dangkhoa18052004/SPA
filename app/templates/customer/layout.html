@@ -13,10 +13,10 @@
     <!-- Navigation Bar -->
     <nav class="navbar" id="navbar">
         <div class="nav-container">
-            <div class="nav-logo">
+            <a href="{{ url_for('customer.index') }}" class="nav-logo">
                 <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="Bin Spa Logo">
                 <span>Bin Spa</span>
-            </div>
+            </a>
             
             <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link" data-lang-vi="Trang chủ" data-lang-en="Home">TRANG CHỦ</a>
