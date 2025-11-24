@@ -293,7 +293,7 @@ function displayServices(services) {
 }
 
 function viewServiceDetail(serviceId) {
-    window.location.href = `/api/services/${serviceId}`;
+    window.location.href = `/services/${serviceId}`;
 }
 
 function formatPrice(price) {
