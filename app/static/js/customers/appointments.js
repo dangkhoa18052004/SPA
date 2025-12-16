@@ -290,7 +290,7 @@ async function loadAvailableStaff() {
         const datetime = `${date}T${time}`;
         
         // === SỬA LỖI 1: Sửa URL tải nhân viên ===
-        const staffResponse = await fetch('/api/admin/staff', {
+        const staffResponse = await fetch('/api/staff', {
             headers: getAuthHeaders(false)
         });
         
