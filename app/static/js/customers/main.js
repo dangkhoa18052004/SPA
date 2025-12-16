@@ -351,7 +351,7 @@ async function loadOrCreateConversation() {
                 chatMessages.innerHTML = `
                     <div class="chat-login-prompt">
                         <p>Vui lòng đăng nhập để sử dụng tính năng chat</p>
-                        <a href="/login" class="btn btn-primary btn-sm">Đăng nhập</a>
+                        <a href="auth/login" class="btn btn-primary btn-sm">Đăng nhập</a>
                     </div>
                 `;
             }
