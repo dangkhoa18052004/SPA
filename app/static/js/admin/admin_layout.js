@@ -115,9 +115,9 @@ const MENU_CONFIG = {
         { key: 'invoices', title: 'Quản lý Hóa đơn', href: '/admin/invoices', icon: 'fa-file-invoice-dollar' },
         { key: 'customers', title: 'Quản lý Khách hàng', href: '/admin/customers', icon: 'fa-user-friends' },
         { key: 'staff', title: 'Quản lý Nhân viên', href: '/admin/staff', icon: 'fa-users-cog' },
-        // { key: 'shifts', title: 'Quản lý Ca làm', href: '/admin/shifts', icon: 'fa-clock' },
-        // { key: 'approve_shifts', title: 'Duyệt đăng ký ca', href: '/admin/approve-shifts', icon: 'fa-calendar-check' },
-        // { key: 'salary', title: 'Quản lý Lương', href: '/admin/salary', icon: 'fa-money-bill-wave' },
+        { key: 'shifts', title: 'Quản lý Ca làm', href: '/admin/shifts', icon: 'fa-clock' },
+        { key: 'approve_shifts', title: 'Duyệt đăng ký ca', href: '/admin/approve-shifts', icon: 'fa-calendar-check' },
+        { key: 'salary', title: 'Quản lý Lương', href: '/admin/salary', icon: 'fa-money-bill-wave' },
         { key: 'services', title: 'Quản lý Dịch vụ', href: '/admin/services', icon: 'fa-spa' },
         { key: 'roles', title: 'Quản lý Chức vụ', href: '/admin/roles', icon: 'fa-user-tag' },
         { key: 'chat', title: 'Tin nhắn', href: '/admin/chat', icon: 'fa-comments' }
