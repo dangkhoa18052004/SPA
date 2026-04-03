@@ -12,11 +12,6 @@ Hệ thống được phát triển chủ yếu bằng **Python Flask**, kết h
 - **Flask-Mail / Resend** để gửi email xác thực và thông báo
 - **MoMo Sandbox** để hỗ trợ thanh toán trực tuyến
 
-Dự án phù hợp để sử dụng cho:
-- Đồ án môn học / đồ án tốt nghiệp
-- Demo hệ thống quản lý spa / salon
-- Nền tảng tham khảo cho mô hình Flask web app có cả giao diện và API backend
-
 ---
 
 ## Mục tiêu dự án
