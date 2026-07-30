@@ -197,14 +197,8 @@ flask db upgrade
 6. Chạy ứng dụng
 python run.py
 
-Hoặc dùng WSGI:
-gunicorn wsgi:app
-Tài khoản admin mặc định
 
-Dự án có sẵn script tạo admin:
-python create_admin.py
 
-Tài khoản mặc định trong script:
-Username: admin
-Password: Admin@123456
-Sau khi đăng nhập lần đầu, nên đổi mật khẩu để đảm bảo an toàn.
+
+
+
