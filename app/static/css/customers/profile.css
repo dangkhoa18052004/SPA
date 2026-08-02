@@ -24,6 +24,22 @@
     .profile-avatar {
         text-align: center;
         margin-bottom: 20px;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    .profile-avatar h3 {
+        font-size: 20px;
+        color: #2B2D2F;
+        word-break: break-word;
+    }
+    
+    .profile-avatar p, #userEmail {
+        font-size: 13px;
+        color: #888;
+        word-break: break-all;
+        overflow-wrap: anywhere;
+        margin-top: 4px;
     }
     
     .avatar-wrapper {
