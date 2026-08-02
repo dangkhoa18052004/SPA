@@ -731,6 +731,23 @@ async function handleCashPaymentSubmit(invoiceId, totalAmount) {
 // MOMO QR PAYMENT
 // ========================================
 
+async function ensureQRCodeLoaded() {
+    if (typeof QRCode !== 'undefined') return true;
+    return new Promise((resolve) => {
+        const localScript = document.createElement('script');
+        localScript.src = '/static/js/admin/qrcode.min.js';
+        localScript.onload = () => resolve(typeof QRCode !== 'undefined');
+        localScript.onerror = () => {
+            const cdnScript = document.createElement('script');
+            cdnScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+            cdnScript.onload = () => resolve(typeof QRCode !== 'undefined');
+            cdnScript.onerror = () => resolve(false);
+            document.head.appendChild(cdnScript);
+        };
+        document.head.appendChild(localScript);
+    });
+}
+
 async function generateMomoQrCode(invoiceId) {
     closePaymentModal();
     
@@ -783,7 +800,8 @@ async function generateMomoQrCode(invoiceId) {
             qrDiv.style.margin = '20px auto';
             qrContainer.appendChild(qrDiv);
             
-            if (typeof QRCode !== 'undefined') {
+            const qrLoaded = await ensureQRCodeLoaded();
+            if (qrLoaded && typeof QRCode !== 'undefined') {
                 new QRCode(qrDiv, {
                     text: data.qrCodeUrl,
                     width: 250,
@@ -793,7 +811,7 @@ async function generateMomoQrCode(invoiceId) {
                     correctLevel: QRCode.CorrectLevel.H
                 });
             } else {
-                throw new Error('Thư viện QRCode chưa được load');
+                throw new Error('Thư viện QRCode không tải được. Vui lòng thử lại.');
             }
             
             qrContainer.insertAdjacentHTML('beforeend', `

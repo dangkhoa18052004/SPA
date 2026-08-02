@@ -517,6 +517,23 @@ function showInvoiceModal(invoice) {
 }
 
 // ==================== PAYMENT HANDLING (ĐÃ SỬA: TẠO QR MOMO) ====================
+async function ensureQRCodeLoaded() {
+    if (typeof QRCode !== 'undefined') return true;
+    return new Promise((resolve) => {
+        const localScript = document.createElement('script');
+        localScript.src = '/static/js/admin/qrcode.min.js';
+        localScript.onload = () => resolve(typeof QRCode !== 'undefined');
+        localScript.onerror = () => {
+            const cdnScript = document.createElement('script');
+            cdnScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+            cdnScript.onload = () => resolve(typeof QRCode !== 'undefined');
+            cdnScript.onerror = () => resolve(false);
+            document.head.appendChild(cdnScript);
+        };
+        document.head.appendChild(localScript);
+    });
+}
+
 async function payInvoice(invoiceId, amount) {
     if (!confirm(`Bạn có chắc muốn thanh toán hóa đơn #${invoiceId} với số tiền ${formatCurrency(amount)}? Hệ thống sẽ tạo mã QR Momo.`)) {
         return;
@@ -542,7 +559,8 @@ async function payInvoice(invoiceId, amount) {
             qrDiv.style.margin = '20px auto';
             qrContainer.appendChild(qrDiv);
             
-            if (typeof QRCode !== 'undefined') {
+            const qrLoaded = await ensureQRCodeLoaded();
+            if (qrLoaded && typeof QRCode !== 'undefined') {
                  new QRCode(qrDiv, {
                     text: data.qrCodeUrl,
                     width: 200,

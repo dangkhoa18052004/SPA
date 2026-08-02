@@ -1066,6 +1066,23 @@ async function handleCashPaymentSubmit(invoiceId, totalAmount) {
     } catch (error) { console.error('Lỗi:', error); showError('Có lỗi xảy ra khi ghi nhận tiền mặt'); }
 }
 
+async function ensureQRCodeLoaded() {
+    if (typeof QRCode !== 'undefined') return true;
+    return new Promise((resolve) => {
+        const localScript = document.createElement('script');
+        localScript.src = '/static/js/admin/qrcode.min.js';
+        localScript.onload = () => resolve(typeof QRCode !== 'undefined');
+        localScript.onerror = () => {
+            const cdnScript = document.createElement('script');
+            cdnScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+            cdnScript.onload = () => resolve(typeof QRCode !== 'undefined');
+            cdnScript.onerror = () => resolve(false);
+            document.head.appendChild(cdnScript);
+        };
+        document.head.appendChild(localScript);
+    });
+}
+
 async function generateMomoQrCode(invoiceId) {
     closeModal(`paymentModal-${invoiceId}`);
     
@@ -1106,8 +1123,13 @@ async function generateMomoQrCode(invoiceId) {
             qrDiv.style.margin = '20px auto';
             qrContainer.appendChild(qrDiv);
             
-            if (typeof QRCode !== 'undefined') { new QRCode(qrDiv, { text: data.qrCodeUrl, width: 250, height: 250, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
-            } else { qrContainer.innerHTML = `<p style="color:red;">Lỗi: Thư viện QRCode không tải được.</p>`; throw new Error('Thư viện QRCode chưa được load'); }
+            const qrLoaded = typeof ensureQRCodeLoaded === 'function' ? await ensureQRCodeLoaded() : (typeof QRCode !== 'undefined');
+            if (qrLoaded && typeof QRCode !== 'undefined') {
+                new QRCode(qrDiv, { text: data.qrCodeUrl, width: 250, height: 250, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
+            } else {
+                qrContainer.innerHTML = `<p style="color:red;">Lỗi: Thư viện QRCode không tải được.</p>`;
+                throw new Error('Thư viện QRCode chưa được load');
+            }
             
             qrContainer.insertAdjacentHTML('beforeend', `<div class="qr-instructions" style="text-align: left; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;"><p style="margin-bottom: 5px; font-weight: 600;"><i class="fas fa-mobile-alt" style="color: #667eea; width: 20px;"></i> Bước 1: Mở ứng dụng Momo</p><p style="margin-bottom: 5px; font-weight: 600;"><i class="fas fa-qrcode" style="color: #667eea; width: 20px;"></i> Bước 2: Quét mã QR phía trên</p><p style="margin-bottom: 5px; font-weight: 600;"><i class="fas fa-check-circle" style="color: #667eea; width: 20px;"></i> Bước 3: Xác nhận thanh toán</p></div><div id="payment-status" style="text-align: center; margin-top: 20px; font-weight: 600; color: #667eea;"><i class="fas fa-spinner fa-spin"></i> Đang chờ thanh toán...</div>`);
             
