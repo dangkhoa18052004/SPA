@@ -820,8 +820,8 @@ async function generateMomoQrCode(invoiceId) {
             
             qrContainer.insertAdjacentHTML('beforeend', `
                 <div class="bank-info-box" style="background: #f8fafc; padding: 12px; border-radius: 8px; margin-top: 12px; text-align: left; font-size: 13px; border: 1px solid #e2e8f0;">
-                    <p style="margin: 3px 0;"><strong>Chủ tài khoản:</strong> ${data.accountName || 'DANG VAN KHOA'}</p>
-                    <p style="margin: 3px 0;"><strong>Số tài khoản:</strong> <span style="color: #005baa; font-weight: bold;">${data.accountNo || '19071655175011'}</span> (${data.bank || 'Techcombank'})</p>
+                    <p style="margin: 3px 0;"><strong>Chủ tài khoản:</strong> ${data.account_name || data.accountName || 'DANG VAN KHOA'}</p>
+                    <p style="margin: 3px 0;"><strong>Số tài khoản:</strong> <span style="color: #005baa; font-weight: bold;">${data.account_no || data.accountNo || '0387829152'}</span> (${data.bank_id || data.bank || 'MB Bank'})</p>
                     <p style="margin: 3px 0;"><strong>Nội dung ck:</strong> <span style="color: #d97706; font-weight: bold;">${data.description || ('HD' + invoiceId)}</span></p>
                 </div>
                 <div class="qr-instructions" style="text-align: left; margin-top: 15px; border-top: 1px solid #eee; padding-top: 12px; font-size: 13px;">

@@ -9,8 +9,8 @@ def generate_vietqr_info(invoice):
     Tạo thông tin VietQR cho hóa đơn.
     Trả về URL ảnh QR VietQR QuickLink (Napas247) và thông tin chuyển khoản.
     """
-    bank_id = current_app.config.get("VIETQR_BANK_ID", "TCB")
-    account_no = current_app.config.get("VIETQR_ACCOUNT_NO", "19071655175011")
+    bank_id = current_app.config.get("VIETQR_BANK_ID", "MB")
+    account_no = current_app.config.get("VIETQR_ACCOUNT_NO", "0387829152")
     account_name = current_app.config.get("VIETQR_ACCOUNT_NAME", "DANG VAN KHOA")
     
     amount = int(float(invoice.tongtien))
