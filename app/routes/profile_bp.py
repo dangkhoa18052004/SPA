@@ -123,6 +123,15 @@ def upload_avatar():
 @profile_bp.route("/avatar/<path:filename>", methods=["GET"])
 def get_avatar(filename):
     upload_folder = current_app.config.get('UPLOAD_FOLDER')
+    static_images = os.path.join(current_app.root_path, 'static', 'images')
+    
+    if not filename or filename in ['placeholder.png', 'default-avatar.png', 'null', 'undefined', 'None']:
+        return send_from_directory(static_images, 'default-avatar.svg')
+    
+    filepath = os.path.join(upload_folder, filename) if upload_folder else None
+    if not filepath or not os.path.exists(filepath):
+        return send_from_directory(static_images, 'default-avatar.svg')
+
     return send_from_directory(upload_folder, filename)
 
 @profile_bp.route("/change-password", methods=["PUT"])

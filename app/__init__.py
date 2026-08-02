@@ -9,7 +9,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config['MAIL_DEFAULT_SENDER'] = ('Bin Spa', app.config.get('MAIL_FROM'))
-    CORS(app, supports_credentials=True, origins=['http://127.0.0.1:5000'])
+    CORS(app, supports_credentials=True, origins=['http://127.0.0.1:5000', 'http://localhost:5000', 'https://binspa.id.vn'])
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)

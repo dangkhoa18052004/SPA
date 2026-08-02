@@ -11,15 +11,17 @@ import threading
 
 appointment_bp = Blueprint("appointment", __name__)
 
-# HÀM GỬI EMAIL
-def send_async_email(app, msg):
-    """Hàm chạy trong thread riêng để gửi mail (tránh làm chậm API)."""
+from ..services.email_service import send_email
+
+# HÀM GỬI EMAIL BẤT ĐỒNG BỘ QUA RESEND
+def send_async_email(app, customer_email, subject, html_content):
+    """Hàm chạy trong thread riêng để gửi mail qua Resend (tránh làm chậm API)."""
     with app.app_context():
         try:
-            mail.send(msg)
-            current_app.logger.info(f"Đã gửi email thành công tới {msg.recipients}")
+            send_email(customer_email, subject, html_content)
+            current_app.logger.info(f"Đã gửi email thành công tới {customer_email}")
         except Exception as e:
-            current_app.logger.error(f"Lỗi khi gửi email: {e}")
+            current_app.logger.error(f"Lỗi khi gửi email qua Resend: {e}")
 
 def send_appointment_confirmation_email(customer_email, customer_name, appointment_data):
     """Gửi email xác nhận đặt lịch"""
@@ -52,52 +54,37 @@ def send_appointment_confirmation_email(customer_email, customer_name, appointme
         end_time = (start_dt + timedelta(minutes=total_duration)).strftime("%H:%M")
 
         html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
-            <div style="max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px;">
-                
-                <h2 style="margin-top: 0; color: #C9A961;">Bin Spa</h2>
-                <p>Xin chào <strong>{customer_name}</strong>,</p>
-                <p>Cảm ơn bạn đã đặt lịch tại <strong>Bin Spa</strong>. Dưới đây là thông tin lịch hẹn của bạn:</p>
+        <p>Xin chào <strong>{customer_name}</strong>,</p>
+        <p>Cảm ơn bạn đã đặt lịch tại <strong>Bin Spa</strong>. Dưới đây là thông tin lịch hẹn của bạn:</p>
 
-                <div style="margin-top: 20px;">
-                    <p><strong>Mã lịch hẹn:</strong> #{appointment_data['malh']}</p>
-                    <p><strong>Ngày:</strong> {start_dt.strftime("%d/%m/%Y")}</p>
-                    <p><strong>Dịch vụ:</strong> {services_text}</p>
-                    <p><strong>Nhân viên:</strong> {staff_name}</p>
-                    <p><strong>Giờ:</strong> {start_dt.strftime("%H:%M")} - {end_time}</p>
-                </div>
+        <div style="margin-top: 20px;">
+            <p><strong>Mã lịch hẹn:</strong> #{appointment_data['malh']}</p>
+            <p><strong>Ngày:</strong> {start_dt.strftime("%d/%m/%Y")}</p>
+            <p><strong>Dịch vụ:</strong> {services_text}</p>
+            <p><strong>Nhân viên:</strong> {staff_name}</p>
+            <p><strong>Giờ:</strong> {start_dt.strftime("%H:%M")} - {end_time}</p>
+        </div>
 
-                <table style="width: 100%; border-collapse: collapse; margin-top: 25px;">
-                    <thead>
-                        <tr>
-                            <th style="padding: 10px; border-bottom: 2px solid #C9A961; text-align: left;">Dịch vụ</th>
-                            <th style="padding: 10px; border-bottom: 2px solid #C9A961; text-align: right;">Thời lượng</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {services_html}
-                    </tbody>
-                </table>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 25px;">
+            <thead>
+                <tr>
+                    <th style="padding: 10px; border-bottom: 2px solid #C9A961; text-align: left;">Dịch vụ</th>
+                    <th style="padding: 10px; border-bottom: 2px solid #C9A961; text-align: right;">Thời lượng</th>
+                </tr>
+            </thead>
+            <tbody>
+                {services_html}
+            </tbody>
+        </table>
 
-                <p style="margin-top: 20px;">Bạn không cần phản hồi email này </p>
-                <p>Trân trọng,<br><strong>Bin Spa</strong></p>
-            </div>
-        </body>
-        </html>
+        <p style="margin-top: 20px;">Bạn không cần phản hồi email này.</p>
+        <p>Trân trọng,<br><strong>Bin Spa</strong></p>
         """
 
-        msg = Message(
-            subject=subject,
-            recipients=[customer_email],
-            html=html_content
-        )
-
-        thr = threading.Thread(target=send_async_email, args=[app, msg])
+        thr = threading.Thread(target=send_async_email, args=[app, customer_email, subject, html_content])
         thr.start()
 
-        current_app.logger.info(f"Email xác nhận lịch hẹn đã gửi cho {customer_email}")
+        current_app.logger.info(f"Email xác nhận lịch hẹn đã khởi tạo gửi cho {customer_email}")
         return True
 
     except Exception as e:

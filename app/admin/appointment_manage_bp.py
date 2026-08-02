@@ -5,9 +5,20 @@ from ..decorators import roles_required
 from datetime import datetime, date, timedelta
 from sqlalchemy import and_, func, or_
 from flask_mail import Message
-from sqlalchemy.orm import joinedload 
+import threading
+from app.services.email_service import send_email
 
 appointment_manage_bp = Blueprint("appointment_manage", __name__)
+
+def send_async_email_complete(app, recipient, subject, body):
+    """Hàm gửi mail bất đồng bộ khi hoàn thành dịch vụ"""
+    with app.app_context():
+        try:
+            send_email(recipient, subject, body)
+            current_app.logger.info(f"Đã gửi email cảm ơn hoàn thành dịch vụ tới {recipient}")
+        except Exception as e:
+            current_app.logger.error(f"Lỗi khi gửi mail cảm ơn hoàn thành dịch vụ: {e}")
+
 
 def check_staff_availability(manv, ngaygio, thoiluong_phut):
     """
@@ -590,7 +601,6 @@ def cancel_appointment(malh):
 @appointment_manage_bp.route("/appointments/<int:malh>/complete", methods=["POST"])
 @roles_required('admin', 'manager', 'letan', 'staff')
 def complete_appointment(malh):
-# ... (Nội dung hàm giữ nguyên) ...
     try:
         apt = LichHen.query.get(malh)
         if not apt:
@@ -598,6 +608,28 @@ def complete_appointment(malh):
         
         apt.trangthai = 'completed'
         db.session.commit()
+
+        # Gửi email cảm ơn hoàn thành dịch vụ cho khách hàng
+        if apt.khachhang and apt.khachhang.email:
+            try:
+                customer_email = apt.khachhang.email
+                customer_name = apt.khachhang.hoten or "Quý khách"
+                subject = f"🌸 Bin Spa - Cảm ơn bạn đã sử dụng dịch vụ (Lịch hẹn #{apt.malh})"
+                body = f"""
+                <p>Xin chào <strong>{customer_name}</strong>,</p>
+                <p>Cảm ơn bạn đã tin tưởng và sử dụng dịch vụ tại <strong>Bin Spa</strong>.</p>
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                    <p style="margin: 3px 0;"><strong>Mã lịch hẹn:</strong> #{apt.malh}</p>
+                    <p style="margin: 3px 0;"><strong>Thời gian:</strong> {apt.ngaygio.strftime('%H:%M %d/%m/%Y')}</p>
+                    <p style="margin: 3px 0;"><strong>Trạng thái:</strong> <span style="color: #28a745; font-weight: bold;">Hoàn thành</span></p>
+                </div>
+                <p>Hy vọng bạn đã có những phút giây thư giãn tuyệt vời. Rất mong được tiếp đón bạn trong những lần ghé thăm tiếp theo!</p>
+                <p>Trân trọng,<br><strong>Đội ngũ Bin Spa</strong></p>
+                """
+                thr = threading.Thread(target=send_async_email_complete, args=[current_app._get_current_object(), customer_email, subject, body])
+                thr.start()
+            except Exception as mail_err:
+                current_app.logger.error(f"Không thể khởi tạo mail cảm ơn hoàn thành dịch vụ: {mail_err}")
         
         return jsonify({"success": True, "msg": "Hoàn thành lịch hẹn"}), 200
     except Exception as e:

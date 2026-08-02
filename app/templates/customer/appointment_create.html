@@ -37,7 +37,25 @@
             </div>
 
             <h1 class="page-title">Đặt lịch hẹn</h1>
-            <p class="page-subtitle">Vui lòng điền đầy đủ thông tin để đặt lịch</p>
+            <p class="page-subtitle">Vui lòng điền đầy đủ thông tin để hoàn tất đặt lịch</p>
+
+            <!-- Multi-step Wizard Progress Bar -->
+            <div class="booking-wizard-steps">
+                <div class="wizard-step active" id="wizStep1">
+                    <div class="wizard-circle"><i class="fas fa-spa"></i></div>
+                    <span class="wizard-label">1. Dịch vụ</span>
+                </div>
+                <div class="wizard-line" id="wizLine1"></div>
+                <div class="wizard-step" id="wizStep2">
+                    <div class="wizard-circle"><i class="fas fa-clock"></i></div>
+                    <span class="wizard-label">2. Khung giờ</span>
+                </div>
+                <div class="wizard-line" id="wizLine2"></div>
+                <div class="wizard-step" id="wizStep3">
+                    <div class="wizard-circle"><i class="fas fa-user-sparkles"></i></div>
+                    <span class="wizard-label">3. Chuyên viên</span>
+                </div>
+            </div>
 
             <div class="appointment-container">
                 <!-- Form Section -->

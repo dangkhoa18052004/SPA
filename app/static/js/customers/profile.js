@@ -79,9 +79,13 @@ function displayUserInfo(user) {
     document.getElementById('userName').textContent = user.hoten;
     document.getElementById('userEmail').textContent = user.email;
     
-    // Avatar
-    if (user.anhdaidien) {
-        document.getElementById('avatarImg').src = `/api/profile/avatar/${user.anhdaidien}`;
+    const avatarImgEl = document.getElementById('avatarImg');
+    if (avatarImgEl) {
+        avatarImgEl.src = user.anhdaidien ? `/api/profile/avatar/${user.anhdaidien}` : '/static/images/default-avatar.svg';
+        avatarImgEl.onerror = function() {
+            this.onerror = null;
+            this.src = '/static/images/default-avatar.svg';
+        };
     }
     
     // Info section
@@ -554,36 +558,53 @@ async function payInvoice(invoiceId, amount) {
             const qrContainer = document.getElementById('qr-code-container-cust');
             qrContainer.innerHTML = '';
             
-            const qrDiv = document.createElement('div');
-            qrDiv.id = `qrcode-canvas-${invoiceId}`;
-            qrDiv.style.margin = '20px auto';
-            qrContainer.appendChild(qrDiv);
-            
-            const qrLoaded = await ensureQRCodeLoaded();
-            if (qrLoaded && typeof QRCode !== 'undefined') {
-                 new QRCode(qrDiv, {
-                    text: data.qrCodeUrl,
-                    width: 200,
-                    height: 200,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
-                });
+            if (data.qrCodeUrl.startsWith('http://') || data.qrCodeUrl.startsWith('https://')) {
+                const img = document.createElement('img');
+                img.src = data.qrCodeUrl;
+                img.alt = 'Mã QR VietQR';
+                img.style.maxWidth = '250px';
+                img.style.width = '100%';
+                img.style.borderRadius = '8px';
+                img.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                img.style.margin = '10px auto';
+                qrContainer.appendChild(img);
             } else {
-                 qrContainer.innerHTML = `<p style="color:red;">Lỗi: Thư viện QRCode không tải được.</p>`;
-                 throw new Error('Thư viện QRCode chưa được load');
+                const qrDiv = document.createElement('div');
+                qrDiv.id = `qrcode-canvas-${invoiceId}`;
+                qrDiv.style.margin = '20px auto';
+                qrContainer.appendChild(qrDiv);
+                
+                const qrLoaded = await ensureQRCodeLoaded();
+                if (qrLoaded && typeof QRCode !== 'undefined') {
+                     new QRCode(qrDiv, {
+                        text: data.qrCodeUrl,
+                        width: 200,
+                        height: 200,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                }
             }
+            
+            qrContainer.insertAdjacentHTML('afterend', `
+                <div class="bank-info-box" style="background: #f8fafc; padding: 12px; border-radius: 8px; margin-top: 10px; text-align: left; font-size: 13px; border: 1px solid #e2e8f0;">
+                    <p style="margin: 3px 0;"><strong>Chủ TK:</strong> ${data.accountName || 'DANG VAN KHOA'}</p>
+                    <p style="margin: 3px 0;"><strong>Số TK:</strong> <span style="color: #005baa; font-weight: bold;">${data.accountNo || '19071655175011'}</span> (${data.bank || 'Techcombank'})</p>
+                    <p style="margin: 3px 0;"><strong>Nội dung:</strong> <span style="color: #d97706; font-weight: bold;">${data.description || ('HD' + invoiceId)}</span></p>
+                </div>
+            `);
             
             startCustomerPaymentPolling(invoiceId);
             
         } else {
             closeQRModal();
-            showAlert('error', data.msg || 'Không thể tạo mã QR Momo!');
+            showAlert('error', data.msg || 'Không thể tạo mã VietQR!');
         }
     } catch (error) {
         closeQRModal();
         console.error('Payment error:', error);
-        showAlert('error', 'Có lỗi xảy ra khi tạo mã QR!');
+        showAlert('error', 'Có lỗi xảy ra khi tạo mã VietQR!');
     }
 }
 
@@ -600,21 +621,21 @@ function showQRModal(invoiceId) {
     `;
     
     modal.innerHTML = `
-        <div class="modal-content" style="width: 350px; padding: 20px; text-align: center;">
+        <div class="modal-content" style="width: 350px; padding: 20px; text-align: center; border-radius: 12px; background: white;">
             <div class="modal-header" style="justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
-                <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-qrcode"></i> Thanh toán Momo #${invoiceId}</h3>
-                <button class="modal-close" onclick="closeQRModal()">
+                <h3 style="margin: 0; font-size: 16px; color: #005baa;"><i class="fas fa-qrcode"></i> Thanh toán VietQR #${invoiceId}</h3>
+                <button class="modal-close" onclick="closeQRModal()" style="border: none; background: transparent; font-size: 18px; cursor: pointer;">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div id="qr-code-container-cust" style="display: flex; justify-content: center; align-items: center; min-height: 250px;">
+            <div id="qr-code-container-cust" style="display: flex; justify-content: center; align-items: center; min-height: 220px;">
                 <div class="text-center" style="padding: 30px;">
-                    <i class="fas fa-spinner fa-spin" style="font-size: 24px;"></i>
-                    <p style="margin-top: 10px;">Đang tạo mã QR...</p>
+                    <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #005baa;"></i>
+                    <p style="margin-top: 10px;">Đang tạo mã VietQR...</p>
                 </div>
             </div>
-            <p id="customer-payment-status" style="margin-top: 15px; font-weight: 600; color: #007bff;">
-                Vui lòng quét mã để thanh toán.
+            <p id="customer-payment-status" style="margin-top: 15px; font-weight: 600; color: #005baa; font-size: 13px;">
+                <i class="fas fa-spinner fa-spin"></i> Đang chờ tự động nhận tiền...
             </p>
         </div>
     `;

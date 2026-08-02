@@ -334,8 +334,8 @@ async function loadAvailableStaff() {
                  onclick="${staff.available ? `selectStaff(${staff.manv}, '${staff.hoten}')` : ''}">
                 <div class="staff-avatar">
                     ${staff.anhdaidien ? 
-                        `<img src="/api/profile/avatar/${staff.anhdaidien}" alt="${staff.hoten}">` :
-                        '<i class="fas fa-user-circle"></i>'}
+                        `<img src="/api/profile/avatar/${staff.anhdaidien}" alt="${staff.hoten}" onerror="this.onerror=null; this.src='/static/images/default-avatar.svg';">` :
+                        '<img src="/static/images/default-avatar.svg" alt="Avatar">'}
                 </div>
                 <div class="staff-info">
                     <h4>${staff.hoten}</h4>
@@ -371,6 +371,36 @@ function selectStaff(staffId, staffName) {
     updateSummary();
 }
 
+function updateWizardProgress(step) {
+    const s1 = document.getElementById('wizStep1');
+    const s2 = document.getElementById('wizStep2');
+    const s3 = document.getElementById('wizStep3');
+    const l1 = document.getElementById('wizLine1');
+    const l2 = document.getElementById('wizLine2');
+
+    if (s1 && s2 && s3) {
+        s1.classList.remove('active', 'completed');
+        s2.classList.remove('active', 'completed');
+        s3.classList.remove('active', 'completed');
+        if (l1) l1.classList.remove('active');
+        if (l2) l2.classList.remove('active');
+
+        if (step === 1) {
+            s1.classList.add('active');
+        } else if (step === 2) {
+            s1.classList.add('completed');
+            s2.classList.add('active');
+            if (l1) l1.classList.add('active');
+        } else if (step >= 3) {
+            s1.classList.add('completed');
+            s2.classList.add('completed');
+            s3.classList.add('active');
+            if (l1) l1.classList.add('active');
+            if (l2) l2.classList.add('active');
+        }
+    }
+}
+
 // ==================== STEP NAVIGATION ====================
 function goToStep(step) {
     if (step === 2 && selectedServices.length === 0) {
@@ -394,11 +424,17 @@ function goToStep(step) {
         s.classList.remove('active');
     });
     
-    document.getElementById(`step${step}`).classList.add('active');
-    currentStep = step;
+    const targetStep = document.getElementById(`step${step}`);
+    if (targetStep) {
+        targetStep.classList.add('active');
+    }
     
+    currentStep = step;
+    updateWizardProgress(step);
     updateSummary();
 }
+
+window.goToStep = goToStep;
 
 // ==================== UPDATE SUMMARY ====================
 function updateSummary() {

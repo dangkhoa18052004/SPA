@@ -15,17 +15,25 @@ ENV/
 .env
 .env.local
 .env.*.local
+!.env.example
 
-# Flask
+# Flask / Databases / Logs
 instance/
 .webassets-cache
+*.db
+*.sqlite
+*.sqlite3
+*.log
 
-# IDE
+# User Uploads / Media
+uploads/
+
+# IDE & Editor files
 .vscode/
 .idea/
 *.swp
 *.swo
-.DS_Store
 
-# OS
+# OS metadata
+.DS_Store
 Thumbs.db

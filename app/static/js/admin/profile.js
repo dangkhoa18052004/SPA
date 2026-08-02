@@ -84,14 +84,14 @@ async function loadProfileData() {
         if (avatarField && currentAvatarImg) {
             const avatarSrc = `/api/profile/avatar/${avatarField}`;
             currentAvatarImg.src = avatarSrc;
-            
-            avatarWrapper.classList.remove('no-avatar'); 
+            currentAvatarImg.onerror = function() {
+                this.onerror = null;
+                this.src = '/static/images/default-avatar.svg';
+            };
             currentAvatarImg.style.display = 'block';
-        } else {
-            if (currentAvatarImg) {
-                currentAvatarImg.style.display = 'none';
-            }
-            avatarWrapper.classList.add('no-avatar'); 
+        } else if (currentAvatarImg) {
+            currentAvatarImg.src = '/static/images/default-avatar.svg';
+            currentAvatarImg.style.display = 'block';
         }
         
         // 2. Điền dữ liệu vào form sau khi tải thành công

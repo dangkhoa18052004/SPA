@@ -76,9 +76,9 @@ function renderStaffTable(staffList) {
         let avatarHtml = '';
         if (staff.anhnhanvien) {
             const avatarUrl = `/api/profile/avatar/${staff.anhnhanvien}`;
-            avatarHtml = `<img src="${avatarUrl}" alt="Avatar" class="table-avatar">`;
+            avatarHtml = `<img src="${avatarUrl}" alt="Avatar" class="table-avatar" onerror="this.onerror=null; this.src='/static/images/default-avatar.svg';">`;
         } else {
-            avatarHtml = `<div class="table-avatar-icon"><i class="fas fa-user"></i></div>`;
+            avatarHtml = `<img src="/static/images/default-avatar.svg" alt="Avatar" class="table-avatar">`;
         }
 
         // Cập nhật: Thêm nút Kích hoạt (true) nếu trạng thái là Vô hiệu (false)
@@ -197,9 +197,9 @@ function viewStaffDetail(id) {
     let avatarHtml = '';
     if (staff.anhnhanvien) {
         const avatarUrl = `/api/profile/avatar/${staff.anhnhanvien}`;
-        avatarHtml = `<img src="${avatarUrl}" alt="Avatar" class="detail-avatar">`;
+        avatarHtml = `<img src="${avatarUrl}" alt="Avatar" class="detail-avatar" onerror="this.onerror=null; this.src='/static/images/default-avatar.svg';">`;
     } else {
-        avatarHtml = `<div class="detail-avatar-icon"><i class="fas fa-user"></i></div>`;
+        avatarHtml = `<img src="/static/images/default-avatar.svg" alt="Avatar" class="detail-avatar">`;
     }
 
     const modalHtml = `

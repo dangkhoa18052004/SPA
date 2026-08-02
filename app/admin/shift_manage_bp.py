@@ -70,15 +70,16 @@ def _calculate_and_save_daily_salary(nhanvien, calam):
     except Exception as e:
         current_app.logger.error(f"LỖI NGHIÊM TRỌNG KHI TÍNH LƯƠNG NGÀY (Ca {calam.maca}): {e}")
         return False
-# API CHO QUẢN LÝ (ADMIN / MANAGER)         
-def send_async_email(app, msg):
-    """Hàm chạy trong thread riêng để gửi mail (tránh làm chậm API)."""
+from app.services.email_service import send_email
+
+def send_async_email(app, recipient, subject, body):
+    """Hàm chạy trong thread riêng để gửi mail qua Resend (tránh làm chậm API)."""
     with app.app_context():
         try:
-            mail.send(msg)
-            current_app.logger.info(f"Đã gửi email thành công tới {msg.recipients}")
+            send_email(recipient, subject, body.replace('\n', '<br>'))
+            current_app.logger.info(f"Đã gửi email thông báo ca làm thành công tới {recipient}")
         except Exception as e:
-            current_app.logger.error(f"Lỗi khi gửi email: {e}")
+            current_app.logger.error(f"Lỗi khi gửi email thông báo ca làm: {e}")
 
 def send_shift_notification_email(employee_email, employee_name, shift):
     """Soạn và gửi email thông báo ca làm."""
@@ -86,15 +87,12 @@ def send_shift_notification_email(employee_email, employee_name, shift):
         current_app.logger.warning(f"Nhân viên {employee_name} không có email. Bỏ qua gửi mail.")
         return
 
-    # Lấy app context hiện tại
     app = current_app._get_current_object()
 
-    # Định dạng lại ngày giờ cho đẹp
     ngay_str = shift.ngay.strftime('%d/%m/%Y')
     gio_bd = shift.giobatdau.strftime('%H:%M')
     gio_kt = shift.gioketthuc.strftime('%H:%M')
 
-    # Soạn email
     msg_title = f"[Bin Spa] Bạn có lịch làm việc mới vào ngày {ngay_str}"
     msg_body = f"""
     Chào {employee_name},
@@ -111,11 +109,7 @@ def send_shift_notification_email(employee_email, employee_name, shift):
     Bin Spa.
     """
 
-    msg = Message(subject=msg_title,
-                  recipients=[employee_email], 
-                  body=msg_body)
-
-    thr = threading.Thread(target=send_async_email, args=[app, msg])
+    thr = threading.Thread(target=send_async_email, args=[app, employee_email, msg_title, msg_body])
     thr.start()
 
 @shift_manage_bp.route("/shifts", methods=["GET"])

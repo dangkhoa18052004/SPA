@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Bin Spa - Tìm về nhịp nghỉ vừa vặn{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/style.css') }}">
-
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/toast.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
 </head>
@@ -44,7 +48,7 @@
                     <button class="user-btn" id="userBtn">
                         {% if session.get('user_id') and session.get('user_type') == 'customer' %}
                             {% if session.get('avatar') %}
-                                <img src="{{ url_for('profile.get_avatar', filename=session.get('avatar')) }}" alt="Avatar" class="user-avatar">
+                                <img src="{{ url_for('profile.get_avatar', filename=session.get('avatar')) }}" alt="Avatar" class="user-avatar" onerror="this.onerror=null; this.src='/static/images/default-avatar.svg';">
                             {% else %}
                                 <i class="fas fa-user-circle"></i>
                             {% endif %}
@@ -138,7 +142,29 @@
         </div>
     </div>
 
-        <script src="{{ url_for('static', filename='js/customers/main.js') }}"></script>
+        <!-- Mobile Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav">
+        <a href="/" class="mobile-nav-item {% if request.path == '/' %}active{% endif %}">
+            <i class="fas fa-home"></i>
+            <span data-lang-vi="Trang chủ" data-lang-en="Home">Trang chủ</span>
+        </a>
+        <a href="/services" class="mobile-nav-item {% if request.path == '/services' %}active{% endif %}">
+            <i class="fas fa-spa"></i>
+            <span data-lang-vi="Dịch vụ" data-lang-en="Services">Dịch vụ</span>
+        </a>
+        <a href="/appointments/create" class="mobile-nav-item highlight {% if '/appointments' in request.path %}active{% endif %}">
+            <div class="mobile-nav-icon-circle">
+                <i class="fas fa-calendar-plus"></i>
+            </div>
+            <span data-lang-vi="Đặt lịch" data-lang-en="Book">Đặt lịch</span>
+        </a>
+        <a href="/profile" class="mobile-nav-item {% if request.path == '/profile' %}active{% endif %}">
+            <i class="fas fa-user"></i>
+            <span data-lang-vi="Hồ sơ" data-lang-en="Profile">Hồ sơ</span>
+        </a>
+    </nav>
+
+    <script src="{{ url_for('static', filename='js/customers/main.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

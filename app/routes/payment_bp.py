@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, current_app, g
 from ..extensions import db
 from ..models import HoaDon, ThanhToan
 from ..decorators import customer_required
-from ..services import momo_service # Import service
+from ..services import momo_service, vietqr_service # Import service
 from datetime import datetime
 import requests
 
@@ -62,6 +62,21 @@ def pay_for_invoice_online(invoice_id):
         current_app.logger.error(f"Lỗi khi thanh toán: {e}")
         return jsonify({"msg": "Thanh toán thất bại"}), 500
 
+@payment_bp.route("/webhook/sepay", methods=["POST"])
+def sepay_payment_webhook():
+    """(Hệ thống) Nhận tín hiệu chuyển khoản tự động (Webhook) từ SePay."""
+    data = request.get_json() or {}
+    auth_header = request.headers.get("Authorization")
+    current_app.logger.info(f"SePay Webhook Received: {data}")
+    
+    try:
+        res = vietqr_service.process_sepay_webhook(data, auth_header)
+        return jsonify(res), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"SePay Webhook Error: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @payment_bp.route("/webhook/momo", methods=["POST"])
 def momo_payment_webhook():
     """(Hệ thống) Nhận tín hiệu (IPN) từ Momo Sandbox."""
@@ -95,7 +110,7 @@ def momo_payment_webhook():
 @payment_bp.route("/invoices/<int:invoice_id>/generate-qr", methods=["POST"])
 @customer_required
 def generate_customer_payment_qr(invoice_id):
-    """(Customer) Tự tạo QR thanh toán hóa đơn bằng Momo."""
+    """(Customer) Tạo mã VietQR thanh toán hóa đơn qua ngân hàng."""
     customer = g.current_user
     
     invoice = HoaDon.query.filter_by(mahd=invoice_id, makh=customer.makh).first()
@@ -103,16 +118,16 @@ def generate_customer_payment_qr(invoice_id):
     if invoice.trangthai == 'Đã thanh toán': return jsonify({"msg": "Hóa đơn đã thanh toán"}), 400
     
     try:
-        # Sử dụng lại service tạo link Momo
-        momo_response = momo_service.create_momo_payment_link(invoice)
+        vietqr_data = vietqr_service.generate_vietqr_info(invoice)
         return jsonify({
-            "msg": "Tạo link thanh toán Momo thành công.", 
-            "payUrl": momo_response.get("payUrl"),
-            "qrCodeUrl": momo_response.get("qrCodeUrl")
+            "msg": "Tạo mã VietQR thành công.", 
+            "qrCodeUrl": vietqr_data["qrCodeUrl"],
+            "bank": vietqr_data["bank_id"],
+            "accountNo": vietqr_data["account_no"],
+            "accountName": vietqr_data["account_name"],
+            "description": vietqr_data["description"],
+            "amount": vietqr_data["amount"]
         }), 200
-    except requests.exceptions.RequestException as e:
-        current_app.logger.error(f"Lỗi gọi API Momo: {str(e)}")
-        return jsonify({"msg": f"Lỗi kết nối đến Momo: {str(e)}"}), 503
     except Exception as e:
-        current_app.logger.error(f"Lỗi khi tạo mã QR Momo: {str(e)}", exc_info=True)
-        return jsonify({"msg": f"Không thể tạo mã QR Momo: {str(e)}"}), 500
+        current_app.logger.error(f"Lỗi khi tạo mã VietQR: {str(e)}", exc_info=True)
+        return jsonify({"msg": f"Không thể tạo mã VietQR: {str(e)}"}), 500

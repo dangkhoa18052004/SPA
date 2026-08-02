@@ -1,3 +1,4 @@
+from app.services import vietqr_service
 import requests
 from flask import Blueprint, request, jsonify, current_app, g
 from ..extensions import db
@@ -43,11 +44,13 @@ def create_invoice_from_appointment(appointment_id):
         return jsonify({"msg": "Hóa đơn cho lịch hẹn này đã tồn tại"}), 400
     try:
         total_price = sum(detail.dichvu.gia for detail in appointment.chitiet if detail.dichvu)
+        # pyrefly: ignore [unexpected-keyword]
         new_invoice = HoaDon(makh=appointment.makh, manv=staff.manv, tongtien=total_price, trangthai='Chưa thanh toán', malh=appointment_id)
         db.session.add(new_invoice)
         db.session.flush() 
         for detail in appointment.chitiet:
             if detail.dichvu:
+                # pyrefly: ignore [unexpected-keyword]
                 new_invoice_detail = ChiTietHoaDon(mahd=new_invoice.mahd, madv=detail.madv, soluong=1, dongia=detail.dichvu.gia, thanhtien=detail.dichvu.gia)
                 db.session.add(new_invoice_detail)
         db.session.commit()
@@ -84,18 +87,19 @@ def generate_payment_qr(invoice_id):
     if invoice.trangthai == 'Đã thanh toán': return jsonify({"msg": "Hóa đơn đã thanh toán"}), 400
     
     try:
-        momo_response = momo_service.create_momo_payment_link(invoice)
+        vietqr_data = vietqr_service.generate_vietqr_info(invoice)
         return jsonify({
-            "msg": "Tạo link thanh toán Momo thành công.", 
-            "payUrl": momo_response.get("payUrl"),
-            "qrCodeUrl": momo_response.get("qrCodeUrl")
+            "msg": "Tạo mã VietQR thành công.", 
+            "qrCodeUrl": vietqr_data["qrCodeUrl"],
+            "bank": vietqr_data["bank_id"],
+            "accountNo": vietqr_data["account_no"],
+            "accountName": vietqr_data["account_name"],
+            "description": vietqr_data["description"],
+            "amount": vietqr_data["amount"]
         }), 200
-    except requests.exceptions.RequestException as e:
-        current_app.logger.error(f"Lỗi gọi API Momo: {str(e)}")
-        return jsonify({"msg": f"Lỗi kết nối đến Momo: {str(e)}"}), 503
     except Exception as e:
-        current_app.logger.error(f"Lỗi khi tạo mã QR Momo: {str(e)}", exc_info=True)
-        return jsonify({"msg": f"Không thể tạo mã QR Momo: {str(e)}"}), 500
+        current_app.logger.error(f"Lỗi khi tạo mã VietQR: {str(e)}", exc_info=True)
+        return jsonify({"msg": f"Không thể tạo mã VietQR: {str(e)}"}), 500
     
 @invoice_manage_bp.route("/invoices", methods=["GET"])
 @roles_required('letan', 'manager', 'admin')

@@ -167,6 +167,9 @@ class ThanhToan(db.Model):
     # Mối quan hệ với HoaDon
     hoadon = db.relationship('HoaDon', backref=db.backref('thanhtoan', lazy=True))
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
 # bảng lương nhân viên
 class Luong(db.Model):
     """Model cho bảng Lương nhân viên."""

@@ -23,6 +23,10 @@ function formatDateTime(dateString) {
 
 function getAuthHeaders(includeContentType = true) {
     const token = localStorage.getItem('admin_token');
+    if (!token) {
+        console.warn('⚠️ No token found in localStorage, redirecting to login...');
+        window.location.href = '/admin/login';
+    }
     const headers = {
         'Authorization': `Bearer ${token}`
     };
@@ -55,16 +59,11 @@ function openModal(modalId) {
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-        modal.style.transition = 'opacity 0.2s ease';
-        modal.style.opacity = '0';
-        
+        modal.classList.remove('show');
         setTimeout(() => {
             modal.style.display = 'none';
-            modal.style.opacity = '1';
-            modal.style.transition = '';
-            modal.classList.remove('show');
             document.body.style.overflow = 'auto';
-        }, 200);
+        }, 300);
     }
 }
 
@@ -84,15 +83,10 @@ let currentInvoiceId = null;
 // ========================================
 
 document.addEventListener('DOMContentLoaded', function() {
-    currentUserRole = localStorage.getItem('admin_role'); 
-    
-    if (currentUserRole) {
-        loadInvoices(); // Sẽ gọi applyFilters()
-        setupModalEventListeners();
-        setupSearchInput(); 
-    } else {
-        console.error('❌ Không tìm thấy role người dùng.');
-    }
+    currentUserRole = localStorage.getItem('admin_role') || 'admin'; 
+    loadInvoices(); // Sẽ gọi applyFilters()
+    setupModalEventListeners();
+    setupSearchInput(); 
 });
 
 // ========================================
@@ -754,15 +748,15 @@ async function generateMomoQrCode(invoiceId) {
     const qrModalHtml = `
         <div id="qrCodeModal" class="modal show" style="display: grid !important; place-items: center;">
             <div class="modal-content modal-sm">
-                <div class="modal-header">
-                    <h3><i class="fas fa-qrcode"></i> Quét mã QR Momo</h3>
-                    <button class="close" onclick="closeQRModal()">&times;</button>
+                <div class="modal-header" style="background: linear-gradient(135deg, #005baa, #0088ff); color: white; border-radius: 8px 8px 0 0;">
+                    <h3 style="margin: 0; color: white;"><i class="fas fa-qrcode"></i> Thanh toán VietQR (Techcombank)</h3>
+                    <button class="close" onclick="closeQRModal()" style="color: white; opacity: 0.9;">&times;</button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" style="text-align: center;">
                     <div id="qr-code-container">
                         <div class="text-center">
                             <div class="spinner-border mb-3"></div>
-                            <p>Đang tạo mã QR...</p>
+                            <p>Đang tạo mã VietQR...</p>
                         </div>
                     </div>
                 </div>
@@ -795,42 +789,57 @@ async function generateMomoQrCode(invoiceId) {
             const qrContainer = document.getElementById('qr-code-container');
             qrContainer.innerHTML = '';
             
-            const qrDiv = document.createElement('div');
-            qrDiv.id = `qrcode-canvas-${invoiceId}`;
-            qrDiv.style.margin = '20px auto';
-            qrContainer.appendChild(qrDiv);
-            
-            const qrLoaded = await ensureQRCodeLoaded();
-            if (qrLoaded && typeof QRCode !== 'undefined') {
-                new QRCode(qrDiv, {
-                    text: data.qrCodeUrl,
-                    width: 250,
-                    height: 250,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
-                });
+            if (data.qrCodeUrl.startsWith('http://') || data.qrCodeUrl.startsWith('https://')) {
+                const img = document.createElement('img');
+                img.src = data.qrCodeUrl;
+                img.alt = 'Mã QR VietQR';
+                img.style.maxWidth = '260px';
+                img.style.width = '100%';
+                img.style.borderRadius = '8px';
+                img.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                img.style.margin = '10px auto';
+                qrContainer.appendChild(img);
             } else {
-                throw new Error('Thư viện QRCode không tải được. Vui lòng thử lại.');
+                const qrDiv = document.createElement('div');
+                qrDiv.id = `qrcode-canvas-${invoiceId}`;
+                qrDiv.style.margin = '20px auto';
+                qrContainer.appendChild(qrDiv);
+                
+                const qrLoaded = await ensureQRCodeLoaded();
+                if (qrLoaded && typeof QRCode !== 'undefined') {
+                    new QRCode(qrDiv, {
+                        text: data.qrCodeUrl,
+                        width: 250,
+                        height: 250,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                }
             }
             
             qrContainer.insertAdjacentHTML('beforeend', `
-                <div class="qr-instructions">
-                    <p>
-                        <i class="fas fa-mobile-alt"></i> 
-                        <strong>Bước 1:</strong> Mở ứng dụng Momo
+                <div class="bank-info-box" style="background: #f8fafc; padding: 12px; border-radius: 8px; margin-top: 12px; text-align: left; font-size: 13px; border: 1px solid #e2e8f0;">
+                    <p style="margin: 3px 0;"><strong>Chủ tài khoản:</strong> ${data.accountName || 'DANG VAN KHOA'}</p>
+                    <p style="margin: 3px 0;"><strong>Số tài khoản:</strong> <span style="color: #005baa; font-weight: bold;">${data.accountNo || '19071655175011'}</span> (${data.bank || 'Techcombank'})</p>
+                    <p style="margin: 3px 0;"><strong>Nội dung ck:</strong> <span style="color: #d97706; font-weight: bold;">${data.description || ('HD' + invoiceId)}</span></p>
+                </div>
+                <div class="qr-instructions" style="text-align: left; margin-top: 15px; border-top: 1px solid #eee; padding-top: 12px; font-size: 13px;">
+                    <p style="margin-bottom: 5px; font-weight: 600;">
+                        <i class="fas fa-mobile-alt" style="color: #005baa; width: 20px;"></i> 
+                        <strong>Bước 1:</strong> Mở App Ngân hàng bất kỳ
                     </p>
-                    <p>
-                        <i class="fas fa-qrcode"></i> 
-                        <strong>Bước 2:</strong> Quét mã QR phía trên
+                    <p style="margin-bottom: 5px; font-weight: 600;">
+                        <i class="fas fa-qrcode" style="color: #005baa; width: 20px;"></i> 
+                        <strong>Bước 2:</strong> Quét mã VietQR ở trên
                     </p>
-                    <p>
-                        <i class="fas fa-check-circle"></i> 
-                        <strong>Bước 3:</strong> Xác nhận thanh toán
+                    <p style="margin-bottom: 5px; font-weight: 600;">
+                        <i class="fas fa-check-circle" style="color: #005baa; width: 20px;"></i> 
+                        <strong>Bước 3:</strong> Chờ SePay tự động khớp lệnh
                     </p>
                 </div>
-                <div id="payment-status" style="text-align: center; margin-top: 20px; font-weight: 600; color: #667eea;">
-                    <i class="fas fa-spinner fa-spin"></i> Đang chờ thanh toán...
+                <div id="payment-status" style="text-align: center; margin-top: 15px; font-weight: 600; color: #005baa;">
+                    <i class="fas fa-spinner fa-spin"></i> Đang chờ tự động nhận tiền...
                 </div>
             `);
             
@@ -902,7 +911,7 @@ async function startPaymentPolling(invoiceId) {
                         `;
                     }
                     
-                    showSuccess('Thanh toán Momo thành công!');
+                    showSuccess('Thanh toán thành công!');
                     
                     setTimeout(() => {
                         closeQRModal();

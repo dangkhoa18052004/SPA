@@ -44,5 +44,11 @@ class Config:
     YOUR_IPN_URL = os.getenv("YOUR_IPN_URL") 
     YOUR_BASE_DOMAIN = os.getenv("YOUR_BASE_DOMAIN", "http://127.0.0.1:5000")
     
+    # VietQR & SePay Configuration
+    VIETQR_BANK_ID = os.getenv("VIETQR_BANK_ID", "TCB")
+    VIETQR_ACCOUNT_NO = os.getenv("VIETQR_ACCOUNT_NO", "19071655175011")
+    VIETQR_ACCOUNT_NAME = os.getenv("VIETQR_ACCOUNT_NAME", "DANG VAN KHOA")
+    SEPAY_API_KEY = os.getenv("SEPAY_API_KEY", "3ENNHUPB97KGGVH2YWYDREAY1CBFAGZMJK1TMRTIPXOUL4GXZ5UNSQDIYV9CE7FW")
+    
     # config Upload
     UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'uploads')

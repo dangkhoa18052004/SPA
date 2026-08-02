@@ -654,8 +654,8 @@ async function checkLoginStatus() {
             if (userBtn) {
                 userBtn.innerHTML = `
                     ${data.user.anhdaidien ? 
-                        `<img src="/api/profile/avatar/${data.user.anhdaidien}" alt="Avatar" class="user-avatar">` : 
-                        '<i class="fas fa-user-circle"></i>'}
+                        `<img src="/api/profile/avatar/${data.user.anhdaidien}" alt="Avatar" class="user-avatar" onerror="this.onerror=null; this.src='/static/images/default-avatar.svg';">` : 
+                        '<img src="/static/images/default-avatar.svg" alt="Avatar" class="user-avatar">'}
                     <i class="fas fa-chevron-down"></i>
                 `;
             }
