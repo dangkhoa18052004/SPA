@@ -7,9 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/style.css', v='5.9') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/toast.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
 </head>
@@ -30,6 +29,11 @@
             </div>
 
             <div class="nav-right">
+                <!-- Theme Toggle (Night Spa Dark Mode) -->
+                <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Chế độ Đêm Spa thư giãn">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
+
                 <!-- Language Selector -->
                 <div class="language-selector">
                     <button class="lang-btn" id="langBtn">
@@ -92,6 +96,15 @@
         <p>&copy; 2024 Bin Spa. All rights reserved.</p>
     </footer>
 
+    <!-- Floating Relaxing Spa Music Icon -->
+    <div class="music-float" id="musicFloat" onclick="toggleSpaMusic()" title="Âm thanh Spa thư giãn">
+        <i class="fas fa-music" id="musicIcon"></i>
+        <div class="music-bars" id="musicBars">
+            <span></span><span></span><span></span>
+        </div>
+    </div>
+    <audio id="spaAudio" loop src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=meditation-relaxing-112349.mp3"></audio>
+
     <!-- Floating Chat Icon -->
     <div class="chat-float" id="chatFloat" onclick="toggleChat()">
         <i class="fas fa-comment-dots"></i>
@@ -101,27 +114,41 @@
     <div class="chat-box" id="chatBox">
         <div class="chat-header">
             <div class="chat-header-info">
-                <i class="fas fa-comments"></i>
-                <span data-lang-vi="Chat với Bin Spa" data-lang-en="Chat with Bin Spa">Chat với Bin Spa</span>
+                <div class="chat-avatar-icon">
+                    <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="Bin Spa Logo" onerror="this.onerror=null; this.src='/static/images/default-avatar.svg';">
+                </div>
+                <div class="chat-header-text">
+                    <span class="chat-title" data-lang-vi="Bin Spa & Wellness" data-lang-en="Bin Spa & Wellness">Bin Spa & Wellness</span>
+                    <span class="chat-subtitle"><i class="fas fa-circle status-dot"></i> <span data-lang-vi="Đang hoạt động" data-lang-en="Online">Đang hoạt động</span></span>
+                </div>
             </div>
-            <button onclick="toggleChat()" class="chat-close">
+            <button onclick="toggleChat()" class="chat-close" title="Đóng">
                 <i class="fas fa-times"></i>
             </button>
         </div>
+
         <div class="chat-messages" id="chatMessages">
             <div class="chat-message bot-message">
-                <div class="message-avatar">
-                    <i class="fas fa-spa"></i>
-                </div>
                 <div class="message-content">
-                    <p data-lang-vi="Xin chào! Chúng tôi có thể giúp gì cho bạn?" data-lang-en="Hello! How can we help you?">
-                        Xin chào! Chúng tôi có thể giúp gì cho bạn?
-                    </p>
+                    <div class="message-text">
+                        <p data-lang-vi="Xin chào! Bin Spa có thể hỗ trợ gì cho trải nghiệm thư giãn của bạn hôm nay?" data-lang-en="Hello! How can Bin Spa assist your relaxation experience today?">
+                            Xin chào! Bin Spa có thể hỗ trợ gì cho trải nghiệm thư giãn của bạn hôm nay?
+                        </p>
+                    </div>
+                    <span class="message-time">10:30</span>
                 </div>
             </div>
         </div>
+
+        <!-- Quick Reply Chips -->
+        <div class="chat-quick-replies" id="chatQuickReplies">
+            <button type="button" class="quick-reply-btn" onclick="sendQuickReply('Tôi muốn đặt lịch hẹn')">Đặt lịch hẹn</button>
+            <button type="button" class="quick-reply-btn" onclick="sendQuickReply('Cho tôi xem bảng giá dịch vụ')">Bảng giá dịch vụ</button>
+            <button type="button" class="quick-reply-btn" onclick="sendQuickReply('Spa mình ở địa chỉ nào ạ?')">Tư vấn vị trí</button>
+        </div>
+
         <div class="chat-input-area">
-            <button class="chat-service-btn" onclick="toggleServicePicker()">
+            <button type="button" class="chat-add-btn" id="toggleServiceBtn" onclick="toggleServicePicker()" title="Chọn dịch vụ">
                 <i class="fas fa-plus"></i>
             </button>
             <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." data-lang-vi-placeholder="Nhập tin nhắn..." data-lang-en-placeholder="Type a message...">
@@ -129,7 +156,7 @@
                 <i class="fas fa-paper-plane"></i>
             </button>
         </div>
-        
+
         <!-- Service Picker -->
         <div class="service-picker" id="servicePicker">
             <div class="service-picker-header">
@@ -163,6 +190,16 @@
             <span data-lang-vi="Hồ sơ" data-lang-en="Profile">Hồ sơ</span>
         </a>
     </nav>
+
+    <!-- Quick View Service Modal -->
+    <div class="quick-view-modal" id="quickViewModal" onclick="closeQuickView(event)">
+        <div class="quick-view-content" onclick="event.stopPropagation()">
+            <button class="quick-view-close" onclick="closeQuickView()"><i class="fas fa-times"></i></button>
+            <div class="quick-view-body" id="quickViewBody">
+                <!-- Dynamic Service Detail Content -->
+            </div>
+        </div>
+    </div>
 
     <script src="{{ url_for('static', filename='js/customers/main.js') }}"></script>
     {% block extra_js %}{% endblock %}

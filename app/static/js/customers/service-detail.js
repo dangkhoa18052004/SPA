@@ -110,6 +110,10 @@ function displayServiceDetail(service) {
             </div>
         </div>
     `;
+
+    if (typeof changeLang === 'function') {
+        changeLang(localStorage.getItem('spa_lang') || 'vi');
+    }
 }
 
 // ==================== LOAD RELATED SERVICES ====================

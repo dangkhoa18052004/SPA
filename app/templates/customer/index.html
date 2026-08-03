@@ -21,6 +21,11 @@
                     <i class="fas fa-calendar-check"></i> ĐẶT LỊCH NGAY
                 </a>
             </div>
+            <div class="hero-badges">
+                <div class="glass-badge"><i class="fas fa-star text-gold"></i> <span>4.9/5 (1,200+ Đánh giá)</span></div>
+                <div class="glass-badge"><i class="fas fa-leaf text-emerald"></i> <span>100% Thảo dược tự nhiên</span></div>
+                <div class="glass-badge"><i class="fas fa-users text-gold"></i> <span>+5,000 Khách hài lòng</span></div>
+            </div>
         </div>
     </section>
 
@@ -30,6 +35,23 @@
             <h2 class="section-title" data-lang-vi="Dịch vụ của chúng tôi" data-lang-en="Our Services">
                 Dịch vụ của chúng tôi
             </h2>
+            <div class="smart-filters">
+                <button class="filter-chip active" onclick="filterServices('all', this)">
+                    <i class="fas fa-th-large"></i> Tất cả
+                </button>
+                <button class="filter-chip" onclick="filterServices('cổ vai gáy', this)">
+                    <i class="fas fa-spa"></i> Cổ Vai Gáy
+                </button>
+                <button class="filter-chip" onclick="filterServices('da', this)">
+                    <i class="fas fa-magic"></i> Chăm Sóc Da
+                </button>
+                <button class="filter-chip" onclick="filterServices('thư giãn', this)">
+                    <i class="fas fa-wind"></i> Thư Giãn Stress
+                </button>
+                <button class="filter-chip" onclick="filterServices('combo', this)">
+                    <i class="fas fa-crown"></i> Combo Spa VIP
+                </button>
+            </div>
             <div class="services-grid" id="servicesGrid">
                 <!-- Services will be loaded dynamically -->
             </div>
@@ -37,6 +59,77 @@
                 <a href="/services" class="btn btn-outline" data-lang-vi="Xem toàn bộ dịch vụ" data-lang-en="View All Services">
                     XEM TOÀN BỘ DỊCH VỤ
                 </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section: Why Choose Bin Spa -->
+    <section class="why-us-section">
+        <div class="container">
+            <h2 class="section-title" data-lang-vi="Tại sao chọn Bin Spa?" data-lang-en="Why Choose Bin Spa?">Tại sao chọn Bin Spa?</h2>
+            <div class="why-us-grid">
+                <div class="why-card">
+                    <div class="why-icon"><i class="fas fa-hand-holding-heart"></i></div>
+                    <h3>100% Thảo Dược Thiên Nhiên</h3>
+                    <p>Mọi liệu trình trị liệu và chăm sóc da đều sử dụng tinh dầu & bài thuốc thảo mộc đông y lành tính.</p>
+                </div>
+                <div class="why-card">
+                    <div class="why-icon"><i class="fas fa-user-nurse"></i></div>
+                    <h3>Kỹ Thuật Viên Lành Nghề</h3>
+                    <p>Đội ngũ chuyên viên trên 5 năm kinh nghiệm, được đào tạo bài bản và phục vụ với sự tận tâm cao nhất.</p>
+                </div>
+                <div class="why-card">
+                    <div class="why-icon"><i class="fas fa-spa"></i></div>
+                    <h3>Không Gian Thư Giãn Đẳng Cấp</h3>
+                    <p>Âm nhạc trị liệu, hương thơm tinh dầu dịu nhẹ và không gian yên tĩnh tuyệt đối cho tâm trí.</p>
+                </div>
+                <div class="why-card">
+                    <div class="why-icon"><i class="fas fa-award"></i></div>
+                    <h3>Cam Kết Hài Lòng 100%</h3>
+                    <p>Mang đến cho quý khách nhịp nghỉ vừa vặn nhất, phục hồi năng lượng thể chất và tinh thần.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section: Testimonials -->
+    <section class="testimonials-section">
+        <div class="container">
+            <h2 class="section-title" data-lang-vi="Khách hàng nói về Bin Spa" data-lang-en="What Customers Say">Khách hàng nói về Bin Spa</h2>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="stars">⭐⭐⭐⭐⭐</div>
+                    <p class="testimonial-text">"Dịch vụ gội đầu dưỡng sinh và massage cổ vai gáy ở đây cực kỳ thích! Sau một tuần làm việc mệt mỏi vào đây như được sạc lại năng lượng."</p>
+                    <div class="customer-info">
+                        <div class="customer-avatar"><i class="fas fa-user"></i></div>
+                        <div>
+                            <h4>Chị Thanh Thảo</h4>
+                            <span>Khách hàng thân thiết</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="stars">⭐⭐⭐⭐⭐</div>
+                    <p class="testimonial-text">"Không gian spa rất thơm và yên tĩnh, nhân viên tay nghề cao và nói chuyện nhẹ nhàng. Chắc chắn sẽ quay lại thường xuyên!"</p>
+                    <div class="customer-info">
+                        <div class="customer-avatar"><i class="fas fa-user"></i></div>
+                        <div>
+                            <h4>Anh Minh Hoàng</h4>
+                            <span>Khách hàng trải nghiệm Combo VIP</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="stars">⭐⭐⭐⭐⭐</div>
+                    <p class="testimonial-text">"Đặt lịch hẹn online rất tiện lợi và nhanh chóng. Liệu trình chăm sóc da mặt thiên nhiên xong da căng bóng hẳn."</p>
+                    <div class="customer-info">
+                        <div class="customer-avatar"><i class="fas fa-user"></i></div>
+                        <div>
+                            <h4>Chị Ngọc Mai</h4>
+                            <span>Khách hàng đặt lịch hẹn</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>

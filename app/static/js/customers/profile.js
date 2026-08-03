@@ -98,6 +98,10 @@ function displayUserInfo(user) {
     document.getElementById('editHoten').value = user.hoten;
     document.getElementById('editSdt').value = user.sdt || '';
     document.getElementById('editDiachi').value = user.diachi || '';
+
+    if (typeof window.changeLang === 'function') {
+        window.changeLang(localStorage.getItem('spa_lang') || 'vi');
+    }
 }
 
 // ==================== MENU NAVIGATION ====================

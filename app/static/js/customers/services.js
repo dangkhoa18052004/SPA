@@ -142,6 +142,10 @@ function displayServices(services) {
             </div>
         `;
     }).join('');
+
+    if (typeof changeLang === 'function') {
+        changeLang(localStorage.getItem('spa_lang') || 'vi');
+    }
 }
 
 // ==================== FILTER BY CATEGORY ====================

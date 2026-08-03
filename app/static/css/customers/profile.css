@@ -211,30 +211,39 @@
     }
     
     .appointment-status {
-        padding: 5px 15px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 16px;
         border-radius: 20px;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
+        letter-spacing: 0.3px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
     }
     
-    .status-pending {
-        background: #fff3cd;
-        color: #856404;
+    .status-pending, [data-status="Chờ xác nhận"] {
+        background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+        color: #C2410C;
+        border: 1px solid rgba(249, 115, 22, 0.2);
     }
     
-    .status-confirmed {
-        background: #d1ecf1;
-        color: #0c5460;
+    .status-confirmed, [data-status="Đã xác nhận"] {
+        background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+        color: #1D4ED8;
+        border: 1px solid rgba(59, 130, 246, 0.2);
     }
     
-    .status-completed {
-        background: #d4edda;
-        color: #155724;
+    .status-completed, [data-status="Hoàn thành"] {
+        background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+        color: #047857;
+        border: 1px solid rgba(16, 185, 129, 0.2);
     }
     
-    .status-cancelled {
-        background: #f8d7da;
-        color: #721c24;
+    .status-cancelled, [data-status="Đã hủy"] {
+        background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
+        color: #B91C1C;
+        border: 1px solid rgba(239, 68, 68, 0.2);
     }
     
     @media (max-width: 768px) {

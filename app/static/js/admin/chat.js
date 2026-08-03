@@ -303,7 +303,7 @@ function renderMessages() {
         return `
             <div class="message ${isMyMessage ? 'message-sent' : 'message-received'}">
                 <div class="message-content">
-                    <div class="message-text">${escapeHtml(msg.noidung)}</div>
+                    ${renderAdminMessageHTML(msg.noidung)}
                     <div class="message-time">${formatDateTime(msg.thoigian)}</div>
                 </div>
             </div>
@@ -312,6 +312,52 @@ function renderMessages() {
     
     // Scroll xuống cuối
     scrollToBottom();
+}
+
+function formatAdminPrice(amount) {
+    if (!amount) return '0 đ';
+    return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
+}
+
+function renderAdminMessageHTML(content) {
+    if (!content) return '';
+    
+    // Kiểm tra tin nhắn Rich Card dạng [SERVICE_CARD:madv|tendv|gia|thoiluong|imgUrl]
+    const cardMatch = content.match(/^\[SERVICE_CARD:(.+?)\|(.+?)\|(.+?)\|(.+?)\|(.+?)\]\s*([\s\S]*)$/);
+    if (cardMatch) {
+        const madv = cardMatch[1];
+        const tendv = cardMatch[2];
+        const gia = cardMatch[3];
+        const thoiluong = cardMatch[4];
+        const imgUrl = cardMatch[5];
+        const textMsg = cardMatch[6];
+        return `
+            <div class="chat-service-card">
+                <img src="${imgUrl}" class="chat-card-img" alt="${escapeHtml(tendv)}" onerror="this.src='/static/images/default-service.jpg'">
+                <div class="chat-card-body">
+                    <div class="chat-card-title">${escapeHtml(tendv)}</div>
+                    <div class="chat-card-meta">
+                        <span class="chat-card-price">${formatAdminPrice(gia)}</span>
+                        <span class="chat-card-duration"><i class="far fa-clock"></i> ${thoiluong} phút</span>
+                    </div>
+                </div>
+            </div>
+            ${textMsg ? `<div class="message-text">${escapeHtml(textMsg)}</div>` : ''}
+        `;
+    }
+
+    const imgMatch = content.match(/^\[IMG:(.+?)\]\s*([\s\S]*)$/);
+    if (imgMatch) {
+        const imgUrl = imgMatch[1];
+        const textMsg = imgMatch[2];
+        return `
+            <div class="message-image-wrapper">
+                <img src="${imgUrl}" class="chat-message-image" alt="Dịch vụ" onerror="this.parentElement.style.display='none'">
+            </div>
+            ${textMsg ? `<div class="message-text">${escapeHtml(textMsg)}</div>` : ''}
+        `;
+    }
+    return `<div class="message-text">${escapeHtml(content)}</div>`;
 }
 
 

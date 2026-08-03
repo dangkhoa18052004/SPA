@@ -497,6 +497,10 @@ function updateSummary() {
         const total = selectedServicesData.reduce((sum, service) => sum + parseFloat(service.gia), 0);
         summaryTotal.textContent = formatPrice(total);
     }
+
+    if (typeof window.changeLang === 'function') {
+        window.changeLang(localStorage.getItem('spa_lang') || 'vi');
+    }
 }
 
 // ==================== SUBMIT APPOINTMENT ====================
