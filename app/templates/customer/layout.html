@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Bin Spa - Tìm về nhịp nghỉ vừa vặn{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/toast.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/responsive.css', v='1.0') }}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
     <!-- Navigation Bar -->
@@ -21,7 +22,7 @@
                 <span>Bin Spa</span>
             </a>
             
-            <div class="nav-menu" id="navMenu">
+            <div class="nav-menu" id="navMenu" aria-label="Main navigation">
                 <a href="/" class="nav-link" data-lang-vi="Trang chủ" data-lang-en="Home">TRANG CHỦ</a>
                 <a href="/services" class="nav-link" data-lang-vi="Dịch vụ" data-lang-en="Services">DỊCH VỤ</a>
                 <a href="/#about" class="nav-link" data-lang-vi="Về Bin Spa" data-lang-en="About">VỀ BIN SPA</a>
@@ -81,7 +82,7 @@
                 </div>
 
                 <!-- Mobile Menu Toggle -->
-                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Open menu" aria-controls="navMenu" aria-expanded="false">
                     <i class="fas fa-bars"></i>
                 </button>
             </div>

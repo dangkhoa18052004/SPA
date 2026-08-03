@@ -202,16 +202,52 @@ function initDropdowns() {
     
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     const navMenu = document.getElementById('navMenu');
+
+    const closeMobileMenu = () => {
+        if (!mobileMenuBtn || !navMenu) return;
+        navMenu.classList.remove('show');
+        mobileMenuBtn.setAttribute('aria-expanded', 'false');
+        mobileMenuBtn.setAttribute('aria-label', 'Open menu');
+        const icon = mobileMenuBtn.querySelector('i');
+        if (icon) {
+            icon.classList.remove('fa-times');
+            icon.classList.add('fa-bars');
+        }
+        document.body.classList.remove('menu-open');
+    };
     
     if (mobileMenuBtn && navMenu) {
-        mobileMenuBtn.addEventListener('click', function() {
-            navMenu.classList.toggle('show');
+        mobileMenuBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isOpen = navMenu.classList.toggle('show');
+            mobileMenuBtn.setAttribute('aria-expanded', String(isOpen));
+            mobileMenuBtn.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+            const icon = mobileMenuBtn.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-bars', !isOpen);
+                icon.classList.toggle('fa-times', isOpen);
+            }
+            document.body.classList.toggle('menu-open', isOpen);
+        });
+
+        navMenu.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (e.target.closest('.nav-link')) closeMobileMenu();
+        });
+
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 900) closeMobileMenu();
         });
     }
     
     document.addEventListener('click', function() {
         if (langDropdown) langDropdown.classList.remove('show');
         if (userDropdown) userDropdown.classList.remove('show');
+        closeMobileMenu();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeMobileMenu();
     });
 }
 
