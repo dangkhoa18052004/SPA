@@ -495,7 +495,11 @@ function updateSummary() {
     if (summaryTotal) {
         const selectedServicesData = allServices.filter(s => selectedServices.includes(s.madv));
         const total = selectedServicesData.reduce((sum, service) => sum + parseFloat(service.gia), 0);
-        summaryTotal.textContent = formatPrice(total);
+        const formattedTotal = formatPrice(total);
+        summaryTotal.textContent = formattedTotal;
+        // changeLang()/translateDOM restores data-orig-vi for existing nodes.
+        // Keep it in sync so the calculated total is not reset to the initial "0đ".
+        summaryTotal.setAttribute('data-orig-vi', formattedTotal);
     }
 
     if (typeof window.changeLang === 'function') {
