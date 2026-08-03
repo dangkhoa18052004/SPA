@@ -232,9 +232,13 @@ def create_appointment():
                 }), 409 
 
         new_appointment = LichHen(
+            # pyrefly: ignore [unexpected-keyword]
             makh=makh,
+            # pyrefly: ignore [unexpected-keyword]
             ngaygio=ngaygio,
-            manv=assigned_staff_manv, # <-- Dùng biến mới
+            # pyrefly: ignore [unexpected-keyword]
+            manv=assigned_staff_manv, 
+            # pyrefly: ignore [unexpected-keyword]
             trangthai='confirmed', 
         )
         db.session.add(new_appointment)
@@ -242,7 +246,9 @@ def create_appointment():
         
         for madv in dichvu_ids:
             detail = ChiTietLichHen(
+                # pyrefly: ignore [unexpected-keyword]
                 malh=new_appointment.malh,
+                # pyrefly: ignore [unexpected-keyword]
                 madv=madv
             )
             db.session.add(detail)
