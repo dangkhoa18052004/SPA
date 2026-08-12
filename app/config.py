@@ -21,6 +21,12 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "jwt-secret")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=1)
+    # Flask session acts as the long-lived, HTTP-only login session. The
+    # frontend can use it to obtain a new short-lived JWT without asking the
+    # customer to sign in again.
+    PERMANENT_SESSION_LIFETIME = timedelta(days=30)
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
 
     # Mail (SMTP)
     MAIL_SERVER = os.getenv("MAIL_SERVER")

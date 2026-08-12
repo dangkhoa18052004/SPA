@@ -121,7 +121,9 @@ Toast.success('Thông tin đã được cập nhật', 'Cập nhật thành côn
 */
 // ==================== AUTH HELPER ====================
 function getAuthToken() {
-    return localStorage.getItem('access_token');
+    return window.CustomerAuth
+        ? window.CustomerAuth.getAccessToken()
+        : localStorage.getItem('access_token');
 }
 
 function getAuthHeaders(includeContentType = true) {
@@ -695,7 +697,7 @@ async function loadOrCreateConversation() {
         }
 
         // Gọi API để lấy hoặc tạo conversation
-        const response = await fetch('/api/chat/conversations', {
+        const response = await window.CustomerAuth.fetch('/api/chat/conversations', {
             method: 'POST',
             headers: getAuthHeaders(true)
         });
@@ -724,7 +726,7 @@ async function sendQuickReply(text) {
 
 async function loadMessages(conversationId) {
     try {
-        const response = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
+        const response = await window.CustomerAuth.fetch(`/api/chat/conversations/${conversationId}/messages`, {
             headers: getAuthHeaders(false)
         });
         
@@ -866,7 +868,7 @@ async function sendMessage() {
     chatInput.value = '';
     
     try {
-        const response = await fetch(`/api/chat/conversations/${currentConversationId}/messages`, {
+        const response = await window.CustomerAuth.fetch(`/api/chat/conversations/${currentConversationId}/messages`, {
             method: 'POST',
             headers: getAuthHeaders(true),
             body: JSON.stringify({ noidung: message })
@@ -893,7 +895,7 @@ async function updateUnreadCount() {
             return;
         }
 
-        const response = await fetch('/api/chat/conversations', {
+        const response = await window.CustomerAuth.fetch('/api/chat/conversations', {
             headers: getAuthHeaders(false)
         });
         
@@ -1123,8 +1125,12 @@ function filterServices(keyword, btn) {
 
 // ==================== LOGOUT ====================
 async function logout() {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user_info');
+    if (window.CustomerAuth) {
+        window.CustomerAuth.clearLocalSession();
+    } else {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user_info');
+    }
     
     try {
         await fetch('/api/auth/logout', {
@@ -1141,21 +1147,27 @@ async function logout() {
 // ==================== CHECK LOGIN STATUS ====================
 async function checkLoginStatus() {
     try {
-        const token = getAuthToken();
+        let token = getAuthToken();
         
         if (!token) {
-            console.log('Chưa đăng nhập');
-            return; 
+            token = window.CustomerAuth
+                ? await window.CustomerAuth.restoreAccessToken()
+                : null;
+            if (!token) {
+                console.log('Chưa đăng nhập');
+                return;
+            }
         }
 
-        const response = await fetch('/api/profile', {
+        const response = await window.CustomerAuth.fetch('/api/profile', {
             headers: getAuthHeaders(false)
         });
         
         if (!response.ok) {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('user_info');
-            console.log('Token không hợp lệ');
+            if (response.status === 401 || response.status === 422) {
+                window.CustomerAuth.clearLocalSession();
+                console.log('Phiên đăng nhập không hợp lệ');
+            }
             return;
         }
         
@@ -1190,14 +1202,11 @@ async function checkLoginStatus() {
             // ✅ FIX: Load unread count ngay sau khi đăng nhập
             await updateUnreadCount();
         } else {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('user_info');
+            window.CustomerAuth.clearLocalSession();
         }
         
     } catch (error) {
         console.error('Error checking login status:', error);
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user_info');
     }
 }
 

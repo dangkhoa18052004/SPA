@@ -16,6 +16,12 @@ function togglePassword() {
 
 // Auto-hide alerts after 5 seconds
 document.addEventListener('DOMContentLoaded', function() {
+    const authNotice = sessionStorage.getItem('auth_notice');
+    if (authNotice) {
+        sessionStorage.removeItem('auth_notice');
+        showAlert('error', authNotice);
+    }
+
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
         setTimeout(() => {
@@ -48,10 +54,14 @@ if (loginForm) {
             if (result.access_token) { // Kiểm tra access_token
                 showAlert('success', 'Đăng nhập thành công! Đang chuyển hướng...');
                 
-                // Lưu token và user info
-                localStorage.setItem('access_token', result.access_token);
-                if (result.user) {
-                    localStorage.setItem('user_info', JSON.stringify(result.user));
+                // Lưu trạng thái đăng nhập qua helper dùng chung.
+                if (window.CustomerAuth) {
+                    window.CustomerAuth.storeLogin(result);
+                } else {
+                    localStorage.setItem('access_token', result.access_token);
+                    if (result.user) {
+                        localStorage.setItem('user_info', JSON.stringify(result.user));
+                    }
                 }
                 
                 setTimeout(() => {

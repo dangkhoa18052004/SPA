@@ -4,7 +4,9 @@
 
 // ==================== AUTH HELPER ====================
 function getAuthToken() {
-    return localStorage.getItem('access_token');
+    return window.CustomerAuth
+        ? window.CustomerAuth.getAccessToken()
+        : localStorage.getItem('access_token');
 }
 
 function getAuthHeaders(includeContentType = true) {
@@ -20,6 +22,12 @@ function getAuthHeaders(includeContentType = true) {
         headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
+}
+
+function customerAuthFetch(input, options) {
+    return window.CustomerAuth
+        ? window.CustomerAuth.fetch(input, options)
+        : fetch(input, options);
 }
 
 // ==================== GLOBAL VARIABLES ====================
@@ -106,7 +114,7 @@ function showAllServices() {
 // ==================== LOAD SERVICES ====================
 async function loadAllServices() {
     try {
-        const response = await fetch('/api/services', {
+        const response = await customerAuthFetch('/api/services', {
             headers: getAuthHeaders(false)
         });
         
@@ -290,7 +298,7 @@ async function loadAvailableStaff() {
         const datetime = `${date}T${time}`;
         
         // === SỬA LỖI 1: Sửa URL tải nhân viên ===
-        const staffResponse = await fetch('/api/staff', {
+        const staffResponse = await customerAuthFetch('/api/staff', {
             headers: getAuthHeaders(false)
         });
         
@@ -305,7 +313,7 @@ async function loadAvailableStaff() {
         
         for (const staff of staffData.staff) {
             // === SỬA LỖI 2: Sửa URL check lịch rảnh ===
-            const checkResponse = await fetch('/api/appointments/check-availability', {
+            const checkResponse = await customerAuthFetch('/api/appointments/check-availability', {
                 method: 'POST', 
                 headers: getAuthHeaders(true),
                 body: JSON.stringify({
@@ -531,7 +539,7 @@ document.getElementById('appointmentForm')?.addEventListener('submit', async fun
     if (manv) {
         try {
             // === SỬA LỖI 2: Sửa URL check lịch rảnh ===
-            const checkResponse = await fetch('/api/appointments/check-availability', {
+            const checkResponse = await customerAuthFetch('/api/appointments/check-availability', {
                 method: 'POST',
                 headers: getAuthHeaders(true),
                 body: JSON.stringify({
@@ -558,7 +566,7 @@ document.getElementById('appointmentForm')?.addEventListener('submit', async fun
     
     try {
         // === SỬA LỖI 3: Sửa URL đặt lịch ===
-        const response = await fetch('/api/appointments/create', {
+        const response = await customerAuthFetch('/api/appointments/create', {
             method: 'POST',
             headers: getAuthHeaders(true),
             body: JSON.stringify({
@@ -570,6 +578,17 @@ document.getElementById('appointmentForm')?.addEventListener('submit', async fun
         });
         
         const data = await response.json();
+
+        if (response.status === 401 || response.status === 422) {
+            Toast.warning('Phiên đăng nhập đã hết hạn. Đang chuyển đến trang đăng nhập...');
+            setTimeout(() => {
+                window.CustomerAuth.redirectToLogin(
+                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+                    `${window.location.pathname}${window.location.search}`
+                );
+            }, 1200);
+            return;
+        }
         
         if (data.success) {
             Toast.success('Đặt lịch hẹn thành công! Chúng tôi đã gửi email xác nhận đến bạn.', 'Thành công!', 5000);
@@ -578,7 +597,7 @@ document.getElementById('appointmentForm')?.addEventListener('submit', async fun
                 window.location.href = '/profile#appointments';
             }, 2000);
         } else {
-            Toast.error(data.msg || 'Đặt lịch thất bại!');
+            Toast.error(data.message || data.msg || 'Đặt lịch thất bại!');
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fas fa-check"></i> Xác nhận đặt lịch';
         }

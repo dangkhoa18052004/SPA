@@ -231,6 +231,6 @@
 
 {% block extra_js %}
     {% if session.get('user_id') and session.get('user_type') == 'customer' %}
-    <script src="{{ url_for('static', filename='js/customers/appointments.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/appointments.js', v='1.1') }}"></script>
     {% endif %}
 {% endblock %}

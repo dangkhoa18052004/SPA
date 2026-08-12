@@ -1,7 +1,6 @@
 
 from app.services.email_service import send_email
-from requests import session
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, session
 from ..extensions import db
 from ..models import KhachHang, NhanVien
 from ..utils import generate_code
@@ -12,6 +11,40 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 from sqlalchemy import or_
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+
+
+def _create_customer_access_token_from_session():
+    """Issue a new access token when the long-lived Flask session is valid."""
+    if session.get('user_type') != 'customer' or not session.get('user_id'):
+        return None, "Phiên đăng nhập không tồn tại"
+
+    customer = KhachHang.query.get(session['user_id'])
+    if not customer or customer.trangthai != 'active':
+        session.clear()
+        return None, "Tài khoản không tồn tại hoặc đã bị khóa"
+
+    # Touch the permanent session so an active customer stays signed in.
+    session.permanent = True
+    session.modified = True
+    return create_access_token(identity=f"customer:{customer.makh}"), None
+
+
+@auth_bp.route("/restore-session", methods=["POST"])
+def restore_customer_session():
+    """Restore an expired/missing JWT from the customer's secure session."""
+    access_token, error = _create_customer_access_token_from_session()
+    if not access_token:
+        return jsonify({
+            "success": False,
+            "message": error or "Phiên đăng nhập đã hết hạn"
+        }), 401
+
+    return jsonify({
+        "success": True,
+        "access_token": access_token
+    }), 200
+
+
 @auth_bp.route("/profile", methods=["GET"])
 @jwt_required()
 def get_profile():
@@ -181,8 +214,6 @@ def verify_otp():
 
 @auth_bp.route("/login/customer", methods=["POST"])
 def customer_login():
-    from flask import session
-    
     data = request.get_json() or {}
     
     identifier_raw = data.get("taikhoan") or data.get("email") or data.get("sdt")
@@ -304,8 +335,6 @@ def resend_otp():
 # API CHO NHÂN VIÊN              
 @auth_bp.route("/login/staff", methods=["POST"])
 def staff_login():
-    from flask import session
-    
     data = request.get_json() or {}
     taikhoan = data.get("taikhoan")
     matkhau = data.get("matkhau")
@@ -344,7 +373,6 @@ def staff_login():
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
-    from flask import session
     session.clear()
     current_app.logger.info("User logged out, session cleared")
     return jsonify({'success': True, 'message': 'Đăng xuất thành công'})

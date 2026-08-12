@@ -1,10 +1,27 @@
-from flask import Blueprint, redirect, render_template, jsonify, session, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    redirect,
+    jsonify,
+    render_template,
+    send_from_directory,
+    session,
+    url_for,
+)
 
 customer_bp = Blueprint('customer', __name__)
 
 @customer_bp.route('/')
 def index():
     return render_template('customer/index.html')
+
+
+@customer_bp.route('/google0835245852bdc722.html')
+def google_verification():
+    return send_from_directory(
+        current_app.static_folder,
+        'google0835245852bdc722.html'
+    )
 
 
 @customer_bp.route('/services/<int:service_id>')

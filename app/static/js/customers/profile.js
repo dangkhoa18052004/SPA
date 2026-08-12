@@ -1,6 +1,8 @@
 // ==================== AUTH HELPER ====================
 function getAuthToken() {
-    return localStorage.getItem('access_token');
+    return window.CustomerAuth
+        ? window.CustomerAuth.getAccessToken()
+        : localStorage.getItem('access_token');
 }
 
 function getAuthHeaders(includeContentType = true) {
@@ -18,11 +20,14 @@ function getAuthHeaders(includeContentType = true) {
     return headers;
 }
 
+function customerAuthFetch(input, options) {
+    return window.CustomerAuth
+        ? window.CustomerAuth.fetch(input, options)
+        : fetch(input, options);
+}
+
 // ==================== INIT ====================
-document.addEventListener('DOMContentLoaded', function() {
-    checkLoginStatus();
-    loadUserProfile();
-    loadUserAppointments();
+document.addEventListener('DOMContentLoaded', async function() {
     initMenuLinks();
     initAvatarUpload();
     initForms();
@@ -30,14 +35,26 @@ document.addEventListener('DOMContentLoaded', function() {
     if (window.location.hash === '#appointments') {
         switchSection('appointments');
     }
+
+    await initializeProfilePage();
 });
 
 // ==================== CHECK LOGIN ====================
-function checkLoginStatus() {
-    const token = getAuthToken();
-    if (!token) {
-        window.location.href = '/auth/login?redirect=/profile';
+async function initializeProfilePage() {
+    let token = getAuthToken();
+    if (!token && window.CustomerAuth) {
+        token = await window.CustomerAuth.restoreAccessToken();
     }
+
+    if (!token) {
+        window.CustomerAuth.redirectToLogin(
+            'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+            '/profile'
+        );
+        return;
+    }
+
+    await Promise.all([loadUserProfile(), loadUserAppointments()]);
 }
 
 // ==================== LOAD USER PROFILE ====================
@@ -49,13 +66,19 @@ async function loadUserProfile() {
     }
 
     try {
-        const response = await fetch('/api/profile', {
+        const response = await customerAuthFetch('/api/profile', {
             headers: getAuthHeaders(false)
         });
         
         if (!response.ok) {
-            localStorage.removeItem('access_token');
-            window.location.href = '/auth/login?redirect=/profile';
+            if (response.status === 401 || response.status === 422) {
+                window.CustomerAuth.redirectToLogin(
+                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+                    '/profile'
+                );
+            } else {
+                displayProfileLoadError();
+            }
             return;
         }
         
@@ -64,20 +87,28 @@ async function loadUserProfile() {
         if (data.success && data.user) {
             displayUserInfo(data.user);
         } else {
-            localStorage.removeItem('access_token');
-            window.location.href = '/auth/login?redirect=/profile';
+            displayProfileLoadError(data.message);
         }
     } catch (error) {
         console.error('Error loading profile:', error);
-        localStorage.removeItem('access_token');
-        window.location.href = '/auth/login';
+        displayProfileLoadError('Không thể tải thông tin. Vui lòng thử lại.');
     }
 }
 
 // ==================== DISPLAY USER INFO ====================
+function setDynamicProfileText(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    element.textContent = value;
+    // translateDOM caches the initial "Loading..." value. Keep that cache in
+    // sync so changing language cannot overwrite data loaded from the API.
+    element.setAttribute('data-orig-vi', value);
+}
+
 function displayUserInfo(user) {
-    document.getElementById('userName').textContent = user.hoten;
-    document.getElementById('userEmail').textContent = user.email;
+    setDynamicProfileText('userName', user.hoten || 'Chưa cập nhật');
+    setDynamicProfileText('userEmail', user.email || 'Chưa cập nhật');
     
     const avatarImgEl = document.getElementById('avatarImg');
     if (avatarImgEl) {
@@ -89,10 +120,10 @@ function displayUserInfo(user) {
     }
     
     // Info section
-    document.getElementById('infoHoten').textContent = user.hoten;
-    document.getElementById('infoEmail').textContent = user.email;
-    document.getElementById('infoSdt').textContent = user.sdt || 'Chưa cập nhật';
-    document.getElementById('infoDiachi').textContent = user.diachi || 'Chưa cập nhật';
+    setDynamicProfileText('infoHoten', user.hoten || 'Chưa cập nhật');
+    setDynamicProfileText('infoEmail', user.email || 'Chưa cập nhật');
+    setDynamicProfileText('infoSdt', user.sdt || 'Chưa cập nhật');
+    setDynamicProfileText('infoDiachi', user.diachi || 'Chưa cập nhật');
     
     // Edit form
     document.getElementById('editHoten').value = user.hoten;
@@ -102,6 +133,15 @@ function displayUserInfo(user) {
     if (typeof window.changeLang === 'function') {
         window.changeLang(localStorage.getItem('spa_lang') || 'vi');
     }
+}
+
+function displayProfileLoadError(message = 'Không thể tải thông tin') {
+    setDynamicProfileText('userName', message);
+    setDynamicProfileText('userEmail', 'Vui lòng tải lại trang');
+    setDynamicProfileText('infoHoten', message);
+    setDynamicProfileText('infoEmail', 'Vui lòng tải lại trang');
+    setDynamicProfileText('infoSdt', 'Không có dữ liệu');
+    setDynamicProfileText('infoDiachi', 'Không có dữ liệu');
 }
 
 // ==================== MENU NAVIGATION ====================
@@ -172,7 +212,7 @@ function initAvatarUpload() {
         
         try {
             const token = getAuthToken();
-            const response = await fetch('/api/profile/upload-avatar', {
+            const response = await customerAuthFetch('/api/profile/upload-avatar', {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -208,7 +248,7 @@ function initForms() {
         };
         
         try {
-            const response = await fetch('/api/profile/update', {
+            const response = await customerAuthFetch('/api/profile/update', {
                 method: 'PUT',
                 headers: getAuthHeaders(true),
                 body: JSON.stringify(data)
@@ -244,7 +284,7 @@ function initForms() {
         }
         
         try {
-            const response = await fetch('/api/profile/change-password', {
+            const response = await customerAuthFetch('/api/profile/change-password', {
                 method: 'PUT',
                 headers: getAuthHeaders(true),
                 body: JSON.stringify({
@@ -271,7 +311,7 @@ function initForms() {
 // ==================== LOAD APPOINTMENTS ====================
 async function loadUserAppointments() {
     try {
-        const response = await fetch('/api/appointments/my-appointments', {
+        const response = await customerAuthFetch('/api/appointments/my-appointments', {
             headers: getAuthHeaders(true)
         });
         
@@ -353,7 +393,7 @@ async function cancelAppointment(id) {
     if (!confirm('Bạn có chắc muốn hủy lịch hẹn này?')) return;
     
     try {
-        const response = await fetch(`/api/appointments/${id}/cancel`, {
+        const response = await customerAuthFetch(`/api/appointments/${id}/cancel`, {
             method: 'PUT',
             headers: getAuthHeaders(true)
         });
@@ -375,7 +415,7 @@ async function cancelAppointment(id) {
 // ==================== LOAD INVOICES ====================
 async function loadUserInvoices() {
     try {
-        const response = await fetch('/api/payment/invoices', {
+        const response = await customerAuthFetch('/api/payment/invoices', {
             headers: getAuthHeaders(true)
         });
         
@@ -448,7 +488,7 @@ function displayNoInvoices() {
 // ==================== INVOICE DETAILS MODAL ====================
 async function viewInvoiceDetails(invoiceId) {
     try {
-        const response = await fetch(`/api/payment/invoices/${invoiceId}`, {
+        const response = await customerAuthFetch(`/api/payment/invoices/${invoiceId}`, {
             headers: getAuthHeaders(true)
         });
         
@@ -550,7 +590,7 @@ async function payInvoice(invoiceId, amount) {
     try {
         showQRModal(invoiceId); // Hiện modal QR
         
-        const response = await fetch(`/api/payment/invoices/${invoiceId}/generate-qr`, { 
+        const response = await customerAuthFetch(`/api/payment/invoices/${invoiceId}/generate-qr`, {
             method: 'POST',
             headers: getAuthHeaders(true),
         });
@@ -678,7 +718,7 @@ async function startCustomerPaymentPolling(invoiceId) {
         customerPollingAttempts++;
         
         try {
-            const response = await fetch(`/api/payment/invoices/${invoiceId}`, {
+            const response = await customerAuthFetch(`/api/payment/invoices/${invoiceId}`, {
                 headers: getAuthHeaders(false)
             });
             
