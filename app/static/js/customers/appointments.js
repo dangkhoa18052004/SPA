@@ -44,7 +44,26 @@ document.addEventListener('DOMContentLoaded', function() {
     loadAllServices();
     setupDateTimeLimits();
     autoSelectServiceFromURL();
+    setupAutoAssignToggle();
 });
+
+function setupAutoAssignToggle() {
+    const autoAssign = document.getElementById('autoAssign');
+    if (!autoAssign) return;
+
+    autoAssign.addEventListener('change', function() {
+        if (this.checked) {
+            // The previous staff choice is no longer applicable once the
+            // customer switches back to automatic assignment.
+            selectedStaff = null;
+            document.querySelectorAll('.staff-card.selected').forEach(card => {
+                card.classList.remove('selected');
+            });
+        }
+
+        updateSummary();
+    });
+}
 
 // ==================== AUTO SELECT SERVICE FROM URL ====================
 function autoSelectServiceFromURL() {
@@ -490,8 +509,10 @@ function updateSummary() {
     if (summaryStaff) {
         const autoAssign = document.getElementById('autoAssign')?.checked;
         
-        if (autoAssign || !selectedStaff) {
+        if (autoAssign) {
             summaryStaff.innerHTML = '<p class="empty-text">Tự động sắp xếp</p>';
+        } else if (!selectedStaff) {
+            summaryStaff.innerHTML = '<p class="empty-text">Chưa chọn nhân viên</p>';
         } else {
             const staffName = document.querySelector(`.staff-card.selected h4`)?.textContent || 'Đã chọn';
             summaryStaff.innerHTML = `<p><i class="fas fa-user"></i> ${staffName}</p>`;
@@ -530,6 +551,11 @@ document.getElementById('appointmentForm')?.addEventListener('submit', async fun
     
     if (!date || !time) {
         Toast.error('Vui lòng chọn ngày và giờ!');
+        return;
+    }
+
+    if (!autoAssign && !selectedStaff) {
+        Toast.warning('Vui lòng chọn một nhân viên hoặc bật tự động sắp xếp!');
         return;
     }
     
