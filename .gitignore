@@ -4,6 +4,13 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.pytest_cache/
+.test-tmp/
+tests/runtime_uploads/*
+!tests/runtime_uploads/.gitkeep
+tests/binspa-test-uploads-*/
+.coverage
+htmlcov/
 
 # Virtual Environment
 venv/
@@ -27,6 +34,11 @@ instance/
 
 # User Uploads / Media
 uploads/
+uploads/**/*
+
+# Local runtime / temporary files
+*.tmp
+*.bak
 
 # IDE & Editor files
 .vscode/

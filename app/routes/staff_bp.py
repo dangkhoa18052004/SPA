@@ -17,14 +17,13 @@ def get_all_staff():
         
         result = []
         for staff in staff_list:
+            position = staff.chucvu.tencv if staff.chucvu else None
             result.append({
                 "manv": staff.manv,
                 "hoten": staff.hoten,
-                "email": staff.email,
-                "sdt": staff.sdt,
-                "chuyenmon": staff.chuyenmon if hasattr(staff, 'chuyenmon') else None,
+                "chuyenmon": position,
+                "chucvu": position,
                 "anhdaidien": staff.anhnhanvien if hasattr(staff, 'anhnhanvien') else None,
-                "role": staff.role
             })
         
         return jsonify({
@@ -59,12 +58,8 @@ def get_staff_detail(manv):
         result = {
             "manv": staff.manv,
             "hoten": staff.hoten,
-            "email": staff.email,
-            "sdt": staff.sdt,
-            "diachi": staff.diachi,
-            "chuyenmon": staff.chuyenmon if hasattr(staff, 'chuyenmon') else None,
+            "chuyenmon": staff.chucvu.tencv if staff.chucvu else None,
             "anhdaidien": staff.anhnhanvien if hasattr(staff, 'anhnhanvien') else None,
-            "role": staff.role,
             "chucvu": staff.chucvu.tencv if staff.chucvu else None
         }
         

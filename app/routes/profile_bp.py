@@ -7,8 +7,8 @@ from ..models import CaLam, Luong, nhanvien_calam, NhanVien, KhachHang
 from ..decorators import login_required, roles_required
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
-from werkzeug.utils import secure_filename
 from datetime import datetime
+from ..services.upload_service import InvalidUploadError, save_validated_image
 
 profile_bp = Blueprint("profile", __name__, url_prefix="/api/profile")
 
@@ -101,24 +101,24 @@ def upload_avatar():
         current_app.logger.error("UPLOAD_FOLDER không được cấu hình!")
         return jsonify({"success": False, "message": "Lỗi cấu hình máy chủ"}), 500
     
-    os.makedirs(upload_folder, exist_ok=True)
-
-    if file:
-        filename = secure_filename(f"{user_type}_{user.taikhoan}_{file.filename}")
-        path = os.path.join(upload_folder, filename)
-        
-        try:
-            file.save(path)
-            if user_type == 'customer':
-                user.anhdaidien = filename
-            elif user_type == 'staff':
-                user.anhnhanvien = filename
-            db.session.commit()
-            return jsonify({"success": True, "message": "Upload ảnh thành công", "filename": filename}), 200
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Lỗi lưu file avatar: {e}")
-            return jsonify({"success": False, "message": "Lưu file thất bại"}), 500
+    try:
+        filename = save_validated_image(
+            file,
+            upload_folder,
+            f"{user_type}_{user.taikhoan}",
+        )
+        if user_type == 'customer':
+            user.anhdaidien = filename
+        elif user_type == 'staff':
+            user.anhnhanvien = filename
+        db.session.commit()
+        return jsonify({"success": True, "message": "Upload ảnh thành công", "filename": filename}), 200
+    except InvalidUploadError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi lưu file avatar: {e}")
+        return jsonify({"success": False, "message": "Lưu file thất bại"}), 500
 
 @profile_bp.route("/avatar/<path:filename>", methods=["GET"])
 def get_avatar(filename):

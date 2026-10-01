@@ -95,3 +95,20 @@ def update_service(madv):
         db.session.rollback()
         current_app.logger.error(f"Lỗi khi cập nhật dịch vụ: {e}")
         return jsonify({"msg": "Lỗi hệ thống"}), 500
+
+@service_manage_bp.route("/services/<int:madv>", methods=["DELETE"])
+@roles_required('admin', 'manager')
+def delete_service(madv):
+    """Soft-delete dịch vụ bằng cách chuyển active = False."""
+    service = DichVu.query.get(madv)
+    if not service:
+        return jsonify({"msg": "Không tìm thấy dịch vụ"}), 404
+
+    try:
+        service.active = False
+        db.session.commit()
+        return jsonify({"success": True, "msg": "Xóa dịch vụ thành công"}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi khi xóa dịch vụ {madv}: {e}", exc_info=True)
+        return jsonify({"msg": "Lỗi hệ thống khi xóa dịch vụ"}), 500

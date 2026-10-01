@@ -1,10 +1,9 @@
-import os
 from flask import Blueprint, request, jsonify, current_app
 from ..extensions import db
 from ..models import KhachHang, NhanVien, ChucVu
 from ..decorators import roles_required
 from werkzeug.security import generate_password_hash
-from werkzeug.utils import secure_filename
+from ..services.upload_service import InvalidUploadError, save_validated_image
 
 staff_manage_bp = Blueprint("staff_manage", __name__)
 
@@ -12,18 +11,7 @@ def save_staff_avatar(file):
     if not file:
         return None
     upload_folder = current_app.config.get('UPLOAD_FOLDER')
-    if not upload_folder:
-        current_app.logger.error("UPLOAD_FOLDER chưa được cấu hình trong Config.")
-        return None
-        
-    if not os.path.exists(upload_folder):
-        os.makedirs(upload_folder)
-        
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(upload_folder, f"staff_{filename}")
-    
-    file.save(file_path)
-    return f"staff_{filename}"
+    return save_validated_image(file, upload_folder, "staff")
 
 @staff_manage_bp.route("/staff/add", methods=["POST"])
 @roles_required('admin')
@@ -45,7 +33,10 @@ def add_staff():
     avatar_file = request.files.get('anhnhanvien')
     avatar_filename = None
     if avatar_file:
-        avatar_filename = save_staff_avatar(avatar_file)
+        try:
+            avatar_filename = save_staff_avatar(avatar_file)
+        except InvalidUploadError as e:
+            return jsonify({"msg": str(e)}), 400
     trangthai_str = data.get("trangthai", "true") 
     trangthai_bool = trangthai_str.lower() == 'true'
     try:
@@ -63,6 +54,9 @@ def add_staff():
         db.session.add(new_staff)
         db.session.commit()
         return jsonify({"msg": "Đã tạo tài khoản thành công", "manv": new_staff.manv}), 201
+    except InvalidUploadError as e:
+        db.session.rollback()
+        return jsonify({"msg": str(e)}), 400
     except Exception as e:
         db.session.rollback(); current_app.logger.error(f"Lỗi khi tạo nhân viên: {e}"); return jsonify({"msg": "Tạo tài khoản thất bại"}), 500
 
@@ -101,6 +95,9 @@ def update_staff(manv):
 
         db.session.commit()
         return jsonify({"msg": "Cập nhật thông tin nhân viên thành công"}), 200
+    except InvalidUploadError as e:
+        db.session.rollback()
+        return jsonify({"msg": str(e)}), 400
     except Exception as e:
         db.session.rollback(); current_app.logger.error(f"Lỗi khi cập nhật nhân viên: {e}"); return jsonify({"msg": "Cập nhật thất bại"}), 500
 

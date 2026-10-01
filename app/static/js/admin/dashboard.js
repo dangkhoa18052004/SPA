@@ -134,6 +134,7 @@ async function loadAdminDashboard() {
     try {
         await loadAdminStats();
         await loadAdminTodayAppointments();
+        await loadAnalyticsCharts();
     } catch (error) {
         console.error('❌ Error loading admin dashboard:', error);
         showToast('Lỗi tải dữ liệu dashboard', 'error');
@@ -455,5 +456,100 @@ async function completeAppointment(malh) {
     } catch (error) {
         console.error('Error completing appointment:', error);
         showToast('Lỗi hệ thống', 'error');
+    }
+}
+
+// ===================================
+// ======= ANALYTICS CHARTS (PHASE 2)
+// ===================================
+let revenueChartInstance = null;
+let appointmentChartInstance = null;
+
+async function loadAnalyticsCharts() {
+    await loadRevenueChart('day');
+    await loadAppointmentChart();
+}
+
+async function loadRevenueChart(groupBy = 'day') {
+    const canvas = document.getElementById('revenueTimeseriesChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    try {
+        const response = await fetch(`/api/analytics/revenue-timeseries?group_by=${groupBy}`, {
+            headers: getAuthHeaders(false)
+        });
+        const res = await response.json();
+        if (!res.success) return;
+
+        if (revenueChartInstance) {
+            revenueChartInstance.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+        revenueChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: res.chart_data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ' Doanh thu: ' + formatCurrency(context.raw);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value >= 1000000 ? (value / 1000000) + 'M' : value >= 1000 ? (value / 1000) + 'k' : value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error loading revenue chart:', e);
+    }
+}
+
+async function loadAppointmentChart() {
+    const canvas = document.getElementById('appointmentStatsChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    try {
+        const response = await fetch('/api/analytics/appointment-stats', {
+            headers: getAuthHeaders(false)
+        });
+        const res = await response.json();
+        if (!res.success) return;
+
+        if (appointmentChartInstance) {
+            appointmentChartInstance.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+        appointmentChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: res.chart_data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, font: { size: 11 } }
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error loading appointment chart:', e);
     }
 }

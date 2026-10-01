@@ -3,10 +3,12 @@ import time
 import requests
 import hmac
 import hashlib
-from flask import current_app, jsonify
+import re
+from decimal import Decimal, InvalidOperation
+from flask import current_app
 from ..models import HoaDon, ThanhToan
 from ..extensions import db
-from datetime import datetime
+from .payment_webhook_service import begin_event, duplicate_response, finish_event
 
 def create_momo_payment_link(invoice):
     """
@@ -72,9 +74,11 @@ def create_momo_payment_link(invoice):
         'signature': signature
     }
     
-    # ✅ Log để debug
-    current_app.logger.info(f"📤 Momo Request Payload:\n{json.dumps(payload, indent=2)}")
-    current_app.logger.info(f"📤 Raw Signature: {rawSignature}")
+    current_app.logger.info(
+        "Creating MoMo payment request: invoice=%s order=%s",
+        invoice.mahd,
+        orderId,
+    )
     
     data_json = json.dumps(payload)
     
@@ -90,8 +94,6 @@ def create_momo_payment_link(invoice):
     
     # ✅ Log response
     current_app.logger.info(f"📥 Momo Response Status: {response.status_code}")
-    current_app.logger.info(f"📥 Momo Response Body: {response.text}")
-    
     response.raise_for_status()
     momo_response = response.json()
 
@@ -113,6 +115,8 @@ def verify_momo_webhook(data):
         raise ValueError("Thiếu cấu hình Momo (Secret/Access Key)")
 
     momo_signature = data.get('signature')
+    if not momo_signature:
+        return False
     
     # ✅ Thứ tự alphabet
     raw_verify_signature_parts = [
@@ -144,39 +148,60 @@ def process_momo_webhook(data):
     """
     Xử lý logic nghiệp vụ sau khi webhook đã được xác thực.
     """
-    result_code = data.get('resultCode')
+    external_id = data.get('transId') or data.get('requestId') or data.get('orderId')
+    event, is_duplicate = begin_event("momo", external_id, data)
+    if is_duplicate:
+        return duplicate_response(event)
+
+    try:
+        result_code = int(data.get('resultCode'))
+    except (TypeError, ValueError):
+        result_code = -1
     if result_code != 0:
-        current_app.logger.warning(f"Momo Webhook: Payment failed {data.get('orderId')} code {result_code}: {data.get('message')}")
-        return
+        finish_event(event, "rejected")
+        db.session.commit()
+        return {"status": "failed", "message": "MoMo báo giao dịch không thành công"}
         
     order_info = data.get('orderInfo')
     try:
-        mahd = int(order_info.replace("Thanh toan HD", ""))
+        match = re.fullmatch(r"Thanh toan HD(\d+)", str(order_info or "").strip())
+        mahd = int(match.group(1)) if match else None
         invoice = HoaDon.query.get(mahd)
     except Exception:
         invoice = None
-        current_app.logger.error(f"Momo Webhook: Could not parse mahd from orderInfo: {order_info}")
-        return
 
     if not invoice:
-        current_app.logger.warning(f"Momo Webhook: Invoice not found: {order_info}")
-        return
+        finish_event(event, "ignored")
+        db.session.commit()
+        return {"status": "ignored", "message": "Không tìm thấy hóa đơn"}
         
     if invoice.trangthai == 'Đã thanh toán':
-        current_app.logger.warning(f"Momo Webhook: Invoice {invoice.mahd} already paid.")
-        return
+        finish_event(event, "ignored", invoice.mahd)
+        db.session.commit()
+        return {"status": "duplicate", "message": "Hóa đơn đã thanh toán trước đó"}
 
     try:
-        new_payment = ThanhToan(
-            mahd=invoice.mahd, 
-            sotien=data.get('amount'), 
-            phuongthuc='Momo QR', 
-            ghichu=f"Momo TransId: {data.get('transId')}"
-        )
-        invoice.trangthai = 'Đã thanh toán'
-        db.session.add(new_payment)
+        paid_amount = Decimal(str(data.get('amount') or "0"))
+    except (InvalidOperation, TypeError):
+        paid_amount = Decimal("0")
+    if paid_amount <= 0 or paid_amount < Decimal(invoice.tongtien):
+        finish_event(event, "rejected", invoice.mahd)
         db.session.commit()
-        current_app.logger.info(f"✅ Momo Webhook: Updated invoice {invoice.mahd} to paid.")
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"❌ Momo Webhook: Error updating DB for invoice {invoice.mahd}: {e}")
+        return {"status": "failed", "message": "Số tiền thanh toán không hợp lệ hoặc không đủ"}
+
+    new_payment = ThanhToan(
+        mahd=invoice.mahd,
+        sotien=paid_amount,
+        phuongthuc='Momo QR',
+        ghichu=f"Momo TransId: {data.get('transId')}"
+    )
+    invoice.trangthai = 'Đã thanh toán'
+    db.session.add(new_payment)
+    finish_event(event, "processed", invoice.mahd)
+    db.session.commit()
+    current_app.logger.info(
+        "MoMo webhook processed: transaction=%s invoice=%s",
+        event.external_transaction_id,
+        invoice.mahd,
+    )
+    return {"status": "success", "message": "Thanh toán thành công"}

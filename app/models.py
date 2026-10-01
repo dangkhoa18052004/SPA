@@ -64,17 +64,76 @@ class DichVu(db.Model):
     active = db.Column(db.Boolean, default=True)
     mota = db.Column(db.Text)
 
+class AppointmentStatus:
+    PENDING = 'pending'
+    CONFIRMED = 'confirmed'
+    IN_PROGRESS = 'in_progress'
+    COMPLETED = 'completed'
+    CANCELLED = 'cancelled'
+
+    ALL = {PENDING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED}
+    ACTIVE_STATUSES = {PENDING, CONFIRMED, IN_PROGRESS}
+    FINAL_STATUSES = {COMPLETED, CANCELLED}
+
+    VI_MAP = {
+        PENDING: 'Chờ xác nhận',
+        CONFIRMED: 'Đã xác nhận',
+        IN_PROGRESS: 'Đang thực hiện',
+        COMPLETED: 'Đã hoàn thành',
+        CANCELLED: 'Đã hủy',
+    }
+
+    @classmethod
+    def to_vietnamese(cls, status_code):
+        return cls.VI_MAP.get(status_code, status_code)
+
+    @classmethod
+    def normalize(cls, raw_status):
+        if not raw_status:
+            return cls.PENDING
+        cleaned = str(raw_status).strip().lower()
+        mapping = {
+            'pending': cls.PENDING,
+            'chờ xác nhận': cls.PENDING,
+            'cho xac nhan': cls.PENDING,
+            'confirmed': cls.CONFIRMED,
+            'đã xác nhận': cls.CONFIRMED,
+            'da xac nhan': cls.CONFIRMED,
+            'in_progress': cls.IN_PROGRESS,
+            'dang thuc hien': cls.IN_PROGRESS,
+            'đang thực hiện': cls.IN_PROGRESS,
+            'in progress': cls.IN_PROGRESS,
+            'completed': cls.COMPLETED,
+            'hoàn thành': cls.COMPLETED,
+            'hoan thanh': cls.COMPLETED,
+            'đã hoàn thành': cls.COMPLETED,
+            'da hoan thanh': cls.COMPLETED,
+            'cancelled': cls.CANCELLED,
+            'canceled': cls.CANCELLED,
+            'đã hủy': cls.CANCELLED,
+            'da huy': cls.CANCELLED,
+            'hủy': cls.CANCELLED,
+            'huy': cls.CANCELLED,
+        }
+        return mapping.get(cleaned, cleaned)
+
+
 # bảng lịch hẹn
 class LichHen(db.Model):
     __tablename__ = 'lichhen'
     malh = db.Column(db.Integer, primary_key=True)
-    ngaygio = db.Column(db.DateTime, nullable=False)
-    trangthai = db.Column(db.String(50), default='Chờ xác nhận')
+    ngaygio = db.Column(db.DateTime, nullable=False, index=True)
+    trangthai = db.Column(db.String(50), default=AppointmentStatus.PENDING, index=True)
     makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), nullable=False)
-    manv = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'), nullable=True)
+    manv = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'), nullable=True, index=True)
+    ghichu = db.Column(db.Text, nullable=True)
     khachhang = db.relationship('KhachHang', backref='lichhen', lazy=True)
     chitiet = db.relationship('ChiTietLichHen', backref='lichhen', lazy=True, cascade="all, delete-orphan")
     nhanvien = db.relationship('NhanVien', lazy=True)
+
+    @property
+    def trangthai_vi(self):
+        return AppointmentStatus.to_vietnamese(self.trangthai)
 
 # bảng chi tiết lịch hẹn
 class ChiTietLichHen(db.Model):
@@ -170,6 +229,31 @@ class ThanhToan(db.Model):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+
+class PaymentWebhookEvent(db.Model):
+    """Audit/idempotency record for external payment callbacks."""
+    __tablename__ = 'payment_webhook_event'
+
+    id = db.Column(db.Integer, primary_key=True)
+    provider = db.Column(db.String(20), nullable=False)
+    external_transaction_id = db.Column(db.String(100), nullable=False)
+    payload_hash = db.Column(db.String(64), nullable=False)
+    payload_json = db.Column(db.JSON, nullable=False)
+    status = db.Column(db.String(32), nullable=False, default='processing')
+    mahd = db.Column(db.Integer, db.ForeignKey('hoadon.mahd'), nullable=True)
+    processed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    invoice = db.relationship('HoaDon')
+
+    __table_args__ = (
+        UniqueConstraint(
+            'provider',
+            'external_transaction_id',
+            name='uq_payment_webhook_provider_transaction',
+        ),
+    )
+
 # bảng lương nhân viên
 class Luong(db.Model):
     """Model cho bảng Lương nhân viên."""
@@ -217,3 +301,19 @@ class DangKyCaLam(db.Model):
 
     nhanvien = db.relationship('NhanVien', backref='dangkyschicht')
     calam = db.relationship('CaLam', backref='dangkyschicht')
+
+# bảng đánh giá dịch vụ sau khi hoàn thành lịch hẹn
+class DanhGia(db.Model):
+    __tablename__ = 'danhgia'
+    madg = db.Column(db.Integer, primary_key=True)
+    malh = db.Column(db.Integer, db.ForeignKey('lichhen.malh'), nullable=False, unique=True, index=True)
+    makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), nullable=False, index=True)
+    manv = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'), nullable=True, index=True)
+    rating = db.Column(db.Integer, nullable=False)  # 1 đến 5 sao
+    comment = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    lichhen = db.relationship('LichHen', backref=db.backref('danhgia', uselist=False, cascade='all, delete-orphan'))
+    khachhang = db.relationship('KhachHang', backref='danhgia_list')
+    nhanvien = db.relationship('NhanVien', backref='danhgia_list')
+

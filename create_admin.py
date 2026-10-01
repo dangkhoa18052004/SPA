@@ -2,6 +2,10 @@
 Script tạo tài khoản admin đầu tiên
 Chạy: python create_admin.py
 """
+import getpass
+import os
+import sys
+
 from app import create_app, db
 from app.models import NhanVien, ChucVu
 from werkzeug.security import generate_password_hash
@@ -9,8 +13,10 @@ from werkzeug.security import generate_password_hash
 def create_admin():
     app = create_app()
     with app.app_context():
+        admin_username = os.getenv("ADMIN_INITIAL_USERNAME", "admin")
+
         # ========== BƯỚC 1: KIỂM TRA ADMIN ĐÃ TỒN TẠI CHƯA ==========
-        existing_admin = NhanVien.query.filter_by(taikhoan='admin').first()
+        existing_admin = NhanVien.query.filter_by(taikhoan=admin_username).first()
         if existing_admin:
             print("=" * 60)
             print("❌ ADMIN ĐÃ TỒN TẠI!")
@@ -22,6 +28,20 @@ def create_admin():
             print("=" * 60)
             return
         
+        initial_password = os.getenv("ADMIN_INITIAL_PASSWORD")
+        if not initial_password and sys.stdin.isatty():
+            initial_password = getpass.getpass("Nhập mật khẩu admin ban đầu: ")
+        if not initial_password:
+            raise RuntimeError(
+                "Thiếu ADMIN_INITIAL_PASSWORD. Hãy cấu hình biến môi trường "
+                "khi chạy không tương tác."
+            )
+        if len(initial_password) < 12:
+            raise ValueError("ADMIN_INITIAL_PASSWORD phải có ít nhất 12 ký tự")
+
+        admin_email = os.getenv("ADMIN_INITIAL_EMAIL") or None
+        admin_phone = os.getenv("ADMIN_INITIAL_PHONE") or None
+
         # ========== BƯỚC 2: TẠO HOẶC LẤY CHỨC VỤ "ADMIN" ==========
         chucvu_admin = ChucVu.query.filter_by(tencv='Admin').first()
         
@@ -40,11 +60,11 @@ def create_admin():
         # ========== BƯỚC 3: TẠO TÀI KHOẢN ADMIN ==========
         print("🔧 Đang tạo tài khoản Admin...")
         admin = NhanVien(
-            taikhoan='admin',
-            matkhau=generate_password_hash('Admin@123456'),
+            taikhoan=admin_username,
+            matkhau=generate_password_hash(initial_password),
             hoten='System Administrator',
-            email='admin@binspa.com',
-            sdt='0987654321',
+            email=admin_email,
+            sdt=admin_phone,
             macv=chucvu_admin.macv,  # ← Gán chức vụ vừa tạo/lấy
             role='admin',
             trangthai=True
@@ -57,11 +77,10 @@ def create_admin():
         print("=" * 60)
         print("✅ TẠO ADMIN THÀNH CÔNG!")
         print("=" * 60)
-        print(f"🔑 Tài khoản: admin")
-        print(f"🔒 Mật khẩu: Admin@123456")
+        print(f"🔑 Tài khoản: {admin_username}")
         print(f"👤 Họ tên: System Administrator")
-        print(f"📧 Email: admin@binspa.com")
-        print(f"📱 SĐT: 0987654321")
+        print(f"📧 Email: {admin_email or 'Chưa cấu hình'}")
+        print(f"📱 SĐT: {admin_phone or 'Chưa cấu hình'}")
         print(f"💼 Chức vụ: Admin (ID: {chucvu_admin.macv})")
         print(f"⚙️  Role: admin")
         print("=" * 60)

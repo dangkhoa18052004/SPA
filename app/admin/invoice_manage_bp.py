@@ -1,5 +1,4 @@
 from app.services import vietqr_service
-import requests
 from flask import Blueprint, request, jsonify, current_app, g
 from ..extensions import db
 from ..models import HoaDon, LichHen, ChiTietHoaDon, ThanhToan
@@ -15,19 +14,24 @@ invoice_manage_bp = Blueprint("invoice_manage", __name__)
 def momo_webhook():
     """Nhận webhook từ Momo"""
     try:
-        data = request.get_json()
-        current_app.logger.info(f"Received Momo webhook: {data}")
+        data = request.get_json() or {}
+        if not data:
+            return jsonify({"msg": "No data received"}), 400
         
         # Xác thực chữ ký
         if not momo_service.verify_momo_webhook(data):
             return jsonify({"msg": "Invalid signature"}), 403
         
         # Xử lý webhook
-        momo_service.process_momo_webhook(data)
+        result = momo_service.process_momo_webhook(data)
         
-        return jsonify({"msg": "Success"}), 200
-    except Exception as e:
-        current_app.logger.error(f"Webhook error: {e}")
+        return jsonify({"msg": "Success", "status": result.get("status")}), 200
+    except (ValueError, TypeError) as e:
+        db.session.rollback()
+        return jsonify({"msg": str(e)}), 400
+    except Exception:
+        db.session.rollback()
+        current_app.logger.error("MoMo admin webhook processing failed", exc_info=True)
         return jsonify({"msg": "Error"}), 500
 
 @invoice_manage_bp.route("/appointments/<int:appointment_id>/create-invoice", methods=["POST"])

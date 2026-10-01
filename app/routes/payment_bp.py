@@ -4,7 +4,6 @@ from ..models import HoaDon, ThanhToan
 from ..decorators import customer_required
 from ..services import momo_service, vietqr_service # Import service
 from datetime import datetime
-import requests
 
 payment_bp = Blueprint("payment", __name__, url_prefix="/api/payment")
 
@@ -67,21 +66,30 @@ def sepay_payment_webhook():
     """(Hệ thống) Nhận tín hiệu chuyển khoản tự động (Webhook) từ SePay."""
     data = request.get_json() or {}
     auth_header = request.headers.get("Authorization")
-    current_app.logger.info(f"SePay Webhook Received: {data}")
     
     try:
         res = vietqr_service.process_sepay_webhook(data, auth_header)
         return jsonify(res), 200
+    except PermissionError as e:
+        db.session.rollback()
+        current_app.logger.warning("Rejected SePay webhook with invalid authorization")
+        return jsonify({"status": "error", "message": str(e)}), 403
+    except RuntimeError as e:
+        db.session.rollback()
+        current_app.logger.error("SePay webhook configuration is incomplete")
+        return jsonify({"status": "error", "message": str(e)}), 503
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 400
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"SePay Webhook Error: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": str(e)}), 500
+        current_app.logger.error("SePay webhook processing failed", exc_info=True)
+        return jsonify({"status": "error", "message": "Lỗi xử lý webhook"}), 500
 
 @payment_bp.route("/webhook/momo", methods=["POST"])
 def momo_payment_webhook():
     """(Hệ thống) Nhận tín hiệu (IPN) từ Momo Sandbox."""
-    data = request.get_json()
-    current_app.logger.info(f"Momo Webhook Received: {data}")
+    data = request.get_json() or {}
     if not data: return jsonify({"status": "error", "message": "No data received"}), 400
     
     try:
@@ -92,19 +100,21 @@ def momo_payment_webhook():
             return jsonify({"resultCode": 99, "message": "Invalid signature"}), 400
         
         #ghi nhận thanh toán
-        momo_service.process_momo_webhook(data)
+        result = momo_service.process_momo_webhook(data)
         
         # 3. Phản hồi cho Momo
         return jsonify({
             "partnerCode": data.get('partnerCode'), 
             "requestId": data.get('requestId'), 
             "orderId": data.get('orderId'), 
-            "resultCode": 0, "message":"Success"
+            "resultCode": 0, "message":"Success", "status": result.get("status")
         }), 200
-        
+    except (ValueError, TypeError) as e:
+        db.session.rollback()
+        return jsonify({"resultCode": 99, "message": str(e)}), 400
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Momo Webhook: Error processing webhook: {e}", exc_info=True)
+        current_app.logger.error("MoMo webhook processing failed", exc_info=True)
         return jsonify({"resultCode": 99, "message": "Server error"}), 500
     
 @payment_bp.route("/invoices/<int:invoice_id>/generate-qr", methods=["POST"])

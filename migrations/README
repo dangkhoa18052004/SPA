@@ -1,0 +1,7 @@
+Single-database migration repository for Bin Spa.
+
+Apply migrations with:
+    python -m flask --app wsgi:app db upgrade
+
+Rollback the latest migration with:
+    python -m flask --app wsgi:app db downgrade -1
