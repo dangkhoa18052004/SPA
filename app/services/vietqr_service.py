@@ -99,7 +99,7 @@ def process_sepay_webhook(data, authorization_header=None):
         finish_event(event, 'processed')
         db.session.commit()
         return {'status':'success' if created else 'duplicate', 'mathe':record.mathe}
-    match = re.search(r'HD\s*(\d+)', content, re.IGNORECASE)
+    match = re.search(r'\bHD\s*(\d+)\b', content, re.IGNORECASE)
     if not match:
         finish_event(event, "ignored")
         db.session.commit()
@@ -109,8 +109,6 @@ def process_sepay_webhook(data, authorization_header=None):
     
     # Thử tìm theo mã hóa đơn mahd, nếu không có thử tìm theo mã lịch hẹn malh
     invoice = HoaDon.query.get(invoice_id)
-    if not invoice:
-        invoice = HoaDon.query.filter_by(malh=invoice_id).first()
         
     if not invoice:
         finish_event(event, "ignored")
@@ -131,7 +129,7 @@ def process_sepay_webhook(data, authorization_header=None):
         transfer_amount = Decimal("0")
     invoice_amount = Decimal(invoice.tongtien)
 
-    if transfer_amount <= 0:
+    if not transfer_amount.is_finite() or transfer_amount <= 0:
         finish_event(event, "rejected", invoice.mahd)
         db.session.commit()
         return {"status": "failed", "message": "Số tiền thanh toán phải lớn hơn 0"}
@@ -142,6 +140,11 @@ def process_sepay_webhook(data, authorization_header=None):
         return {"status": "failed", "message": "Số tiền thanh toán không đủ"}
 
     # 3. Ghi nhận thanh toán hóa đơn & cập nhật trạng thái
+    from .payment_webhook_service import claim_invoice_payment
+    if not claim_invoice_payment(invoice.mahd):
+        finish_event(event, "ignored", invoice.mahd)
+        db.session.commit()
+        return {"status": "duplicate", "message": "Hóa đơn đã thanh toán trước đó"}
     new_payment = ThanhToan(
         mahd=invoice.mahd,
         sotien=transfer_amount,

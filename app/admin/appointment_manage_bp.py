@@ -7,6 +7,8 @@ from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models import (
     LichHen,
+    HoaDon,
+    LieuTrinhUsage,
     KhachHang,
     DichVu,
     NhanVien,
@@ -277,6 +279,7 @@ def get_all_appointments_admin():
             .all()
         )
 
+        invoice_map, coverage_map = appointment_billing_maps(appointments)
         result = []
         for apt in appointments:
             dichvu_ten = "N/A"
@@ -291,11 +294,13 @@ def get_all_appointments_admin():
             nhanvien_ten = apt.nhanvien.hoten if apt.nhanvien else "Chưa gán"
 
             result.append({
+                **appointment_billing_data(apt, invoice_map.get(apt.malh), coverage_map.get(apt.malh, set())),
                 "malh": apt.malh,
                 "ngaygio": apt.ngaygio.isoformat(),
                 "khachhang_hoten": apt.khachhang.hoten if apt.khachhang else "N/A",
                 "dichvu_ten": dichvu_ten,
                 "nhanvien_hoten": nhanvien_ten,
+                "manv": apt.manv,
                 "trangthai": apt.trangthai,
                 "trangthai_vi": AppointmentStatus.to_vietnamese(apt.trangthai),
                 "ghichu": apt.ghichu or "",
@@ -357,6 +362,7 @@ def get_my_appointments():
 
 
 @appointment_manage_bp.route("/my-schedule-list", methods=["GET"])
+@appointment_manage_bp.route("/appointments/my-schedule", methods=["GET"])
 @roles_required("staff", "letan")
 def get_my_schedule_by_date_range():
     """Nhân viên kỹ thuật xem lịch hẹn được phân công của mình."""
@@ -391,6 +397,7 @@ def get_my_schedule_by_date_range():
             .all()
         )
 
+        invoice_map, coverage_map = appointment_billing_maps(appointments)
         result = []
         for apt in appointments:
             dichvu_ten = "N/A"
@@ -401,11 +408,13 @@ def get_my_schedule_by_date_range():
                     dichvu_ten += f" (+{dichvu_count - 1})"
 
             result.append({
+                **appointment_billing_data(apt, invoice_map.get(apt.malh), coverage_map.get(apt.malh, set())),
                 "malh": apt.malh,
                 "ngaygio": apt.ngaygio.isoformat(),
                 "khachhang_hoten": apt.khachhang.hoten if apt.khachhang else "Khách vãng lai",
                 "dichvu_ten": dichvu_ten,
                 "nhanvien_hoten": staff.hoten,
+                "manv": apt.manv,
                 "trangthai": apt.trangthai,
                 "trangthai_vi": AppointmentStatus.to_vietnamese(apt.trangthai),
                 "ghichu": apt.ghichu if apt.ghichu else "",
@@ -441,7 +450,9 @@ def get_appointment_detail(malh):
                     "thoiluong": detail.dichvu.thoiluong,
                 })
 
+        invoice_map, coverage_map = appointment_billing_maps([apt])
         result = {
+            **appointment_billing_data(apt, invoice_map.get(apt.malh), coverage_map.get(apt.malh, set())),
             "malh": apt.malh,
             "ngaygio": apt.ngaygio.isoformat(),
             "khachhang": {
@@ -703,3 +714,50 @@ def get_appointment_statistics():
     except Exception as e:
         current_app.logger.error(f"Lỗi lấy thống kê lịch hẹn: {e}", exc_info=True)
         return jsonify({"success": False, "msg": "Lỗi hệ thống"}), 500
+
+
+def serialize_appointment_invoice(invoice):
+    if invoice is None:
+        return None
+    return {"mahd": invoice.mahd, "malh": invoice.malh,
+            "tongtien": str(invoice.tongtien), "trangthai": invoice.trangthai}
+
+
+def appointment_billing_maps(appointments):
+    ids = [apt.malh for apt in appointments]
+    if not ids:
+        return {}, {}
+    invoices = {invoice.malh: invoice for invoice in HoaDon.query.filter(HoaDon.malh.in_(ids)).all()}
+    covered = {}
+    for usage in LieuTrinhUsage.query.filter(LieuTrinhUsage.malh.in_(ids), LieuTrinhUsage.state == 'consumed').all():
+        covered.setdefault(usage.malh, set()).add(usage.madv)
+    return invoices, covered
+
+
+def appointment_billing_data(appointment, invoice, covered):
+    status = AppointmentStatus.normalize(appointment.trangthai)
+    service_ids = {detail.madv for detail in appointment.chitiet if detail.dichvu}
+    fully_covered = bool(service_ids) and service_ids.issubset(covered)
+    completed = status == AppointmentStatus.COMPLETED
+    user = g.current_user
+    billing_role = user.role in ('admin', 'manager', 'letan')
+    own_appointment = user.role != 'staff' or appointment.manv == user.manv
+    payment_status = None
+    if completed:
+        payment_status = invoice.trangthai if invoice else (
+            'Đã thanh toán bằng gói' if fully_covered else 'Chưa thanh toán')
+    return {
+        'invoice': serialize_appointment_invoice(invoice),
+        'payment_status': payment_status,
+        'package_covered': fully_covered,
+        'billable_service_ids': sorted(service_ids - covered),
+        'permissions': {
+            'canView': own_appointment,
+            'canConfirm': own_appointment and status == AppointmentStatus.PENDING,
+            'canComplete': own_appointment and status in (AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS),
+            'canCancel': billing_role and status in AppointmentStatus.ACTIVE_STATUSES,
+            'canCreateInvoice': billing_role and completed and invoice is None and bool(service_ids - covered),
+            'canPayInvoice': billing_role and completed and invoice is not None and invoice.trangthai == 'Chưa thanh toán',
+            'canViewInvoice': billing_role and completed and invoice is not None and invoice.trangthai == 'Đã thanh toán',
+        },
+    }

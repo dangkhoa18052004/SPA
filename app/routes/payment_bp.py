@@ -51,6 +51,10 @@ def pay_for_invoice_online(invoice_id):
     if sotien_thanh_toan < float(invoice.tongtien): return jsonify({"msg": "Số tiền thanh toán không đủ"}), 400
 
     try:
+        from ..services.payment_webhook_service import claim_invoice_payment
+        if not claim_invoice_payment(invoice_id):
+            db.session.rollback()
+            return jsonify({"msg": "Hóa đơn đã được thanh toán."}), 409
         new_payment = ThanhToan(mahd=invoice_id, sotien=sotien_thanh_toan, phuongthuc=phuongthuc, ngaythanhtoan=datetime.utcnow())
         invoice.trangthai = 'Đã thanh toán'
         db.session.add(new_payment)

@@ -68,3 +68,11 @@ def duplicate_response(event):
         "message": "Giao dịch đã được tiếp nhận trước đó",
         "event_status": event.status,
     }
+
+
+def claim_invoice_payment(invoice_id):
+    """Atomically claim an unpaid invoice within the caller's transaction."""
+    from ..models import HoaDon
+    return HoaDon.query.filter_by(mahd=invoice_id, trangthai="Chưa thanh toán").update(
+        {HoaDon.trangthai: "Đã thanh toán"}, synchronize_session=False
+    ) == 1

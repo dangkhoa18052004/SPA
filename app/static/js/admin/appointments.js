@@ -13,10 +13,7 @@ let currentUserRole = null;
 let selectedServiceIds = []; 
 let selectedCustomerId = null;
 let selectedStaffId = null;
-let currentInvoiceId = null;
-let pollingAttempts = 0;
-const MAX_POLLING_ATTEMPTS = 60; 
-let paymentPollingInterval = null; 
+
 
 // ========================================
 // 2. KHỞI TẠO & LOAD DATA
@@ -250,7 +247,7 @@ async function loadAppointments(filters = {}, dateRange = null) {
         }
 
         if (currentUserRole === 'staff') {
-            url = '/api/admin/my-schedule-list';
+            url = '/api/admin/appointments/my-schedule';
             const today = formatLocalDate(new Date());
 
             const startDate = filters.startDate || dateRange.start_date || today;
@@ -675,7 +672,7 @@ function renderAppointmentsTable() {
     const paginatedData = allAppointments.slice(startIndex, startIndex + itemsPerPage);
     
     if (paginatedData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center">Không có lịch hẹn nào</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">Không có lịch hẹn nào</td></tr>';
         return;
     }
     
@@ -683,47 +680,19 @@ function renderAppointmentsTable() {
         let serviceName = apt.dichvu_ten || 'N/A';
         let customerName = apt.khachhang_hoten || 'N/A';
         let staffName = apt.nhanvien_hoten || 'Chưa gán';
-        const canEdit = currentUserRole !== 'staff';
         
         return `
-            <tr>
+            <tr data-appointment-id="${apt.malh}">
                 <td class="d-none">#${apt.malh}</td>
                 <td>${formatDateTime(apt.ngaygio)}</td>
                 <td>${customerName}</td>
                 <td>${serviceName}</td>
                 <td>${staffName}</td>
                 <td><span class="badge badge-${getStatusClass(apt.trangthai)}">${getAppointmentStatusText(apt.trangthai)}</span></td>
+                <td class="d-none">${appointmentPaymentBadge(apt)}</td>
                 <td class="d-none">${apt.ghichu || ''}</td>
                 <td class="action-buttons">
-                    ${canEdit ? `
-                        <button class="btn btn-info btn-sm" onclick="viewAppointmentDetail(${apt.malh})" title="Xem chi tiết">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        ${(apt.trangthai === 'Chờ xác nhận' || apt.trangthai === 'pending') ? `
-                            <button class="btn btn-success btn-sm" onclick="confirmAppointment(${apt.malh})" title="Xác nhận">
-                                <i class="fas fa-check"></i>
-                            </button>
-                        ` : ''}
-                        ${(apt.trangthai === 'Đã xác nhận' || apt.trangthai === 'confirmed') ? `
-                            <button class="btn btn-primary btn-sm" onclick="completeAppointment(${apt.malh})" title="Hoàn thành">
-                                <i class="fas fa-check-double"></i>
-                            </button>
-                        ` : ''}
-                        ${(apt.trangthai !== 'Đã hoàn thành' && apt.trangthai !== 'Đã hủy' && apt.trangthai !== 'completed' && apt.trangthai !== 'cancelled') ? `
-                            <button class="btn btn-danger btn-sm" onclick="cancelAppointment(${apt.malh})" title="Hủy">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        ` : ''}
-                        ${(apt.trangthai === 'Đã hoàn thành' || apt.trangthai === 'completed') ? `
-                            <button class="btn btn-warning btn-sm" onclick="createInvoiceForAppointment(${apt.malh})" title="Tạo hóa đơn">
-                                <i class="fas fa-file-invoice-dollar"></i>
-                            </button>
-                        ` : ''}
-                    ` : `
-                        <button class="btn btn-info btn-sm" onclick="viewAppointmentDetail(${apt.malh})" title="Xem chi tiết">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    `}
+                    ${appointmentActions(apt)}
                 </td>
             </tr>
         `;
@@ -927,6 +896,7 @@ function populateAndShowDetailModal(apt) {
     document.getElementById('detail-apt-time').textContent = formatDateTime(apt.ngaygio);
     document.getElementById('detail-apt-staff').textContent = apt.nhanvien ? apt.nhanvien.hoten : 'Chưa gán';
     document.getElementById('detail-apt-status').innerHTML = `<span class="badge badge-${getStatusClass(apt.trangthai)}">${getAppointmentStatusText(apt.trangthai)}</span>`;
+    document.getElementById('detail-invoice').innerHTML = `Thanh toán: ${appointmentPaymentBadge(apt)} ${appointmentInvoiceAction(apt)}`;
     document.getElementById('detail-apt-notes').textContent = apt.ghichu || 'Không có ghi chú';
 
     const servicesList = document.getElementById('detail-services-list');
@@ -961,7 +931,7 @@ async function confirmAppointment(malh) {
 }
 
 async function completeAppointment(malh) {
-    showConfirm('Hoàn thành lịch hẹn', 'Xác nhận lịch hẹn đã hoàn thành?', async () => {
+    showConfirm('Hoàn thành lịch hẹn', 'Xác nhận khách hàng đã hoàn thành dịch vụ?', async () => {
         try {
             const response = await fetch(`/api/admin/appointments/${malh}/complete`, { method: 'POST', headers: getAuthHeaders() });
             
@@ -974,16 +944,8 @@ async function completeAppointment(malh) {
 
             if (response.ok && data.success) {
                 showSuccess(data.msg || 'Đã đánh dấu hoàn thành');
-                loadAppointments();
+                await loadAppointments();
                 loadStatistics();
-                
-                showConfirm(
-                    'Tạo hóa đơn', 
-                    'Lịch hẹn đã hoàn thành. Bạn có muốn tạo hóa đơn ngay không?',
-                    () => createInvoiceForAppointment(malh), 
-                    null, 
-                    'Tạo hóa đơn'
-                );
             } else {
                 showError(data.msg || 'Cập nhật thất bại');
             }
@@ -1015,266 +977,14 @@ async function createInvoiceForAppointment(appointmentId) {
         const response = await fetch(`/api/admin/appointments/${appointmentId}/create-invoice`, { method: 'POST', headers: getAuthHeaders() });
         const data = await response.json();
         
-        if (response.ok && data.invoice_id) {
+        if ((response.ok || data.code === "INVOICE_ALREADY_EXISTS") && data.invoice_id) {
             showSuccess(data.msg || 'Tạo hóa đơn thành công!');
-            openPaymentSelectionModal(data.invoice_id);
+            await loadAppointments();
+            openInvoicePayment(data.invoice_id);
         } else {
             showError(data.msg || 'Tạo hóa đơn thất bại');
         }
     } catch (error) { console.error('Lỗi:', error); showError('Có lỗi xảy ra khi tạo hóa đơn'); }
-}
-
-function openPaymentSelectionModal(invoiceId) {
-    currentInvoiceId = invoiceId;
-    
-    fetch(`/api/admin/invoices/${invoiceId}`, { headers: getAuthHeaders(false) })
-        .then(res => res.json())
-        .then(invoice => {
-            if (!invoice || !invoice.tongtien) throw new Error("Invalid invoice data");
-            const totalAmount = invoice.tongtien;
-            
-            const modalHtml = `
-                <div id="paymentModal-${invoiceId}" class="modal show" style="display: grid !important; place-items: center;">
-                    <div class="modal-content modal-sm">
-                        <div class="modal-header" style="padding: 15px 25px;">
-                            <h3 style="margin:0; font-size: 18px;"><i class="fas fa-credit-card"></i> Thanh toán</h3>
-                            <button class="close" onclick="closeModal('paymentModal-${invoiceId}')">&times;</button>
-                        </div>
-                        <div class="modal-body" style="padding: 20px 25px;">
-                            <div class="info-card" style="text-align: center; margin-bottom: 25px; padding: 15px; border: 1px solid #ddd; border-radius: 8px;">
-                                <h6 style="color: #666; margin-bottom: 5px;">TỔNG TIỀN CẦN THANH TOÁN</h6>
-                                <h3 style="color: #10b981; font-size: 24px;">${formatCurrency(totalAmount)}</h3>
-                            </div>
-                            <h5 style="text-align: center; margin: 15px 0 20px 0; color: #333; font-weight: 600;">Chọn phương thức thanh toán:</h5>
-                            <div class="payment-options" style="display: flex; gap: 15px; justify-content: center;">
-                                <div class="payment-option cash" onclick="openCashPaymentModal(${invoiceId}, ${totalAmount})">
-                                    <i class="fas fa-money-bill-wave"></i><h4>Tiền mặt</h4><p>Nhận tiền trực tiếp</p>
-                                </div>
-                                <div class="payment-option qr" onclick="generateMomoQrCode(${invoiceId})">
-                                    <i class="fas fa-qrcode"></i><h4>QR Code</h4><p>Quét mã Momo</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-            document.body.style.overflow = 'hidden';
-            const modal = document.getElementById(`paymentModal-${invoiceId}`);
-            modal.addEventListener('click', function(e) { if (e.target === this) closeModal(`paymentModal-${invoiceId}`); });
-        })
-        .catch(error => { console.error('Lỗi lấy tổng tiền:', error); showError('Không thể lấy tổng tiền hóa đơn'); });
-}
-
-function openCashPaymentModal(invoiceId, totalAmount) {
-    closeModal(`paymentModal-${invoiceId}`);
-    const totalAmountFloat = parseFloat(totalAmount);
-    
-    const cashModalHtml = `
-        <div id="cashPaymentModal" class="modal show" style="display: grid !important; place-items: center;">
-            <div class="modal-content modal-sm">
-                <div class="modal-header" style="padding: 15px 25px;">
-                    <h3><i class="fas fa-money-bill-wave"></i> Thanh toán tiền mặt</h3>
-                    <button class="close" onclick="closeModal('cashPaymentModal')">&times;</button>
-                </div>
-                <div class="modal-body" style="padding: 20px 25px;">
-                    <div style="text-align: center; margin-bottom: 20px; padding: 15px; background: #f0fdf4; border-radius: 8px;">
-                        <h6 style="color: #10b981; margin-bottom: 5px;">TỔNG TIỀN PHẢI THU</h6>
-                        <h3 id="cash-total-display" style="color: #10b981; font-size: 24px;">${formatCurrency(totalAmount)}</h3>
-                    </div>
-                    
-                    <form id="cashPaymentForm" onsubmit="event.preventDefault(); handleCashPaymentSubmit(${invoiceId}, ${totalAmount});">
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <label for="amountPaid" style="font-weight: 600;">Số tiền khách trả (*)</label>
-                            <input type="number" id="amountPaid" class="form-control" placeholder="Nhập số tiền..." required min="${totalAmountFloat}">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 25px;">
-                            <label for="changeAmount" style="font-weight: 600;">Tiền thối lại</label>
-                            <input type="text" id="changeAmount" class="form-control" readonly value="${formatCurrency(0)}" style="background: #f3f4f6; color: #e11d48; font-weight: bold;">
-                        </div>
-                        <div class="btn-group" style="display: flex; justify-content: flex-end; gap: 10px;">
-                            <button type="button" class="btn btn-secondary" onclick="closeModal('cashPaymentModal')">Hủy</button>
-                            <button type="submit" class="btn btn-primary" id="confirmCashBtn"><i class="fas fa-check"></i> Xác nhận</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', cashModalHtml);
-    const modal = document.getElementById('cashPaymentModal');
-    if (modal) {
-        modal.style.display = 'grid'; modal.style.placeItems = 'center'; document.body.style.overflow = 'hidden';
-        modal.addEventListener('click', function(e) { if (e.target === this) closeModal('cashPaymentModal'); });
-    }
-
-    const inputPaid = document.getElementById('amountPaid');
-    const inputChange = document.getElementById('changeAmount');
-    
-    inputPaid.addEventListener('input', function() {
-        const paid = parseFloat(this.value);
-        if (isNaN(paid) || paid < totalAmountFloat) { inputChange.value = formatCurrency(0); document.getElementById('confirmCashBtn').disabled = true; return; }
-        const change = paid - totalAmountFloat;
-        inputChange.value = formatCurrency(change); document.getElementById('confirmCashBtn').disabled = false;
-    });
-    
-    document.getElementById('confirmCashBtn').disabled = true; 
-}
-
-async function handleCashPaymentSubmit(invoiceId, totalAmount) {
-    const amountPaid = document.getElementById('amountPaid').value;
-    const amountPaidFloat = parseFloat(amountPaid);
-    
-    if (amountPaidFloat < parseFloat(totalAmount)) { showError('Số tiền khách trả không đủ!'); return; }
-    
-    try {
-        const response = await fetch(`/api/admin/invoices/${invoiceId}/record-payment`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ sotien: amountPaidFloat, phuongthuc: 'Tiền mặt' }) });
-        const data = await response.json();
-        
-        if (response.ok) {
-            const change = amountPaidFloat - parseFloat(totalAmount);
-            showSuccess(`Thanh toán thành công! Tiền thối: ${formatCurrency(change)}`);
-            closeModal('cashPaymentModal');
-            loadAppointments(); 
-        } else {
-            showError(data.msg || 'Ghi nhận thanh toán thất bại');
-        }
-
-    } catch (error) { console.error('Lỗi:', error); showError('Có lỗi xảy ra khi ghi nhận tiền mặt'); }
-}
-
-async function ensureQRCodeLoaded() {
-    if (typeof QRCode !== 'undefined') return true;
-    return new Promise((resolve) => {
-        const localScript = document.createElement('script');
-        localScript.src = '/static/js/admin/qrcode.min.js';
-        localScript.onload = () => resolve(typeof QRCode !== 'undefined');
-        localScript.onerror = () => {
-            const cdnScript = document.createElement('script');
-            cdnScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-            cdnScript.onload = () => resolve(typeof QRCode !== 'undefined');
-            cdnScript.onerror = () => resolve(false);
-            document.head.appendChild(cdnScript);
-        };
-        document.head.appendChild(localScript);
-    });
-}
-
-async function generateMomoQrCode(invoiceId) {
-    closeModal(`paymentModal-${invoiceId}`);
-    
-    const qrModalHtml = `
-        <div id="qrCodeModal" class="modal show" style="display: grid !important; place-items: center;">
-            <div class="modal-content modal-sm">
-                <div class="modal-header" style="background: linear-gradient(135deg, #005baa, #0088ff); color: white; border-radius: 8px 8px 0 0;">
-                    <h3 style="margin: 0; color: white;"><i class="fas fa-qrcode"></i> Thanh toán VietQR (Techcombank)</h3>
-                    <button class="close" onclick="closeQRModal()" style="color: white; opacity: 0.9;">&times;</button>
-                </div>
-                <div class="modal-body" style="text-align: center;">
-                    <div id="qr-code-container">
-                        <div class="text-center"><i class="fas fa-spinner fa-spin"></i><p>Đang tạo mã VietQR...</p></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    const oldQRModal = document.getElementById('qrCodeModal');
-    if (oldQRModal) oldQRModal.remove();
-    document.body.insertAdjacentHTML('beforeend', qrModalHtml);
-    document.body.style.overflow = 'hidden';
-    
-    const modal = document.getElementById('qrCodeModal');
-    modal.addEventListener('click', function(e) { if (e.target === this) closeQRModal(); });
-
-    try {
-        const response = await fetch(`/api/admin/invoices/${invoiceId}/generate-qr`, { method: 'POST', headers: getAuthHeaders() });
-        const data = await response.json();
-        
-        if (response.ok && data.qrCodeUrl) {
-            const qrContainer = document.getElementById('qr-code-container');
-            qrContainer.innerHTML = '';
-            
-            if (data.qrCodeUrl.startsWith('http://') || data.qrCodeUrl.startsWith('https://')) {
-                const img = document.createElement('img');
-                img.src = data.qrCodeUrl;
-                img.alt = 'Mã QR VietQR';
-                img.style.maxWidth = '260px';
-                img.style.width = '100%';
-                img.style.borderRadius = '8px';
-                img.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-                img.style.margin = '10px auto';
-                qrContainer.appendChild(img);
-            } else {
-                const qrDiv = document.createElement('div');
-                qrDiv.id = `qrcode-canvas-${invoiceId}`;
-                qrDiv.style.margin = '20px auto';
-                qrContainer.appendChild(qrDiv);
-                
-                const qrLoaded = typeof ensureQRCodeLoaded === 'function' ? await ensureQRCodeLoaded() : (typeof QRCode !== 'undefined');
-                if (qrLoaded && typeof QRCode !== 'undefined') {
-                    new QRCode(qrDiv, { text: data.qrCodeUrl, width: 250, height: 250, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
-                }
-            }
-            
-            qrContainer.insertAdjacentHTML('beforeend', `
-                <div class="bank-info-box" style="background: #f8fafc; padding: 12px; border-radius: 8px; margin-top: 12px; text-align: left; font-size: 13px; border: 1px solid #e2e8f0;">
-                    <p style="margin: 3px 0;"><strong>Chủ tài khoản:</strong> ${data.account_name || data.accountName || 'DANG VAN KHOA'}</p>
-                    <p style="margin: 3px 0;"><strong>Số tài khoản:</strong> <span style="color: #005baa; font-weight: bold;">${data.account_no || data.accountNo || '0387829152'}</span> (${data.bank_id || data.bank || 'MB Bank'})</p>
-                    <p style="margin: 3px 0;"><strong>Nội dung ck:</strong> <span style="color: #d97706; font-weight: bold;">${data.description || ('HD' + invoiceId)}</span></p>
-                </div>
-                <div class="qr-instructions" style="text-align: left; margin-top: 15px; border-top: 1px solid #eee; padding-top: 12px; font-size: 13px;">
-                    <p style="margin-bottom: 5px; font-weight: 600;"><i class="fas fa-mobile-alt" style="color: #005baa; width: 20px;"></i> Bước 1: Mở App Ngân hàng bất kỳ</p>
-                    <p style="margin-bottom: 5px; font-weight: 600;"><i class="fas fa-qrcode" style="color: #005baa; width: 20px;"></i> Bước 2: Quét mã VietQR ở trên</p>
-                    <p style="margin-bottom: 5px; font-weight: 600;"><i class="fas fa-check-circle" style="color: #005baa; width: 20px;"></i> Bước 3: Chờ SePay tự động khớp lệnh</p>
-                </div>
-                <div id="payment-status" style="text-align: center; margin-top: 15px; font-weight: 600; color: #005baa;">
-                    <i class="fas fa-spinner fa-spin"></i> Đang chờ tự động nhận tiền...
-                </div>
-            `);
-            
-            showSuccess("Mã VietQR đã được tạo thành công!");
-            startPaymentPolling(invoiceId);
-            
-        } else { throw new Error(data.msg || 'Không thể tạo mã QR'); }
-
-    } catch (error) { console.error('Lỗi:', error); document.getElementById('qr-code-container').innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> ${error.message || 'Lỗi kết nối'}</div>`; showError(error.message || 'Không thể tạo mã QR'); }
-}
-
-async function startPaymentPolling(invoiceId) {
-    pollingAttempts = 0;
-    
-    window.paymentPollingInterval = setInterval(async () => {
-        pollingAttempts++;
-        
-        try {
-            const response = await fetch(`/api/admin/invoices/${invoiceId}`, { headers: getAuthHeaders(false) });
-            
-            if (response.ok) {
-                const data = await response.json();
-                
-                if (data.trangthai === 'Đã thanh toán') {
-                    clearInterval(window.paymentPollingInterval);
-                    const statusDiv = document.getElementById('payment-status');
-                    if (statusDiv) { statusDiv.innerHTML = `<i class="fas fa-check-circle" style="color: #10b981; font-size: 28px;"></i> <p style="color: #10b981; font-weight: bold; margin-top: 10px; font-size: 16px;">Thanh toán thành công!</p>`; }
-                    
-                    showSuccess('Thanh toán Momo thành công!');
-                    
-                    setTimeout(() => { closeQRModal(); loadAppointments(); }, 2000);
-                }
-            }
-            
-            if (pollingAttempts >= MAX_POLLING_ATTEMPTS) {
-                clearInterval(window.paymentPollingInterval);
-                const statusDiv = document.getElementById('payment-status');
-                if (statusDiv) { statusDiv.innerHTML = `<i class="fas fa-clock" style="color: #f59e0b; font-size: 24px;"></i> <p style="color: #f59e0b;">Quá thời gian chờ</p>`; }
-            }
-            
-        } catch (error) { console.error('Lỗi polling:', error); }
-        
-    }, 3000);
 }
 
 function closeModal(modalId) {
@@ -1287,16 +997,6 @@ function closeModal(modalId) {
         }, 300);
     }
 }
-
-function closeQRModal() {
-    const modal = document.getElementById('qrCodeModal');
-    if (modal) {
-        modal.classList.remove('show');
-        setTimeout(() => { modal.remove(); document.body.style.overflow = 'auto'; }, 300);
-    }
-    if (window.paymentPollingInterval) { clearInterval(window.paymentPollingInterval); window.paymentPollingInterval = null; }
-}
-
 
 function getAuthHeaders(includeContentType = true) {
     const token = localStorage.getItem('admin_token') || localStorage.getItem('access_token');
@@ -1405,3 +1105,24 @@ window.resetFilters = resetFilters;
 window.getActiveDateRange = getActiveDateRange;
 window.loadAppointments = loadAppointments;
 window.loadStatistics = loadStatistics;
+
+function appointmentInvoiceAction(apt) {
+    const permissions = apt.permissions || {};
+    if (permissions.canPayInvoice) return `<button class="btn btn-warning btn-sm" onclick="openInvoicePayment(${apt.invoice.mahd})">Thanh toán hóa đơn</button>`;
+    if (permissions.canViewInvoice) return `<button class="btn btn-info btn-sm" onclick="viewAppointmentInvoice(${apt.invoice.mahd})">Xem hóa đơn</button>`;
+    if (permissions.canCreateInvoice) return `<button class="btn btn-warning btn-sm" onclick="createInvoiceForAppointment(${apt.malh})">Tạo hóa đơn</button>`;
+    return '';
+}
+function appointmentActions(apt) {
+    const permissions = apt.permissions || {};
+    return `${permissions.canView ? `<button class="btn btn-info btn-sm" onclick="viewAppointmentDetail(${apt.malh})">Xem</button>` : ''}
+        ${permissions.canConfirm ? `<button class="btn btn-primary btn-sm" onclick="confirmAppointment(${apt.malh})">Xác nhận</button>` : ''}
+        ${permissions.canComplete ? `<button class="btn btn-success btn-sm" onclick="completeAppointment(${apt.malh})">Hoàn thành</button>` : ''}
+        ${appointmentInvoiceAction(apt)}`;
+}
+function appointmentPaymentBadge(apt) {
+    if (!apt.payment_status) return '—';
+    const paid = ['Đã thanh toán', 'Đã thanh toán bằng gói'].includes(apt.payment_status);
+    return `<span class="badge badge-${paid ? 'success' : 'warning'}">${apt.payment_status}</span>`;
+}
+document.addEventListener('invoice-payment-updated', () => loadAppointments());

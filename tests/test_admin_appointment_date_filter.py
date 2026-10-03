@@ -183,7 +183,7 @@ def test_4_filter_this_month(client, admin_auth_headers, seed_admin_appointments
 # 5. Custom một ngày (start=2026-10-02, end=2026-10-02)
 # =========================================================================
 def test_5_custom_single_day(client, admin_auth_headers, seed_admin_appointments):
-    target = "2026-10-02"
+    target = date.today().isoformat()
 
     res = client.get(f"/api/admin/appointments?start_date={target}&end_date={target}", headers=admin_auth_headers)
     assert res.status_code == 200

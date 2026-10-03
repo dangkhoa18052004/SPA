@@ -189,6 +189,11 @@ def process_momo_webhook(data):
         db.session.commit()
         return {"status": "failed", "message": "Số tiền thanh toán không hợp lệ hoặc không đủ"}
 
+    from .payment_webhook_service import claim_invoice_payment
+    if not claim_invoice_payment(invoice.mahd):
+        finish_event(event, "ignored", invoice.mahd)
+        db.session.commit()
+        return {"status": "duplicate", "message": "Hóa đơn đã thanh toán trước đó"}
     new_payment = ThanhToan(
         mahd=invoice.mahd,
         sotien=paid_amount,

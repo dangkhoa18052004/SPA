@@ -45,11 +45,13 @@
             (payment ? `<img src="${esc(payment.qrCodeUrl)}" alt="Mã VietQR thanh toán gói"><p>${esc(payment.account_name)} · ${esc(payment.account_no)} · ${esc(payment.bank_id)}</p><p>Nội dung chuyển khoản: <strong>${esc(payment.description)}</strong></p><p>Chuyển đúng ${price(payment.amount)}. Liệu trình chỉ kích hoạt khi ngân hàng xác nhận.</p>` : purchase.payment_method==='vietqr'?'<p>VietQR tạm thời chưa khả dụng. Vui lòng liên hệ cửa hàng.</p>':'<p>Vui lòng đến quầy thanh toán. Nhân viên xác nhận đã nhận tiền để kích hoạt liệu trình.</p>')+
             '<button type="button" class="btn btn-secondary" id="checkPackagePayment">Kiểm tra thanh toán</button>';
         const endpoint=isAdmin()?`/api/admin/package-sales/${purchase.id}/status`:`/api/packages/purchases/${purchase.id}/status`;
-        document.getElementById('checkPackagePayment').onclick=()=>api(endpoint).then(r=>showPayment(r.purchase)).catch(e=>message(e.message));
+        document.getElementById('checkPackagePayment').onclick=()=>api(endpoint).then(r=>{
+            if (!dialog || dialog.open) return showPayment(r.purchase);
+        }).catch(e=>message(e.message));
         clearInterval(pollTimer);pollCount=0;
         pollTimer=setInterval(async()=>{
             if(++pollCount>60){clearInterval(pollTimer);panel.insertAdjacentHTML('beforeend','<p>Đã dừng chờ tự động. Bạn có thể kiểm tra lại thanh toán.</p>');return;}
-            try{const r=await api(endpoint);if(r.purchase.status==='paid')await showPayment(r.purchase);else if(r.purchase.status!=='pending'){clearInterval(pollTimer);message(status(r.purchase.status));}}
+            try{const r=await api(endpoint);if(dialog && !dialog.open)return;if(r.purchase.status==='paid')await showPayment(r.purchase);else if(r.purchase.status!=='pending'){clearInterval(pollTimer);message(status(r.purchase.status));}}
             catch(e){clearInterval(pollTimer);message(e.message);}
         },5000);
     }
@@ -143,7 +145,11 @@
     }
     document.addEventListener('DOMContentLoaded',()=>{
         if(document.querySelector('[data-package-page="customer"]'))loadCustomerPackages();
-        const close=document.getElementById('closePackagePayment');if(close)close.onclick=()=>document.getElementById('packagePaymentDialog').close();
+        const close=document.getElementById('closePackagePayment');if(close){
+            const dialog=document.getElementById('packagePaymentDialog');
+            close.onclick=()=>dialog.close();
+            dialog.addEventListener('close',()=>{if(!dialog.open)clearInterval(pollTimer);});
+        }
         if(document.querySelector('[data-package-page="admin"]')) {
             loadAdmin();
             document.getElementById('addPackageItem').onclick=()=>addItem();

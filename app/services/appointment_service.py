@@ -657,7 +657,7 @@ def update_appointment_status(appointment_id, new_status, user_id=None, role='st
             raise AppointmentValidationError('Không mở lại hoặc đổi trạng thái kết thúc lịch hẹn đã dùng liệu trình')
 
     # Không thể cập nhật lịch đã ở trạng thái kết thúc (completed/cancelled) trừ khi là admin/manager
-    if apt.trangthai in AppointmentStatus.FINAL_STATUSES and role not in ('admin', 'manager'):
+    if apt.trangthai in AppointmentStatus.FINAL_STATUSES and norm_status != apt.trangthai and role not in ('admin', 'manager'):
         raise AppointmentValidationError(
             f"Không thể cập nhật lịch hẹn đã {AppointmentStatus.to_vietnamese(apt.trangthai)}"
         )

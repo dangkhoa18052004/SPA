@@ -40,7 +40,10 @@ def build_post_care_content(appointment):
 
     # Lay cac package UNIQUE tu LieuTrinhUsage (ca reserved va consumed)
     package_sections = []
-    usages = LieuTrinhUsage.query.filter_by(malh=appointment.malh).all()
+    usages = LieuTrinhUsage.query.filter(
+        LieuTrinhUsage.malh == appointment.malh,
+        LieuTrinhUsage.state.in_(['reserved', 'consumed']),
+    ).all()
     seen_magoi = set()
     for usage in usages:
         record = db.session.get(TheLieuTrinh, usage.mathe)
@@ -100,7 +103,7 @@ def build_post_care_html(appointment):
             '<div style="background:#f0f7ff;border-left:3px solid #4a90d9;'
             'padding:12px 16px;margin:12px 0;border-radius:0 6px 6px 0;">'
             f'<h4 style="margin:0 0 8px;color:#2c5f8a;font-size:14px;">'
-            f'&#128203; Luu y danh cho lieu trinh: {escape(sec["tengoi"])}</h4>'
+            f'&#128203; {escape(sec["tengoi"])}</h4>'
             f'<p style="margin:0;color:#555;font-size:14px;line-height:1.6;">{instr}</p>'
             '</div>'
         )
@@ -109,7 +112,9 @@ def build_post_care_html(appointment):
     if content['fallback_used']:
         fallback_html = (
             '<p style="color:#666;font-size:14px;">'
-            'Vui long lam theo huong dan cua ky thuat vien va lien he Bin Spa neu can ho tro.'
+            'Cảm ơn bạn đã sử dụng dịch vụ tại Bin Spa. '
+            'Vui lòng nghỉ ngơi, làm theo hướng dẫn của kỹ thuật viên '
+            'và liên hệ Bin Spa nếu cần hỗ trợ.'
             '</p>'
         )
 
@@ -118,33 +123,32 @@ def build_post_care_html(appointment):
         svc_heading = (
             '<h3 style="color:#8B7355;margin:20px 0 8px;font-size:16px;'
             'border-bottom:2px solid #C9A961;padding-bottom:6px;">'
-            '&#127800; Dan do sau dich vu</h3>'
+            '&#127800; DẶN DÒ SAU DỊCH VỤ</h3>'
         )
     pkg_heading = ''
     if package_care_html:
         pkg_heading = (
             '<h3 style="color:#2c5f8a;margin:20px 0 8px;font-size:16px;'
             'border-bottom:2px solid #4a90d9;padding-bottom:6px;">'
-            '&#128204; Luu y trong lieu trinh</h3>'
+            '&#128204; LƯU Ý DÀNH CHO LIỆU TRÌNH</h3>'
         )
 
     body = (
-        f'<p>Xin chao <strong>{name}</strong>,</p>'
-        '<p>Cam on ban da tin tuong va trai nghiem dich vu tai <strong>Bin Spa</strong>. '
-        'Chung toi hy vong ban da co nhung phut giay thu gian tuyet voi!</p>'
+        f'<p>Xin chào <strong>{name}</strong>,</p>'
+        '<p>Cảm ơn bạn đã sử dụng dịch vụ tại <strong>Bin Spa</strong>.</p>'
         '<div style="background:#f9f5ef;padding:15px;border-radius:8px;margin:16px 0;">'
-        f'<p style="margin:4px 0;"><strong>&#128278; Ma lich hen:</strong> #{appointment.malh}</p>'
-        f'<p style="margin:4px 0;"><strong>&#128197; Ngay su dung:</strong> {ngaygio_str}</p>'
-        f'<p style="margin:4px 0;"><strong>&#128105;&#8205;&#9877;&#65039; Ky thuat vien:</strong> {nv_name}</p>'
-        '<p style="margin:4px 0;"><strong>&#128134; Dich vu da su dung:</strong></p>'
+        f'<p style="margin:4px 0;"><strong>&#128278; Mã lịch hẹn:</strong> #{appointment.malh}</p>'
+        f'<p style="margin:4px 0;"><strong>&#128197; Thời gian:</strong> {ngaygio_str}</p>'
+        f'<p style="margin:4px 0;"><strong>&#128105;&#8205;&#9877;&#65039; Kỹ thuật viên:</strong> {nv_name}</p>'
+        '<p style="margin:4px 0;"><strong>&#128134; Dịch vụ:</strong></p>'
         f'<ul style="margin:4px 0 0 16px;padding:0;color:#555;font-size:14px;">{service_list_html}</ul>'
         '</div>'
         + svc_heading + service_care_html
         + pkg_heading + package_care_html
         + fallback_html
         + '<p style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;color:#666;font-size:13px;">'
-          'Neu can ho tro, vui long lien he Bin Spa.<br>'
-          'Tran trong,<br><strong>Doi ngu Bin Spa</strong></p>'
+          'Nếu cần hỗ trợ, vui lòng liên hệ Bin Spa.<br>'
+          'Trân trọng,<br><strong>Đội ngũ Bin Spa</strong></p>'
     )
     return body
 
@@ -205,9 +209,9 @@ def sync_appointment_jobs(appointment, now=None):
             at = start_utc - timedelta(hours=hours)
             if at > now:
                 enqueue(appointment, f'appointment_reminder_{hours}h', at,
-                    f'Bin Spa - Nhac lich hen #{appointment.malh}',
-                    f'<p>Xin chao {name}, lich hen #{appointment.malh} cua ban vao '
-                    f'{appointment.ngaygio:%H:%M %d/%m/%Y}. Vui long den truoc 10 phut.</p>',
+                    f'Bin Spa - Nhắc lịch hẹn #{appointment.malh}',
+                    f'<p>Xin chào {name}, lịch hẹn #{appointment.malh} của bạn vào '
+                    f'{appointment.ngaygio:%H:%M %d/%m/%Y}. Vui lòng đến trước 10 phút.</p>',
                     suffix)
             else:
                 NotificationJob.query.filter_by(
@@ -217,15 +221,15 @@ def sync_appointment_jobs(appointment, now=None):
 
     elif appointment.trangthai == AppointmentStatus.COMPLETED:
         body = build_post_care_html(appointment)
-        subject = f'Bin Spa - Dan do sau buoi cham soc (Lich hen #{appointment.malh})'
+        subject = 'Bin Spa - Dặn dò sau buổi chăm sóc'
         enqueue(appointment, 'post_care', now, subject, body, 'postcare')
 
         base = current_app.config.get('PUBLIC_SITE_URL', 'https://binspa.id.vn').rstrip('/')
         enqueue(appointment, 'review_request', now + timedelta(hours=2),
-            'Bin Spa - Chia se trai nghiem cua ban',
-            f'<p>Xin chao {name}, hay danh gia lich hen #{appointment.malh}.</p>'
+            'Bin Spa - Chia sẽ trải nghiệm của bạn',
+            f'<p>Xin chào {name}, Hãy đánh giá lịch hẹn #{appointment.malh}.</p>'
             f'<a href="{escape(base)}/profile?review={appointment.malh}#appointments">'
-            'Danh gia dich vu</a>',
+            'Đánh giá dịch vụ</a>',
             'review')
 
 
@@ -357,6 +361,7 @@ def register_commands(app):
                         '[notification-worker] sent={sent} failed={failed} cancelled={cancelled}'.format(**result)
                     )
             except Exception as exc:
+                db.session.rollback()
                 current_app.logger.error(f'[notification-worker] Loi xu ly jobs: {exc}', exc_info=True)
             for _ in range(interval):
                 if not running:

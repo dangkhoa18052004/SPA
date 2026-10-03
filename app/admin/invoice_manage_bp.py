@@ -4,6 +4,9 @@ from ..extensions import db
 from ..models import HoaDon, LichHen, ChiTietHoaDon, ThanhToan
 from ..decorators import roles_required
 from ..services import momo_service
+from sqlalchemy.exc import IntegrityError
+from decimal import Decimal, InvalidOperation
+import json
 from sqlalchemy import func
 from datetime import datetime, date
 from sqlalchemy.sql.expression import case
@@ -44,8 +47,9 @@ def create_invoice_from_appointment(appointment_id):
     if appointment.trangthai != 'Đã hoàn thành' and appointment.trangthai != 'completed': 
         return jsonify({"msg": "Chỉ có thể tạo hóa đơn từ lịch hẹn đã hoàn thành"}), 400
         
-    if HoaDon.query.filter_by(malh=appointment_id).first(): 
-        return jsonify({"msg": "Hóa đơn cho lịch hẹn này đã tồn tại"}), 400
+    existing = HoaDon.query.filter_by(malh=appointment_id).first()
+    if existing:
+        return existing_invoice_response(existing)
     try:
         from ..models import LieuTrinhUsage
         covered = {u.madv for u in LieuTrinhUsage.query.filter_by(malh=appointment_id, state='consumed').all()}
@@ -64,6 +68,12 @@ def create_invoice_from_appointment(appointment_id):
                 db.session.add(new_invoice_detail)
         db.session.commit()
         return jsonify({"msg": "Tạo hóa đơn thành công!", "invoice_id": new_invoice.mahd}), 201
+    except IntegrityError:
+        db.session.rollback()
+        existing = HoaDon.query.filter_by(malh=appointment_id).first()
+        if existing:
+            return existing_invoice_response(existing)
+        raise
     except Exception as e:
         db.session.rollback(); current_app.logger.error(f"Lỗi khi tạo hóa đơn: {e}"); return jsonify({"msg": "Tạo hóa đơn thất bại"}), 500
 
@@ -74,14 +84,19 @@ def record_payment(invoice_id):
     invoice = HoaDon.query.get(invoice_id);
     if not invoice: return jsonify({"msg": "Không tìm thấy hóa đơn"}), 404
     if invoice.trangthai == 'Đã thanh toán': return jsonify({"msg": "Hóa đơn này đã được thanh toán rồi"}), 400
-    data = request.get_json()
-    try: sotien_nhan_duoc = float(data.get("sotien"))
-    except (ValueError, TypeError): return jsonify({"msg": "Số tiền không hợp lệ"}), 400
+    data = request.get_json(silent=True) or {}
+    try: sotien_nhan_duoc = Decimal(str(data.get("sotien")))
+    except (InvalidOperation, ValueError, TypeError): return jsonify({"msg": "Số tiền không hợp lệ"}), 400
     phuongthuc = data.get("phuongthuc")
     if phuongthuc != "Tiền mặt": return jsonify({"msg": "Chỉ chấp nhận phương thức 'Tiền mặt'."}), 400
-    if sotien_nhan_duoc < float(invoice.tongtien): return jsonify({"msg": "Số tiền nhận được không đủ"}), 400
+    if not sotien_nhan_duoc.is_finite() or sotien_nhan_duoc < invoice.tongtien: return jsonify({"msg": "Số tiền nhận được không đủ"}), 400
     try:
-        new_payment = ThanhToan(mahd=invoice_id, sotien=invoice.tongtien, phuongthuc="Tiền mặt")
+        from ..services.payment_webhook_service import claim_invoice_payment
+        if not claim_invoice_payment(invoice_id):
+            db.session.rollback()
+            return jsonify({"msg": "Hóa đơn đã được thanh toán."}), 409
+        new_payment = ThanhToan(mahd=invoice_id, sotien=invoice.tongtien, phuongthuc="Tiền mặt",
+                               ghichu=json.dumps({"cash_received": str(sotien_nhan_duoc)}))
         invoice.trangthai = 'Đã thanh toán'; db.session.add(new_payment); db.session.commit()
         return jsonify({"msg": f"Đã ghi nhận thanh toán thành công cho hóa đơn #{invoice_id}"}), 201
     except Exception as e:
@@ -208,10 +223,48 @@ def get_invoice_detail(invoice_id):
             "tongtien": str(invoice.tongtien),
             "trangthai": invoice.trangthai,
             "ngaytao": date_field.isoformat() if date_field else None,
-            "chitiet": details # Dữ liệu chi tiết cần cho frontend
+            "thanhtoan": [{"phuongthuc": payment.phuongthuc,
+                           "ngaythanhtoan": payment.ngaythanhtoan.isoformat() if payment.ngaythanhtoan else None}
+                          for payment in invoice.thanhtoan],
+            "chitiet": details
         }
         
         return jsonify(response_data), 200
     except Exception as e:
         current_app.logger.error(f"Lỗi khi lấy chi tiết hóa đơn: {e}", exc_info=True)
         return jsonify({"msg": "Lỗi hệ thống khi tải chi tiết hóa đơn"}), 500
+
+
+def existing_invoice_response(invoice):
+    return jsonify({"success": False, "code": "INVOICE_ALREADY_EXISTS",
+                    "invoice_id": invoice.mahd, "invoice_status": invoice.trangthai,
+                    "invoice": {"mahd": invoice.mahd, "trangthai": invoice.trangthai, "tongtien": str(invoice.tongtien)},
+                    "msg": "Hóa đơn đã tồn tại"}), 409
+
+
+@invoice_manage_bp.route('/billing/transactions', methods=['GET'])
+@roles_required('letan', 'manager', 'admin')
+def billing_transactions():
+    from ..services.billing_service import transactions
+    try:
+        rows, stats = transactions(request.args)
+        return jsonify(success=True, transactions=rows, stats=stats)
+    except ValueError as error:
+        return jsonify(success=False, msg=str(error)), 400
+
+
+@invoice_manage_bp.route('/billing/transactions/<kind>/<int:record_id>', methods=['GET'])
+@roles_required('letan', 'manager', 'admin')
+def billing_transaction_detail(kind, record_id):
+    from ..services import billing_service as billing
+    if kind == 'service':
+        record = billing.service_query().filter_by(mahd=record_id).first()
+        serializer = billing.serialize_service
+    elif kind == 'package':
+        record = billing.package_query().filter_by(id=record_id).first()
+        serializer = billing.serialize_package
+    else:
+        return jsonify(success=False, msg='Loại hóa đơn không hợp lệ'), 404
+    if not record:
+        return jsonify(success=False, msg='Không tìm thấy phiếu'), 404
+    return jsonify(success=True, transaction=serializer(record))
