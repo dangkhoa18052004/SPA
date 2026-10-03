@@ -117,31 +117,6 @@ def send_appointment_confirmation_email_async(customer_email, customer_name, app
         current_app.logger.error(f"Lỗi khởi tạo gửi mail xác nhận: {e}")
 
 
-def send_appointment_completed_email_async(customer_email, customer_name, appointment_data):
-    """Gửi email cảm ơn sau khi hoàn thành dịch vụ."""
-    if not customer_email:
-        return
-    try:
-        app = current_app._get_current_object()
-        subject = f"🌸 Bin Spa - Cảm ơn quý khách đã sử dụng dịch vụ (Lịch hẹn #{appointment_data['malh']})"
-        html_content = f"""
-        <p>Xin chào <strong>{customer_name}</strong>,</p>
-        <p>Cảm ơn bạn đã tin tưởng và trải nghiệm dịch vụ tại <strong>Bin Spa</strong>.</p>
-        <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 15px 0;">
-            <p><strong>Mã lịch hẹn:</strong> #{appointment_data['malh']}</p>
-            <p><strong>Thời gian:</strong> {appointment_data['ngaygio'].strftime('%H:%M %d/%m/%Y')}</p>
-            <p><strong>Trạng thái:</strong> <span style="color: #28a745; font-weight: bold;">Hoàn thành</span></p>
-        </div>
-        <p>Hy vọng bạn đã có những phút giây thư giãn tuyệt vời. Rất mong được tiếp đón bạn trong những lần ghé thăm tiếp theo!</p>
-        <p>Trân trọng,<br><strong>Đội ngũ Bin Spa</strong></p>
-        """
-        thr = threading.Thread(target=_send_async_email, args=[app, customer_email, subject, html_content])
-        thr.daemon = True
-        thr.start()
-    except Exception as e:
-        current_app.logger.error(f"Lỗi khởi tạo gửi mail hoàn thành: {e}")
-
-
 # ==========================================
 # CORE APPOINTMENT LOGIC
 # ==========================================
@@ -636,7 +611,7 @@ def update_appointment_status(appointment_id, new_status, user_id=None, role='st
     Cập nhật trạng thái lịch hẹn:
     - new_status: 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled'
     - Kiểm tra transition hợp lệ.
-    - Gửi email cảm ơn nếu hoàn thành.
+    - Enqueue post-care cùng transaction nếu hoàn thành; worker gửi sau commit.
     """
     LichHen.query.filter_by(malh=appointment_id).update({LichHen.malh:LichHen.malh}, synchronize_session=False)
     apt = LichHen.query.filter_by(malh=appointment_id).populate_existing().first()

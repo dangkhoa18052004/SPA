@@ -40,11 +40,14 @@ let servicesPerPage = 8;
 let filteredServices = [];
 
 // ==================== INIT ====================
-document.addEventListener('DOMContentLoaded', function() {
-    loadAllServices();
+document.addEventListener('DOMContentLoaded', async function() {
     setupDateTimeLimits();
-    autoSelectServiceFromURL();
     setupAutoAssignToggle();
+    await loadAllServices();
+    await applyBookingContext();
+    updateSelectedServicesDisplay();
+    await window.PackageCare?.renderBooking(selectedServices, document.getElementById('appointmentDate')?.value);
+    updateSummary();
 });
 
 function setupAutoAssignToggle() {
@@ -66,42 +69,55 @@ function setupAutoAssignToggle() {
 }
 
 // ==================== AUTO SELECT SERVICE FROM URL ====================
-function autoSelectServiceFromURL() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const serviceId = urlParams.get('service');
-    
+async function applyBookingContext() {
+    const params = new URLSearchParams(location.search);
+    const panel = document.getElementById('bookingContext');
+    const esc = window.PackageCare?.esc || (value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    const readId = key => params.has(key) && /^[1-9]\d*$/.test(params.get(key)) ? Number(params.get(key)) : null;
+    const serviceId = readId('service'), treatmentId = readId('treatment'), itemId = readId('item');
+    const notice = text => { panel.hidden=false; panel.textContent=text; };
+    if (['service','treatment','item'].some(key=>params.has(key)&&!readId(key))) {
+        notice('Thông tin đặt lịch không hợp lệ. Vui lòng chọn dịch vụ khác.'); return;
+    }
+    if (treatmentId) {
+        try {
+            const {treatment} = await PackageCare.api(`/api/packages/my-treatments/${treatmentId}`);
+            const available = treatment.items.filter(i=>i.usable&&i.available_sessions>0&&allServices.some(s=>s.madv===i.madv));
+            if (!available.length) { notice('Liệu trình không còn dịch vụ khả dụng hoặc đã hết hạn. Bạn có thể chọn dịch vụ khác.'); return; }
+            const choices = available.filter(i=>(!serviceId||i.madv===serviceId)&&(!itemId||i.id===itemId));
+            if (!choices.length) { notice('Dịch vụ/lượt đã chọn không thuộc liệu trình hoặc không còn khả dụng.'); return; }
+            panel.hidden=false;
+            panel.innerHTML=`<h4>Dịch vụ khả dụng trong gói của bạn</h4><p>${esc(treatment.tengoi)}</p>${available.map(i=>`<p>${i.source_type==='gift'?'🎁 ':''}${esc(i.tendv)} · Còn ${i.available_sessions} buổi <button type="button" class="btn btn-outline" data-booking-item="${i.id}">Đặt dịch vụ này</button></p>`).join('')}`;
+            const choose = item => {
+                selectedServices=[item.madv];
+                PackageCare.chooseBookingItem(treatment,item);
+                filteredServices=allServices.filter(s=>s.madv===item.madv);
+                currentPage=1;displayServicesInForm(filteredServices);addViewAllServicesButton();
+                updateSelectedServicesDisplay();updateSummary();
+            };
+            panel.querySelectorAll('[data-booking-item]').forEach(button=>button.onclick=()=>{
+                const item=available.find(i=>i.id===Number(button.dataset.bookingItem));
+                history.replaceState(null,'',`/appointments/create?treatment=${treatmentId}&service=${item.madv}&item=${item.id}`);
+                choose(item);
+            });
+            // Multiple entitlement rows can still represent one available service.
+            // Choose exactly one source: original package first, then the gift expiring soonest.
+            const singleService = new Set(choices.map(item=>item.madv)).size===1;
+            const selected = singleService ? [...choices].sort((a,b)=>
+                Number(b.source_type==='package')-Number(a.source_type==='package') ||
+                (a.effective_expires_at||'9999').localeCompare(b.effective_expires_at||'9999') || a.id-b.id
+            )[0] : null;
+            if(selected) choose(selected);
+            else { filteredServices=allServices.filter(s=>available.some(i=>i.madv===s.madv));displayServicesInForm(filteredServices);addViewAllServicesButton(); }
+        } catch(error) { notice(error.message || 'Không thể tải liệu trình của bạn.'); }
+        return;
+    }
+    if (itemId) { notice('Vui lòng chọn liệu trình tương ứng với lượt dịch vụ.'); return; }
     if (serviceId) {
-        const checkServicesLoaded = setInterval(() => {
-            if (allServices.length > 0) {
-                clearInterval(checkServicesLoaded);
-                
-                const serviceIdNum = parseInt(serviceId);
-                const service = allServices.find(s => s.madv === serviceIdNum);
-                
-                if (service) {
-                    selectedServices = [serviceIdNum];
-                    filteredServices = [service];
-                    currentPage = 1;
-                    displayServicesInForm(filteredServices);
-                    updateSelectedServicesDisplay();
-                    updateSummary();
-                    addViewAllServicesButton();
-                    
-                    if (window.Toast) {
-                        Toast.success(`Đã chọn dịch vụ: ${service.tendv}`, 'Thông báo', 3000);
-                    }
-                    
-                    setTimeout(() => {
-                        document.getElementById('servicesSelection')?.scrollIntoView({ 
-                            behavior: 'smooth', 
-                            block: 'center' 
-                        });
-                    }, 500);
-                }
-            }
-        }, 100);
-        
-        setTimeout(() => clearInterval(checkServicesLoaded), 5000);
+        const service=allServices.find(s=>s.madv===serviceId);
+        if(!service){notice('Dịch vụ đã ngừng hoạt động hoặc không tồn tại. Vui lòng chọn dịch vụ khác.');return;}
+        selectedServices=[serviceId];filteredServices=[service];currentPage=1;
+        displayServicesInForm(filteredServices);addViewAllServicesButton();
     }
 }
 

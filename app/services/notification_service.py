@@ -2,6 +2,7 @@
 import time as _time
 import signal
 import click
+import logging
 from datetime import datetime, timedelta
 from html import escape
 
@@ -169,11 +170,11 @@ def enqueue(appointment, kind, scheduled_at, subject, body, suffix):
         if kind.startswith('appointment_reminder') and existing.status in ('pending', 'cancelled'):
             existing.scheduled_at = scheduled_at
             existing.status = 'pending'
-            existing.payload_json = dict(to=appointment.khachhang.email, subject=subject, body=body)
+            existing.payload_json = dict(to=appointment.khachhang.email.strip(), subject=subject, body=body)
         return existing
     job = NotificationJob(type=kind, makh=appointment.makh, malh=appointment.malh,
         scheduled_at=scheduled_at, status='pending', unique_key=key,
-        payload_json=dict(to=appointment.khachhang.email, subject=subject, body=body))
+        payload_json=dict(to=appointment.khachhang.email.strip(), subject=subject, body=body))
     db.session.add(job)
     return job
 
@@ -195,9 +196,9 @@ def sync_appointment_jobs(appointment, now=None):
             NotificationJob.status.in_(['pending', 'processing'])
         ).update({'status': 'cancelled'}, synchronize_session='fetch')
 
-    if not appointment.khachhang or not appointment.khachhang.email:
+    if not appointment.khachhang or not (appointment.khachhang.email or '').strip():
         current_app.logger.info(
-            f'Appointment #{appointment.malh} khong tao post-care vi khach khong co email'
+            f'Appointment #{appointment.malh} không tạo post-care vì khách không có email.'
         )
         return
 
@@ -237,7 +238,7 @@ def sync_appointment_jobs(appointment, now=None):
 # Job processor
 # ---------------------------------------------------------------------------
 
-def process_jobs(batch_size=50, now=None):
+def process_jobs(batch_size=50, now=None, appointment_id=None):
     """
     Xu ly cac NotificationJob den han.
     Idempotent: atomic claim bang UPDATE truoc khi gui.
@@ -249,7 +250,10 @@ def process_jobs(batch_size=50, now=None):
         and_(NotificationJob.status == 'pending', NotificationJob.scheduled_at <= now),
         and_(NotificationJob.status == 'processing', NotificationJob.processing_at <= stale)
     )
-    ids = [row[0] for row in db.session.query(NotificationJob.id).filter(eligible).order_by(
+    query = db.session.query(NotificationJob.id).filter(eligible)
+    if appointment_id is not None:
+        query = query.filter(NotificationJob.malh == appointment_id)
+    ids = [row[0] for row in query.order_by(
         NotificationJob.scheduled_at, NotificationJob.id).limit(batch_size).all()]
     db.session.commit()
     result = dict(sent=0, failed=0, cancelled=0)
@@ -285,23 +289,34 @@ def process_jobs(batch_size=50, now=None):
         job.attempts += 1
         job.first_attempt_at = job.first_attempt_at or now
         db.session.commit()
+        current_app.logger.info(
+            '[notification-worker] %s appointment=%s recipient=%s processing attempt=%s',
+            job.type, job.malh, email_service.masked_recipient(job.payload_json.get('to')), job.attempts)
         try:
             payload = job.payload_json
             success = email_service.send_email(
                 payload['to'], payload['subject'], payload['body'],
-                idempotency_key=job.unique_key
+                idempotency_key=job.unique_key, return_provider_response=True
             )
             if not success:
                 raise RuntimeError('Email provider did not confirm success')
             job.status, job.sent_at, job.last_error = 'sent', now, None
             result['sent'] += 1
+            provider_id = success.get('id') if isinstance(success, dict) else 'N/A'
+            current_app.logger.info(
+                '[notification-worker] %s appointment=%s recipient=%s sent provider_id=%s',
+                job.type, job.malh, email_service.masked_recipient(payload['to']), provider_id)
         except Exception as error:
             db.session.refresh(job)
             if job.status != 'cancelled':
                 job.status = 'failed' if job.attempts >= job.max_attempts else 'pending'
                 job.scheduled_at = now + timedelta(minutes=5 * job.attempts)
-                job.last_error = str(error)[:2000]
+                job.last_error = email_service.safe_provider_error(error)
             result['failed'] += 1
+            current_app.logger.warning(
+                '[notification-worker] %s appointment=%s recipient=%s status=%s attempts=%s/%s retry_at=%s error=%s',
+                job.type, job.malh, email_service.masked_recipient(job.payload_json.get('to')),
+                job.status, job.attempts, job.max_attempts, job.scheduled_at, job.last_error)
         db.session.commit()
     return result
 
@@ -322,7 +337,9 @@ def register_commands(app):
                   help='So giay giua moi lan xu ly jobs (mac dinh: 30)')
     @click.option('--batch-size', default=50, type=click.IntRange(1, 500),
                   help='So jobs toi da moi lan xu ly')
-    def notification_worker(interval, batch_size):
+    @click.option('--appointment-id', type=click.IntRange(1), default=None,
+                  help='Only process this appointment during a real-email integration check.')
+    def notification_worker(interval, batch_size, appointment_id):
         '''
         Worker lien tuc xu ly NotificationJob. Chay nhu PROCESS RIENG biet.
 
@@ -337,7 +354,12 @@ def register_commands(app):
         KHONG chay worker ben trong moi Gunicorn worker (tranh duplicate processor).
         Graceful shutdown: Ctrl+C
         '''
-        click.echo(f'[notification-worker] Bat dau. interval={interval}s batch_size={batch_size}')
+        configured = bool(email_service.configured_api_key())
+        click.echo(f'RESEND_API_KEY configured: {"yes" if configured else "no"}')
+        if not configured:
+            raise click.ClickException('RESEND_API_KEY is not configured for notification worker.')
+        current_app.logger.setLevel(logging.INFO)
+        click.echo(f'Notification worker started. interval={interval}s batch_size={batch_size} appointment={appointment_id or "all"}')
         click.echo('[notification-worker] Nhan Ctrl+C de dung.')
 
         running = True
@@ -348,6 +370,8 @@ def register_commands(app):
             click.echo('\n[notification-worker] Dang dung...')
 
         signal.signal(signal.SIGINT, handle_signal)
+        if hasattr(signal, 'SIGBREAK'):
+            signal.signal(signal.SIGBREAK, handle_signal)
         try:
             signal.signal(signal.SIGTERM, handle_signal)
         except (OSError, AttributeError):
@@ -355,7 +379,8 @@ def register_commands(app):
 
         while running:
             try:
-                result = process_jobs(batch_size=batch_size)
+                result = process_jobs(batch_size=batch_size) if appointment_id is None else process_jobs(
+                    batch_size=batch_size, appointment_id=appointment_id)
                 if result['sent'] or result['failed'] or result['cancelled']:
                     click.echo(
                         '[notification-worker] sent={sent} failed={failed} cancelled={cancelled}'.format(**result)

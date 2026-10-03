@@ -317,6 +317,27 @@ class DanhGia(db.Model):
     lichhen = db.relationship('LichHen', backref=db.backref('danhgia', uselist=False, cascade='all, delete-orphan'))
     khachhang = db.relationship('KhachHang', backref='danhgia_list')
     nhanvien = db.relationship('NhanVien', backref='danhgia_list')
+    updated_at = db.Column(db.DateTime, nullable=True)
+    service_links = db.relationship('DanhGiaDichVu', cascade='all, delete-orphan', backref='review')
+    reply = db.relationship('ReviewReply', cascade='all, delete-orphan', backref='review', uselist=False)
+
+
+class DanhGiaDichVu(db.Model):
+    __tablename__ = 'danhgiadichvu'
+    madg = db.Column(db.Integer, db.ForeignKey('danhgia.madg'), primary_key=True)
+    madv = db.Column(db.Integer, db.ForeignKey('dichvu.madv'), primary_key=True)
+    service = db.relationship('DichVu')
+
+
+class ReviewReply(db.Model):
+    __tablename__ = 'reviewreply'
+    id = db.Column(db.Integer, primary_key=True)
+    review_id = db.Column(db.Integer, db.ForeignKey('danhgia.madg'), nullable=False, unique=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=True)
+    staff = db.relationship('NhanVien')
 
 
 class GoiDichVu(db.Model):
@@ -400,9 +421,16 @@ class TheLieuTrinhItem(db.Model):
     total_sessions = db.Column(db.Integer, nullable=False)
     unit_value_snapshot = db.Column(db.Numeric(12, 2), nullable=False)
     regular_price_snapshot = db.Column(db.Numeric(12, 2), nullable=False)
+    source_type = db.Column(db.String(20), nullable=False, default='package', server_default='package')
+    valid_from = db.Column(db.DateTime, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    gifted_by_staff = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'), nullable=True)
+    gift_note = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, server_default=db.func.now())
+    gift_staff = db.relationship('NhanVien')
     service = db.relationship('DichVu')
-    __table_args__ = (db.UniqueConstraint('mathe', 'madv', name='uq_treatment_service'),
-                      db.CheckConstraint('total_sessions > 0', name='ck_treatment_sessions'))
+    __table_args__ = (db.CheckConstraint('total_sessions > 0', name='ck_treatment_sessions'),
+                     db.CheckConstraint("source_type IN ('package','gift')", name='ck_treatment_item_source'))
 
 
 class LieuTrinhUsage(db.Model):

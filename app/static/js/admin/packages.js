@@ -73,6 +73,12 @@
     }
 
     async function initList() {
+        const treatmentOnly = localStorage.getItem('admin_role') === 'staff';
+        if(treatmentOnly) {
+            document.querySelector('[data-package-tab="packages"]').hidden=true;
+            document.querySelector('.package-primary-action').hidden=true;
+            document.querySelector('a[href="/admin/package-sales"]').hidden=true;
+        }
         const notice = sessionStorage.getItem('admin_package_notice');
         if (notice) {
             sessionStorage.removeItem('admin_package_notice');
@@ -93,7 +99,7 @@
             if (name === 'treatments' && !document.getElementById('adminTreatmentRows').dataset.loaded) loadTreatments();
         };
         tabButtons.forEach((button) => button.addEventListener('click', () => activateTab(button.dataset.packageTab)));
-        activateTab(location.hash === '#treatments' ? 'treatments' : 'packages', false);
+        activateTab(treatmentOnly || location.hash === '#treatments' ? 'treatments' : 'packages', false);
 
         document.getElementById('packageSearch').addEventListener('input', renderPackages);
         document.getElementById('packageStatusFilter').addEventListener('change', renderPackages);
@@ -118,6 +124,7 @@
         });
 
         try {
+            if(treatmentOnly)return;
             const result = await api('/api/admin/packages');
             packages = result.packages || [];
             services = result.services || [];
@@ -205,16 +212,48 @@
         const dialog = document.getElementById('treatmentDetailDialog');
         const content = document.getElementById('treatmentDetailContent');
         content.innerHTML = '<div class="package-loading"><i class="fas fa-spinner fa-spin"></i> Đang tải chi tiết...</div>';
-        dialog.showModal();
+        if(!dialog.open)dialog.showModal();
         try {
-            const { treatment } = await api(`/api/admin/packages/treatments/${id}`);
-            const names = new Map((treatment.items || []).map((item) => [Number(item.madv), item.tendv]));
-            const itemRows = (treatment.items || []).map((item) => { const percent = item.total_sessions ? Math.min(100, Number(item.consumed || 0) / Number(item.total_sessions) * 100) : 0; return `<tr><td>${escapeHtml(item.tendv)}</td><td>${item.total_sessions}</td><td>${item.consumed}</td><td>${item.reserved}</td><td>${item.available_sessions}</td><td><div class="treatment-progress-bar"><span style="width:${percent}%"></span></div></td></tr>`; }).join('');
-            const historyRows = (treatment.history || []).map((entry) => `<tr><td>#${entry.malh}</td><td>${escapeHtml(names.get(Number(entry.madv)) || `Dịch vụ #${entry.madv}`)}</td><td>${escapeHtml({ reserved: 'Đã giữ buổi', consumed: 'Đã sử dụng', released: 'Đã hoàn buổi' }[entry.state] || entry.state)}</td><td>${formatDate(entry.consumed_at || entry.released_at || entry.reserved_at)}</td></tr>`).join('');
+            const { treatment, can_gift, services: giftServices } = await api(`/api/admin/packages/treatments/${id}`);
+            const names = new Map((treatment.items || []).map((item) => [Number(item.id), `${item.tendv} · ${item.source_type==='gift'?'Dịch vụ tặng':'Trong gói'} #${item.id}`]));
+            const itemRows = ['package','gift'].map(source => {
+                const items=treatment.items.filter(item=>(item.source_type||'package')===source);
+                if(!items.length)return '';
+                return `<tr><th colspan="6">${source==='gift'?'🎁 DỊCH VỤ TẶNG':'DỊCH VỤ TRONG GÓI'}</th></tr>`+items.map(item=>`<tr><td>${escapeHtml(item.tendv)}<br><small>Hạn: ${formatDate(item.effective_expires_at)}${item.usable===false?' · Không khả dụng':''}</small>${source==='gift'?`<br><small>Tặng bởi: ${escapeHtml(item.gifted_by_name||'N/A')} · ${formatDate(item.created_at)}</small><p>${escapeHtml(item.gift_note)}</p>`:''}</td><td>${item.total_sessions}</td><td>${item.consumed}</td><td>${item.reserved}</td><td>${item.available_sessions}</td><td>${source==='gift'?'Miễn phí':'Trong gói'}</td></tr>`).join('');
+            }).join('');
+            const historyRows = (treatment.history || []).map((entry) => `<tr><td>#${entry.malh}</td><td>${escapeHtml(names.get(Number(entry.the_item_id)) || `Dịch vụ #${entry.madv}`)}</td><td>${escapeHtml({ reserved: 'Đã giữ buổi', consumed: 'Đã sử dụng', released: 'Đã hoàn buổi' }[entry.state] || entry.state)}</td><td>${formatDate(entry.consumed_at || entry.released_at || entry.reserved_at)}</td></tr>`).join('');
             content.innerHTML = `<div class="treatment-detail-header"><p class="package-eyebrow">Liệu trình #${treatment.mathe}</p><h2 id="treatmentDetailTitle">${escapeHtml(treatment.tengoi)}</h2><p><strong>${escapeHtml(treatment.customer_name)}</strong> · ${escapeHtml(treatment.phone)}</p><div class="package-detail-meta"><span>Ngày mua: ${formatDate(treatment.purchased_at)}</span><span>Kích hoạt: ${formatDate(treatment.activated_at)}</span><span>Hạn dùng: ${formatDate(treatment.expires_at)}</span>${statusBadge(treatment.status)}</div></div><div class="package-table-wrap treatment-history"><h3>Tiến độ dịch vụ</h3><table class="package-table"><thead><tr><th>Dịch vụ</th><th>Tổng buổi</th><th>Đã dùng</th><th>Đang giữ</th><th>Còn khả dụng</th><th>Tiến độ</th></tr></thead><tbody>${itemRows || '<tr><td colspan="6">Chưa có dịch vụ.</td></tr>'}</tbody></table></div><div class="package-table-wrap treatment-history"><h3>Lịch sử sử dụng</h3><table class="package-table"><thead><tr><th>Lịch hẹn</th><th>Dịch vụ</th><th>Trạng thái</th><th>Ngày</th></tr></thead><tbody>${historyRows || '<tr><td colspan="4" class="package-empty">Chưa có lịch sử sử dụng.</td></tr>'}</tbody></table></div>`;
+            if(can_gift && treatment.status!=='cancelled'){
+                const button=document.createElement('button');button.className='btn btn-primary';button.textContent='🎁 Tặng dịch vụ';button.id='giftServiceButton';
+                button.onclick=()=>openGift(treatment,giftServices||[]);content.querySelector('.treatment-detail-header').append(button);
+            }
         } catch (error) {
             content.innerHTML = `<div class="package-empty">${escapeHtml(error.message)}</div>`;
         }
+    }
+
+    function openGift(treatment, giftServices) {
+        let dialog=document.getElementById('giftServiceDialog');
+        if(!dialog){dialog=document.createElement('dialog');dialog.id='giftServiceDialog';dialog.className='package-dialog';document.body.append(dialog);}
+        dialog.innerHTML=`<h2>TẶNG DỊCH VỤ</h2><p>Khách hàng: ${escapeHtml(treatment.customer_name)}</p><p>Liệu trình: ${escapeHtml(treatment.tengoi)}</p><form><label>Dịch vụ tặng<select name="madv" class="form-control" required>${giftServices.map(s=>`<option value="${s.madv}">${escapeHtml(s.tendv)}</option>`).join('')}</select></label><label>Số buổi<input name="quantity" class="form-control" type="number" min="1" max="10000" step="1" value="1" required></label><label>Thời hạn<select name="expiryMode" class="form-control"><option value="unlimited">Vô thời hạn</option><option value="days">Số ngày</option><option value="date">Ngày hết hạn</option></select></label><label data-days hidden>Số ngày<input name="validity_days" class="form-control" type="number" min="1" max="10000" step="1" value="30"></label><label data-date hidden>Ngày hết hạn<input name="expires_at" class="form-control" type="date"></label><label>Ghi chú<textarea name="gift_note" class="form-control" maxlength="2000" rows="3"></textarea></label><div class="package-actions"><button type="button" class="btn btn-secondary" data-cancel>Hủy</button><button class="btn btn-primary" type="submit">Xác nhận tặng</button></div><p data-error role="alert"></p></form>`;
+        const form=dialog.querySelector('form');
+        form.elements.expiryMode.onchange=()=>{
+            const mode=form.elements.expiryMode.value;
+            dialog.querySelector('[data-days]').hidden=mode!=='days';dialog.querySelector('[data-date]').hidden=mode!=='date';
+            form.elements.validity_days.required=mode==='days';form.elements.expires_at.required=mode==='date';
+        };
+        dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();
+        form.onsubmit=async event=>{
+            event.preventDefault();const button=form.querySelector('[type="submit"]');button.disabled=true;
+            const mode=form.elements.expiryMode.value;
+            const data={makh:treatment.makh,madv:Number(form.elements.madv.value),quantity:Number(form.elements.quantity.value),gift_note:form.elements.gift_note.value};
+            if(mode==='days')data.validity_days=Number(form.elements.validity_days.value);
+            if(mode==='date')data.expires_at=form.elements.expires_at.value;
+            try{await api(`/api/admin/packages/treatments/${treatment.mathe}/gifts`,{method:'POST',body:JSON.stringify(data)});dialog.close();if(document.getElementById('treatmentDetailDialog').open)await openTreatment(treatment.mathe);await loadTreatments();showMessage('Đã tặng dịch vụ vào liệu trình.');}
+            catch(error){dialog.querySelector('[data-error]').textContent=error.message;}
+            finally{button.disabled=false;}
+        };
+        dialog.showModal();
     }
 
     async function initForm() {

@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         switchSection('appointments');
     }
     if (window.location.hash === '#treatments') switchSection('treatments');
+    if (window.location.hash === '#reviews') switchSection('reviews');
 
     await initializeProfilePage();
     const reviewId = Number(new URLSearchParams(location.search).get('review'));
@@ -59,7 +60,7 @@ async function initializeProfilePage() {
     if (!token) {
         window.CustomerAuth.redirectToLogin(
             'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-            '/profile'
+            location.pathname + location.search + location.hash
         );
         return;
     }
@@ -84,7 +85,7 @@ async function loadUserProfile() {
             if (response.status === 401 || response.status === 422) {
                 window.CustomerAuth.redirectToLogin(
                     'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-                    '/profile'
+                    location.pathname + location.search + location.hash
                 );
             } else {
                 displayProfileLoadError();
@@ -192,6 +193,8 @@ function switchSection(sectionName) {
         loadUserInvoices();
     } else if (sectionName === 'treatments') {
         window.PackageCare?.loadTreatments();
+    } else if (sectionName === 'reviews') {
+        window.ReviewUI?.loadMy();
     }
 }
 
@@ -382,11 +385,7 @@ function displayAppointments(appointments) {
                             <i class="fas fa-times"></i> Hủy lịch
                         </button>
                     ` : ''}
-                    ${apt.trangthai === 'completed' ? `
-                        <button class="btn btn-primary" style="padding: 8px 15px; font-size: 14px; background: #C9A961; border-color: #C9A961;" onclick="openReviewModal(${apt.malh}, '${(apt.dichvu || 'Dịch vụ').replace(/'/g, "\\'")}')">
-                            <i class="fas fa-star"></i> Đánh giá
-                        </button>
-                    ` : ''}
+                    ${apt.trangthai === 'completed' ? (window.ReviewUI?.appointmentActions(apt.malh) || '') : ''}
                 </div>
             </li>
         `;
@@ -842,92 +841,10 @@ function showAlert(type, message) {
 }
 
 
-// ==================== REVIEW MODAL ====================
-function openReviewModal(malh, serviceName) {
-    const oldModal = document.getElementById('reviewModalDynamic');
-    if (oldModal) oldModal.remove();
-
-    const modalHtml = `
-    <div id="reviewModalDynamic" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999;">
-        <div style="background: #fff; padding: 25px; border-radius: 12px; width: 90%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin: 0; color: #2c3e50; font-size: 18px;"><i class="fas fa-star" style="color: #f39c12;"></i> Đánh giá dịch vụ</h3>
-                <button type="button" onclick="document.getElementById('reviewModalDynamic').remove()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #999;">&times;</button>
-            </div>
-            <p style="margin: 0 0 15px 0; color: #666; font-size: 14px;">Dịch vụ: <strong>${serviceName}</strong> (Lịch hẹn #${malh})</p>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px;">Mức độ hài lòng:</label>
-                <div id="starRatingSelect" style="display: flex; gap: 8px; font-size: 28px; color: #f39c12; cursor: pointer;">
-                    <i class="fas fa-star" data-val="1"></i>
-                    <i class="fas fa-star" data-val="2"></i>
-                    <i class="fas fa-star" data-val="3"></i>
-                    <i class="fas fa-star" data-val="4"></i>
-                    <i class="fas fa-star" data-val="5"></i>
-                </div>
-                <input type="hidden" id="selectedStarValue" value="5">
-            </div>
-
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px;">Nhận xét của bạn:</label>
-                <textarea id="reviewCommentText" rows="3" placeholder="Chia sẻ trải nghiệm của bạn tại Bin Spa..." style="width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 10px; font-family: inherit; font-size: 14px; box-sizing: border-box;"></textarea>
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" class="btn btn-outline" onclick="document.getElementById('reviewModalDynamic').remove()" style="padding: 8px 18px;">Hủy</button>
-                <button type="button" class="btn btn-primary" id="btnSubmitReviewAction" onclick="submitReviewAction(${malh})" style="padding: 8px 18px; background: #C9A961; border-color: #C9A961;">Gửi đánh giá</button>
-            </div>
-        </div>
-    </div>
-    `;
-
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-    const starContainer = document.getElementById('starRatingSelect');
-    const stars = starContainer.querySelectorAll('i');
-    stars.forEach(star => {
-        star.addEventListener('click', function() {
-            const val = parseInt(this.getAttribute('data-val'));
-            document.getElementById('selectedStarValue').value = val;
-            stars.forEach((s, idx) => {
-                if (idx < val) {
-                    s.className = 'fas fa-star';
-                } else {
-                    s.className = 'far fa-star';
-                }
-            });
-        });
-    });
+// Review context also handles existing reviews from email links.
+function openReviewModal(malh) {
+    return window.ReviewUI.openAppointmentReview(malh);
 }
-
-async function submitReviewAction(malh) {
-    const rating = parseInt(document.getElementById('selectedStarValue').value) || 5;
-    const comment = document.getElementById('reviewCommentText').value || '';
-    const btn = document.getElementById('btnSubmitReviewAction');
-    btn.disabled = true;
-    btn.innerText = 'Đang gửi...';
-
-    try {
-        const response = await customerAuthFetch('/api/reviews', {
-            method: 'POST',
-            headers: getAuthHeaders(true),
-            body: JSON.stringify({ malh: malh, rating: rating, comment: comment })
-        });
-        const data = await response.json();
-        if (response.ok && data.success) {
-            showAlert('success', data.message || 'Cảm ơn bạn đã gửi đánh giá!');
-            const m = document.getElementById('reviewModalDynamic');
-            if (m) m.remove();
-            loadUserAppointments();
-        } else {
-            showAlert('error', data.message || 'Không thể gửi đánh giá');
-            btn.disabled = false;
-            btn.innerText = 'Gửi đánh giá';
-        }
-    } catch (e) {
-        console.error('Review submit error:', e);
-        showAlert('error', 'Lỗi hệ thống khi gửi đánh giá');
-        btn.disabled = false;
-        btn.innerText = 'Gửi đánh giá';
-    }
-}
+document.addEventListener('reviews-updated', () => {
+    if (document.getElementById('appointments-section')?.classList.contains('active')) loadUserAppointments();
+});

@@ -31,6 +31,7 @@ async function loadServiceDetail() {
 function displayServiceDetail(service) {
     // Update breadcrumb
     document.getElementById('serviceName').textContent = service.tendv;
+    document.getElementById('serviceName').setAttribute('data-orig-vi', service.tendv);
     
     // Update page title
     document.title = `${service.tendv} - Sà Spa`;

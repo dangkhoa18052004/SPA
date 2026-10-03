@@ -65,7 +65,8 @@ if (loginForm) {
                 }
                 
                 setTimeout(() => {
-                    const redirectUrl = new URLSearchParams(window.location.search).get('redirect') || '/';
+                    const requested = new URLSearchParams(window.location.search).get('redirect') || '/';
+                    const redirectUrl = window.CustomerAuth?.safeRedirectPath(requested) || '/';
                     window.location.href = redirectUrl;
                 }, 1000);
             } else {

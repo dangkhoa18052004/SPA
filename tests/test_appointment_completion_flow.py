@@ -167,6 +167,7 @@ def test_provider_failure_keeps_completed_and_retries_same_job(app, client, admi
 
 
 def test_continuous_worker_processes_jobs_and_stops_on_ctrl_c(app, monkeypatch):
+    monkeypatch.setenv('RESEND_API_KEY', 'worker-test-key')
     calls, handlers = [], {}
     monkeypatch.setattr(notifications.signal, 'signal', lambda number, handler: handlers.update({number: handler}))
     monkeypatch.setattr(notifications, 'process_jobs', lambda batch_size: calls.append(batch_size) or dict(sent=1, failed=1, cancelled=1))

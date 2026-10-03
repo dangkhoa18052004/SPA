@@ -1,0 +1,25 @@
+# Link the existing bin-spa-production environment group to both services.
+# Keep DATABASE_URL and all secrets in Render; no new database is created.
+services:
+  - type: web
+    name: bin-spa-web
+    runtime: python
+    buildCommand: bash build.sh
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT
+    envVars:
+      - fromGroup: bin-spa-production
+      - key: APP_ENV
+        value: production
+      - key: PYTHONUNBUFFERED
+        value: "1"
+  - type: worker
+    name: bin-spa-notifications
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m flask --app wsgi:app notification-worker --interval 15
+    envVars:
+      - fromGroup: bin-spa-production
+      - key: APP_ENV
+        value: production
+      - key: PYTHONUNBUFFERED
+        value: "1"

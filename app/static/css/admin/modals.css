@@ -3,6 +3,9 @@
 /* ================================================= */
 
 /* ========== MODAL OVERLAY ========== */
+html:has(dialog:modal) {
+    overflow: hidden;
+}
 /* Native dialogs live in the browser's top layer, outside sidebar/container layout.
    Restore auto margins after the global reset; do not change div/Bootstrap modals. */
 dialog.package-dialog,

@@ -7,6 +7,7 @@ from flask import (
     send_from_directory,
     session,
     url_for,
+    request,
 )
 
 customer_bp = Blueprint('customer', __name__)
@@ -32,7 +33,10 @@ def service_detail_page(service_id):
 @customer_bp.route('/auth/login')
 def login_page():
     if session.get('user_id') and session.get('user_type') == 'customer':
-        return redirect(url_for('customer.index'))
+        target = request.args.get('redirect', '/')
+        if not target.startswith('/') or target.startswith('//') or '\\' in target or any(ord(c)<32 for c in target):
+            target = '/'
+        return redirect(target)
     
     return render_template('customer/login.html')
 

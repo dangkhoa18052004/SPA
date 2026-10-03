@@ -77,11 +77,15 @@
         } catch(e){message(e.message);}
     }
     function treatmentHtml(t, admin=false) {
-        return `<article class="package-panel treatment-card">${cover(t)}<div class="package-card-body"><span class="package-badge">${esc(status(t.status))}</span><h3>${esc(t.tengoi)}</h3><p>Mã liệu trình #${t.mathe}</p>${admin?`<p>${esc(t.customer_name)} · ${esc(t.phone)}</p>`:''}<div class="treatment-dates"><p>Ngày mua: ${date(t.purchased_at)}</p><p>Kích hoạt: ${date(t.activated_at)}</p><p>Hạn sử dụng: ${t.expires_at?date(t.expires_at):'Vô thời hạn'}</p></div><ul class="treatment-services">${t.items.map(i=>`<li><strong>${esc(i.tendv)}</strong><p>Đã dùng: ${i.consumed}/${i.total_sessions} · Đang giữ: ${i.reserved} · Còn khả dụng: ${i.available_sessions}</p><progress value="${i.consumed}" max="${i.total_sessions}" aria-label="Số buổi đã sử dụng"></progress></li>`).join('')}</ul></div>`+
+        const sections = ['package', 'gift'].map(source => {
+            const items=t.items.filter(i=>(i.source_type||'package')===source);
+            return items.length?`<h4>${source==='gift'?'🎁 Dịch vụ tặng':'Dịch vụ trong gói'}</h4><ul class="treatment-services">${items.map(i=>`<li><strong>${esc(i.tendv)}</strong><p>${source==='gift'?'Miễn phí · ':''}Đã dùng: ${i.consumed}/${i.total_sessions} · Đang giữ: ${i.reserved} · Còn: ${i.available_sessions}</p><p>Hạn: ${i.effective_expires_at?date(i.effective_expires_at):'Vô thời hạn'}${i.usable===false?' · Không còn khả dụng':''}</p><progress value="${i.consumed}" max="${i.total_sessions}" aria-label="Số buổi đã sử dụng"></progress>${!admin&&i.usable!==false&&i.available_sessions>0?`<a class="btn btn-primary" href="/appointments/create?treatment=${t.mathe}&service=${i.madv}&item=${i.id}">Đặt lịch</a>`:''}</li>`).join('')}</ul>`:'';
+        }).join('');
+        return `<article class="package-panel treatment-card">${cover(t)}<div class="package-card-body"><span class="package-badge">${esc(status(t.status))}</span><h3>${esc(t.tengoi)}</h3><p>Mã liệu trình #${t.mathe}</p>${admin?`<p>${esc(t.customer_name)} · ${esc(t.phone)}</p>`:''}<div class="treatment-dates"><p>Ngày mua: ${date(t.purchased_at)}</p><p>Kích hoạt: ${date(t.activated_at)}</p><p>Hạn gói gốc: ${t.expires_at?date(t.expires_at):'Vô thời hạn'}</p></div>${sections}</div>`+
             (admin ? `<details><summary>Lịch sử sử dụng</summary>${historyHtml(t.history || [])}</details>`:
-            `<button type="button" class="btn btn-secondary" data-history="${t.mathe}">Xem lịch sử</button><a class="btn btn-primary" href="/appointments/create?treatment=${t.mathe}">Đặt lịch</a><div id="history-${t.mathe}" class="package-history"></div>`)+`</article>`;
+            `<button type="button" class="btn btn-secondary" data-history="${t.mathe}">Xem lịch sử</button><div id="history-${t.mathe}" class="package-history"></div>`)+`</article>`;
     }
-    const historyHtml = rows => rows.length?`<ul>${rows.map(u=>`<li>Lịch hẹn #${u.malh} · Dịch vụ #${u.madv} · ${esc(status(u.state))} · ${date(u.consumed_at || u.released_at || u.reserved_at)}</li>`).join('')}</ul>`:'Chưa có lịch sử sử dụng.';
+    const historyHtml = rows => rows.length?`<ul>${rows.map(u=>`<li>Lịch hẹn #${u.malh} · ${esc(u.tendv||'Dịch vụ #'+u.madv)} · ${u.source_type==='gift'?'🎁 Lượt tặng':'Trong gói'} #${u.the_item_id} · ${esc(status(u.state))} · ${date(u.consumed_at || u.released_at || u.reserved_at)}</li>`).join('')}</ul>`:'Chưa có lịch sử sử dụng.';
     async function loadTreatments() {
         const list=document.getElementById('myTreatments'); if(!list)return;
         try {
@@ -94,21 +98,37 @@
             document.getElementById('myPackagePurchases').innerHTML=purchases.purchases.filter(p=>p.status==='pending').map(p=>`<p>${esc(p.tengoi)} · ${price(p.amount)} · Chờ thanh toán <a href="/packages?purchase=${p.id}">Tiếp tục thanh toán</a></p>`).join('');
         } catch(e){list.textContent=e.message;}
     }
-    let treatmentSelections=new Map(), renderVersion=0;
+    let treatmentSelections=new Map(), renderVersion=0, lastBookingKey='', bookingRequest;
+    function chooseBookingItem(treatment, item) {
+        treatmentSelections.set(Number(item.madv), {mathe:Number(treatment.mathe), the_item_id:Number(item.id), madv:Number(item.madv), quantity:1});
+        lastBookingKey='';
+    }
     async function renderBooking(serviceIds, selectedDate) {
         const el=document.getElementById('bookingTreatments');if(!el)return;
+        const key=JSON.stringify([serviceIds,selectedDate]);
+        if(key===lastBookingKey)return bookingRequest?.catch(()=>undefined);
+        lastBookingKey=key;
         treatmentSelections=new Map([...treatmentSelections].filter(([id])=>serviceIds.includes(id)));
         const version=++renderVersion;
         try {
-            const r=await api('/api/packages/my-treatments'); if(version!==renderVersion)return;
-            const choices=serviceIds.map(id=>({id,records:r.treatments.filter(t=>t.status==='active'&&(!t.expires_at||!selectedDate||t.expires_at.slice(0,10)>=selectedDate)&&t.items.some(i=>i.madv===id&&i.available_sessions>0))}));
+            bookingRequest=api('/api/packages/my-treatments');
+            const r=await bookingRequest; if(version!==renderVersion)return;
+            const choices=serviceIds.map(id=>({id,items:r.treatments.flatMap(t=>t.status==='cancelled'?[]:t.items.filter(i=>i.madv===id&&i.usable!==false&&i.available_sessions>0&&(!selectedDate||(!i.effective_expires_at||i.effective_expires_at.slice(0,10)>=selectedDate)&&(!i.valid_from||i.valid_from.slice(0,10)<=selectedDate))).map(item=>({treatment:t,item})))}));
             const previous=JSON.stringify([...treatmentSelections]);
-            treatmentSelections=new Map([...treatmentSelections].filter(([id,mathe])=>choices.some(c=>c.id===id&&c.records.some(t=>t.mathe===mathe))));
-            el.innerHTML=choices.filter(c=>c.records.length).map(c=>`<label>Dịch vụ #${c.id}<select data-treatment-service="${c.id}"><option value="">Thanh toán bình thường</option>${c.records.map(t=>`<option value="${t.mathe}" ${treatmentSelections.get(c.id)===t.mathe?'selected':''}>Sử dụng liệu trình: ${esc(t.tengoi)} — Còn ${t.items.find(i=>i.madv===c.id).available_sessions} buổi</option>`).join('')}</select></label>`).join('');
+            treatmentSelections=new Map([...treatmentSelections].filter(([id,usage])=>choices.some(c=>c.id===id&&c.items.some(({item})=>item.id===usage.the_item_id))));
+            el.innerHTML=choices.filter(c=>c.items.length).map(c=>`<label>${esc(c.items[0].item.tendv)}<select data-treatment-service="${c.id}"><option value="">Thanh toán bình thường</option>${c.items.map(({treatment:t,item:i})=>`<option value="${i.id}" ${treatmentSelections.get(c.id)?.the_item_id===i.id?'selected':''}>${i.source_type==='gift'?'🎁 Dịch vụ tặng':'Sử dụng liệu trình'}: ${esc(t.tengoi)} — Còn ${i.available_sessions} buổi</option>`).join('')}</select></label>`).join('');
             el.classList.toggle('package-hidden',!el.innerHTML);
-            el.querySelectorAll('select').forEach(select=>select.onchange=()=>{const id=Number(select.dataset.treatmentService);select.value?treatmentSelections.set(id,Number(select.value)):treatmentSelections.delete(id);window.refreshBookingSummary?.();});
+            el.querySelectorAll('select').forEach(select=>select.onchange=()=>{const id=Number(select.dataset.treatmentService);const choice=choices.find(c=>c.id===id)?.items.find(c=>c.item.id===Number(select.value));choice?treatmentSelections.set(id,{mathe:choice.treatment.mathe,the_item_id:choice.item.id,madv:id,quantity:1}):treatmentSelections.delete(id);window.refreshBookingSummary?.();});
             if(previous!==JSON.stringify([...treatmentSelections])) window.refreshBookingSummary?.();
-        } catch(e){el.textContent='Không thể tải liệu trình. Bạn vẫn có thể thanh toán bình thường.';}
+        } catch(e){
+            if(version!==renderVersion)return;
+            // Preserve an explicit entitlement choice; the backend validates it again.
+            // A transient list failure must never silently turn a free booking into retail billing.
+            el.classList.remove('package-hidden');
+            el.textContent='Không thể tải liệu trình. Vui lòng thử lại trước khi sử dụng lượt gói.';
+            const retry=document.createElement('button');retry.type='button';retry.className='btn btn-secondary';retry.textContent='Thử lại';
+            retry.onclick=()=>{lastBookingKey='';renderBooking(serviceIds,selectedDate);};el.append(retry);
+        }
     }
     let adminPackages=[], services=[], editId=null;
     function addItem(item={}) {
@@ -169,5 +189,5 @@
     });
     function toggleValidity(){const f=document.getElementById('packageForm');f.elements.validity_months.disabled=f.elements.unlimited.checked;f.elements.validity_months.required=!f.elements.unlimited.checked;}
     function priceWarning(){const f=document.getElementById('packageForm');const retail=[...f.querySelectorAll('.package-item-row')].reduce((sum,row)=>sum+Number(services.find(s=>s.madv===Number(row.querySelector('select').value))?.gia||0)*Number(row.querySelector('input').value),0);document.getElementById('packagePriceWarning').textContent=Number(f.elements.giagoi.value)>retail?'Giá gói đang cao hơn tổng giá lẻ.':'';}
-    window.PackageCare={api,showPayment,packageHtml,esc,price,status,validity,loadTreatments,renderBooking,getUsages:()=>[...treatmentSelections].map(([madv,mathe])=>({mathe,madv,quantity:1}))};
+    window.PackageCare={api,showPayment,packageHtml,esc,price,status,validity,loadTreatments,renderBooking,chooseBookingItem,getUsages:()=>[...treatmentSelections.values()]};
 })();

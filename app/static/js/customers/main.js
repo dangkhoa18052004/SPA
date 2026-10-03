@@ -782,7 +782,7 @@ function renderMessageHTML(content) {
                         <span class="chat-card-price">${formatPrice(gia)}</span>
                         <span class="chat-card-duration"><i class="far fa-clock"></i> ${thoiluong} phút</span>
                     </div>
-                    <a href="/appointments/create?service_id=${madv}" class="chat-card-book-btn">
+                    <a href="/appointments/create?service=${madv}" class="chat-card-book-btn">
                         <i class="fas fa-calendar-check"></i> Đặt lịch ngay
                     </a>
                 </div>

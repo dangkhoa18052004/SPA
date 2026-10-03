@@ -73,7 +73,8 @@ def main():
     records = billing_records.__wrapped__(app)
     with app.app_context():
         token = create_access_token(identity=f"staff:{app.config['TEST_ADMIN_ID']}")
-    server = make_server('127.0.0.1', 0, app, threaded=True)
+    # The fixture uses one shared SQLite in-memory connection.
+    server = make_server('127.0.0.1', 0, app, threaded=False)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     port = free_port()
     artifacts = Path('tests/billing-preview.tmp').resolve()

@@ -109,6 +109,7 @@ function hasRole(allowedRoles) {
  */
 const MENU_CONFIG = {
     admin: [
+        { key: 'reviews', title: 'Quản lý Đánh giá', href: '/admin/reviews', icon: 'fa-star' },
         { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
         { key: 'dashboard', title: 'Dashboard', href: '/admin/dashboard', icon: 'fa-tachometer-alt' },
         { key: 'appointments', title: 'Quản lý Lịch hẹn', href: '/admin/appointments', icon: 'fa-calendar-alt' },
@@ -126,6 +127,7 @@ const MENU_CONFIG = {
     ],
 
     manager: [
+        { key: 'reviews', title: 'Quản lý Đánh giá', href: '/admin/reviews', icon: 'fa-star' },
         { key: 'package_sales', title: 'Bán gói / Phiếu bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
         { key: 'packages', title: 'Gói dịch vụ / Liệu trình', href: '/admin/packages', icon: 'fa-spa' },
         { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
@@ -152,6 +154,8 @@ const MENU_CONFIG = {
     ],
 
     staff: [
+        { key: 'reviews', title: 'Đánh giá của khách', href: '/admin/reviews', icon: 'fa-star' },
+        { key: 'packages', title: 'Liệu trình khách hàng', href: '/admin/packages#treatments', icon: 'fa-spa' },
         { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
         { key: 'my_schedule', title: 'Lịch làm của tôi', href: '/admin/my-schedule', icon: 'fa-calendar-check' },
         { key: 'register_shift', title: 'Đăng ký ca', href: '/admin/register-shift', icon: 'fa-calendar-plus' },
@@ -372,7 +376,8 @@ function checkPageAccess() {
 
     // Define restricted pages
     const restrictions = {
-        '/admin/packages': ['admin', 'manager'],
+        '/admin/packages': ['admin', 'manager', 'staff'],
+        '/admin/reviews': ['admin', 'manager', 'staff'],
         '/admin/package-sales': ['admin', 'manager', 'letan'],
         '/admin/staff': ['admin', 'manager'],
         '/admin/salary': ['admin', 'manager'],

@@ -6,7 +6,25 @@ from flask import current_app
 # Khởi tạo Resend API Key
 resend.api_key = os.getenv('RESEND_API_KEY')
 
-def send_email(to_email, subject, body, idempotency_key=None):
+def configured_api_key():
+    """Read the current process environment, including the worker's .env."""
+    return os.getenv('RESEND_API_KEY', '').strip()
+
+
+def masked_recipient(address):
+    local, separator, domain = str(address or '').partition('@')
+    return f'{local[:1]}***@{domain}' if separator else '***'
+
+
+def safe_provider_error(error):
+    message = str(error)
+    for secret in (configured_api_key(), resend.api_key):
+        if secret:
+            message = message.replace(secret, '[redacted]')
+    return message[:2000]
+
+
+def send_email(to_email, subject, body, idempotency_key=None, *, return_provider_response=False):
     """
     Hàm gửi email qua Resend API (thay thế SMTP).
     Giữ nguyên interface để tương thích với code cũ.
@@ -17,16 +35,17 @@ def send_email(to_email, subject, body, idempotency_key=None):
         body (str): Nội dung email (hỗ trợ HTML)
     
     Returns:
-        bool: True nếu gửi thành công, False nếu thất bại
+        bool: True nếu gửi thành công. Worker có thể yêu cầu response chứa provider id.
     
     Raises:
         Exception: Nếu có lỗi trong quá trình gửi
     """
     
-    if not resend.api_key:
+    api_key = configured_api_key()
+    if not api_key:
         current_app.logger.error("❌ RESEND_API_KEY chưa được cấu hình trong Environment Variables!")
         raise RuntimeError("RESEND_API_KEY không tồn tại. Vui lòng thêm vào Render Environment.")
-    
+    resend.api_key = api_key
 
     from_email = "Bin Spa <noreply@binspa.id.vn>"
     
@@ -113,20 +132,30 @@ def send_email(to_email, subject, body, idempotency_key=None):
             # Installed Resend SDK predates options support. Keep transport here,
             # sharing credentials/templates with every existing email caller.
             http_response = requests.post('https://api.resend.com/emails', json=payload,
-                headers={'Authorization': f'Bearer {resend.api_key}',
+                headers={'Authorization': f'Bearer {api_key}',
                          'Idempotency-Key': idempotency_key}, timeout=20)
-            http_response.raise_for_status()
+            try:
+                http_response.raise_for_status()
+            except requests.HTTPError as error:
+                try:
+                    details = http_response.json()
+                    detail = details.get('message') or details.get('error') or str(error)
+                except (ValueError, AttributeError):
+                    detail = str(error)
+                raise RuntimeError(f'Resend HTTP {http_response.status_code}: {safe_provider_error(detail)}') from error
             response = http_response.json()
         else:
             response = resend.Emails.send(payload)
         
-        current_app.logger.info(f"✅ Email đã gửi thành công tới {to_email} | Response ID: {response.get('id', 'N/A')}")
-        return True
+        if not isinstance(response, dict) or not response.get('id'):
+            raise RuntimeError('Resend did not return an email id')
+        current_app.logger.info('Email accepted recipient=%s provider_id=%s', masked_recipient(to_email), response['id'])
+        return response if return_provider_response else True
         
     except Exception as e:
-        current_app.logger.error(f"❌ Gửi email thất bại tới {to_email}: {str(e)}")
-        
-        raise e
+        message = safe_provider_error(e)
+        current_app.logger.error('Email failed recipient=%s error=%s', masked_recipient(to_email), message)
+        raise RuntimeError(message) from e
 
 
 def send_booking_confirmation(to_email, booking_details):

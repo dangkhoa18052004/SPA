@@ -1,6 +1,6 @@
 """Package purchases and treatment entitlement ledger. Caller owns the transaction."""
 import calendar
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import base64
 
@@ -192,6 +192,69 @@ def item_counts(item):
                 available_sessions=item.total_sessions-consumed-reserved)
 
 
+def effective_item_expiry(item, treatment):
+    return item.expires_at if item.source_type == 'gift' or item.expires_at else treatment.expires_at
+
+
+def is_treatment_item_usable(item, treatment, appointment_date=None):
+    """Shared calendar-day validity for listing, reserve and reschedule."""
+    day = appointment_date or local_now().date()
+    if isinstance(day, datetime):
+        day = day.date()
+    if item.mathe != treatment.mathe or treatment.status == 'cancelled' or not item.service.active:
+        return False
+    if item.valid_from and day < item.valid_from.date():
+        return False
+    expiry = effective_item_expiry(item, treatment)
+    if expiry and day > expiry.date():
+        return False
+    if item.source_type != 'gift' and treatment.status == 'expired' and expiry is None:
+        return False
+    return True
+
+
+def gift_service(record_id, data, staff):
+    if staff.role not in ('admin', 'manager', 'staff') or not staff.trangthai:
+        raise AppointmentValidationError('Bạn không có quyền tặng dịch vụ')
+    record = lock_treatment(record_id)
+    if record.status == 'cancelled':
+        raise AppointmentValidationError('Liệu trình đã bị hủy')
+    if data.get('makh', record.makh) != record.makh:
+        raise AppointmentValidationError('Khách hàng không khớp liệu trình')
+    service = db.session.get(DichVu, positive_int(data.get('madv')))
+    if not service or not service.active:
+        raise AppointmentValidationError('Dịch vụ không tồn tại hoặc đã ngừng hoạt động')
+    quantity = positive_int(data.get('total_sessions', data.get('quantity')))
+    now, expiry = local_now(), None
+    if data.get('expires_at') is not None and (not isinstance(data['expires_at'], str) or not data['expires_at'].strip()):
+        raise AppointmentValidationError('Ngày hết hạn không hợp lệ')
+    if data.get('expires_at') and data.get('validity_days') is not None:
+        raise AppointmentValidationError('Chỉ chọn số ngày hoặc ngày hết hạn')
+    if data.get('validity_days') is not None:
+        expiry = now + timedelta(days=positive_int(data['validity_days']))
+    elif data.get('expires_at'):
+        try:
+            raw = str(data['expires_at'])
+            expiry = datetime.fromisoformat(raw.replace('Z', '+00:00'))
+            if expiry.tzinfo:
+                expiry = expiry.astimezone(timezone(timedelta(hours=7))).replace(tzinfo=None)
+            if len(raw) == 10:
+                expiry = datetime.combine(expiry.date(), time.max)
+        except (ValueError, TypeError):
+            raise AppointmentValidationError('Ngày hết hạn không hợp lệ')
+    if expiry and expiry.date() < now.date():
+        raise AppointmentValidationError('Ngày hết hạn phải từ hôm nay trở đi')
+    note = data.get('gift_note') or ''
+    if not isinstance(note, str) or len(note) > 2000:
+        raise AppointmentValidationError('Ghi chú tối đa 2000 ký tự')
+    item = TheLieuTrinhItem(mathe=record.mathe, madv=service.madv, total_sessions=quantity,
+        source_type='gift', valid_from=now, expires_at=expiry, gifted_by_staff=staff.manv,
+        gift_note=note.strip(), created_at=now, unit_value_snapshot=0, regular_price_snapshot=service.gia)
+    db.session.add(item)
+    db.session.flush()
+    return record, item
+
+
 def reserve_usages(appointment, usages):
     if not isinstance(usages, list):
         raise AppointmentValidationError('package_usages phải là danh sách')
@@ -206,13 +269,25 @@ def reserve_usages(appointment, usages):
         record = lock_treatment(record_id)
         if record.makh != appointment.makh:
             raise AppointmentValidationError('Không được dùng liệu trình của khách hàng khác')
-        if record.status != 'active' or (record.expires_at is not None and record.expires_at.date() < local_now().date()):
-            raise AppointmentValidationError('Liệu trình không hoạt động hoặc đã hết hạn')
-        if record.expires_at is not None and appointment.ngaygio.date() > record.expires_at.date():
-            raise AppointmentValidationError('Ngày hẹn sau ngày hết hạn liệu trình')
-        item = TheLieuTrinhItem.query.filter_by(mathe=record_id, madv=service_id).first()
+        item_query = TheLieuTrinhItem.query.filter_by(mathe=record_id, madv=service_id)
+        if row.get('the_item_id') is not None:
+            item = item_query.filter_by(id=positive_int(row['the_item_id'])).first()
+        else:
+            # Legacy payload: prefer a usable original package entitlement.
+            candidates = item_query.order_by(TheLieuTrinhItem.id).all()
+            item = next((i for i in candidates if i.source_type == 'package'
+                and is_treatment_item_usable(i, record) and is_treatment_item_usable(i, record, appointment.ngaygio)
+                and item_counts(i)['available_sessions'] > 0), None)
+            if item is None:
+                candidates = [i for i in candidates if is_treatment_item_usable(i, record)
+                    and is_treatment_item_usable(i, record, appointment.ngaygio) and item_counts(i)['available_sessions'] > 0]
+                if len(candidates) > 1:
+                    raise AppointmentValidationError('Vui lòng chọn chính xác lượt dịch vụ bằng the_item_id')
+                item = candidates[0] if candidates else None
         if not item or item_counts(item)['available_sessions'] < 1:
             raise AppointmentValidationError('Dịch vụ không thuộc liệu trình hoặc đã hết buổi khả dụng')
+        if not is_treatment_item_usable(item, record) or not is_treatment_item_usable(item, record, appointment.ngaygio):
+            raise AppointmentValidationError('Dịch vụ liệu trình không hoạt động hoặc ngày hẹn ngoài hạn sử dụng')
         db.session.add(LieuTrinhUsage(mathe=record_id, the_item_id=item.id,
             malh=appointment.malh, madv=service_id, state='reserved', reserved_at=local_now()))
         db.session.flush()
@@ -237,24 +312,32 @@ def transition_usages(appointment_id, state):
 def validate_reschedule(appointment, new_dt):
     for usage in LieuTrinhUsage.query.filter_by(malh=appointment.malh, state='reserved').all():
         record = db.session.get(TheLieuTrinh, usage.mathe)
-        if record.expires_at is not None and new_dt.date() > record.expires_at.date():
-            raise AppointmentValidationError('Ngày hẹn sau ngày hết hạn liệu trình')
+        if not is_treatment_item_usable(usage.item, record, new_dt):
+            raise AppointmentValidationError('Ngày hẹn ngoài hạn sử dụng dịch vụ liệu trình')
 
 
 def serialize_treatment(record, history=False):
-    status = record.status
-    if status == 'active' and record.expires_at is not None and record.expires_at.date() < local_now().date():
-        status = 'expired'
     result = dict(mathe=record.mathe, makh=record.makh, magoi=record.magoi,
-        tengoi=record.purchase.snapshot_json['tengoi'], status=status,
+        tengoi=record.purchase.snapshot_json['tengoi'], status=record.status,
         image_url=record.purchase.snapshot_json.get('image_url') or package_image(record.purchase.package),
         purchased_at=record.purchased_at.isoformat(), activated_at=record.activated_at.isoformat(),
         expires_at=record.expires_at.isoformat() if record.expires_at is not None else None, items=[dict(id=i.id, madv=i.madv,
         tendv=i.service.tendv, total_sessions=i.total_sessions,
         unit_value_snapshot=str(i.unit_value_snapshot), regular_price_snapshot=str(i.regular_price_snapshot),
+        source_type=i.source_type, valid_from=i.valid_from.isoformat() if i.valid_from else None,
+        expires_at=i.expires_at.isoformat() if i.expires_at else None,
+        effective_expires_at=effective_item_expiry(i, record).isoformat() if effective_item_expiry(i, record) else None,
+        usable=is_treatment_item_usable(i, record), gifted_by_staff=i.gifted_by_staff,
+        gifted_by_name=i.gift_staff.hoten if i.gift_staff else None, gift_note=i.gift_note or '',
+        created_at=i.created_at.isoformat() if i.created_at else None,
         **item_counts(i)) for i in record.items])
+    if record.status != 'cancelled':
+        valid_items = [i for i in result['items'] if i['usable']]
+        result['status'] = ('active' if any(i['consumed'] < i['total_sessions'] for i in valid_items)
+                            else 'used_up' if valid_items else 'expired')
     if history:
-        result['history'] = [dict(id=u.id, malh=u.malh, madv=u.madv, state=u.state,
+        result['history'] = [dict(id=u.id, malh=u.malh, madv=u.madv, the_item_id=u.the_item_id,
+            source_type=u.item.source_type, tendv=u.item.service.tendv, state=u.state,
             reserved_at=u.reserved_at.isoformat(), consumed_at=u.consumed_at.isoformat() if u.consumed_at else None,
             released_at=u.released_at.isoformat() if u.released_at else None)
             for u in LieuTrinhUsage.query.filter_by(mathe=record.mathe).order_by(LieuTrinhUsage.id.desc()).all()]

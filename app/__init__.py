@@ -75,7 +75,9 @@ def create_app(config_overrides=None):
     app.register_blueprint(chat_manage_bp, url_prefix="/api/admin")
 
     # Thêm alias cho GET /api/admin/reviews/stats
+    from .decorators import roles_required
     @app.route("/api/admin/reviews/stats", methods=["GET"])
+    @roles_required('admin', 'manager')
     def admin_review_stats_alias():
         from .services.review_service import get_admin_review_stats
         return jsonify(get_admin_review_stats()), 200

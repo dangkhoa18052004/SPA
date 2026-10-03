@@ -97,9 +97,15 @@
         return response;
     }
 
+    function safeRedirectPath(value) {
+        const path=String(value || '/');
+        if(!path.startsWith('/')||path.startsWith('//')||/[\\\x00-\x1f]/.test(path))return '/';
+        const target=new URL(path,window.location.origin);
+        return target.origin===window.location.origin?target.pathname+target.search+target.hash:'/';
+    }
     function loginUrl(redirectPath) {
         const redirect = redirectPath || `${window.location.pathname}${window.location.search}${window.location.hash}`;
-        return `/auth/login?redirect=${encodeURIComponent(redirect)}`;
+        return `/auth/login?redirect=${encodeURIComponent(safeRedirectPath(redirect))}`;
     }
 
     function redirectToLogin(message, redirectPath) {
@@ -114,6 +120,7 @@
         restoreAccessToken,
         storeLogin,
         clearLocalSession,
-        redirectToLogin
+        redirectToLogin,
+        safeRedirectPath
     };
 })();

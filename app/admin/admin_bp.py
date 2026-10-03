@@ -2,6 +2,11 @@ from flask import Blueprint, render_template
 
 admin_bp = Blueprint('admin_pages', __name__)
 
+
+@admin_bp.route('/reviews')
+def admin_reviews_page():
+    return render_template('admin/reviews.html')
+
 @admin_bp.route('/login')
 def admin_login_page():
     """Trang đăng nhập của nhân viên."""

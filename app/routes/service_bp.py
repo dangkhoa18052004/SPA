@@ -4,6 +4,22 @@ import base64
 
 service_bp = Blueprint("service", __name__)
 
+
+@service_bp.route('/<int:service_id>/reviews')
+def service_reviews(service_id):
+    from flask import request
+    from ..services.review_service import public_service_reviews, ReviewServiceError
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+        per_page = min(50, max(1, int(request.args.get('per_page', 10))))
+        response = jsonify(public_service_reviews(service_id, page, per_page))
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    except (ValueError, TypeError):
+        return jsonify(success=False, message='Phân trang không hợp lệ'), 400
+    except ReviewServiceError as error:
+        return jsonify(success=False, message=error.message), error.status_code
+
 @service_bp.route("", methods=["GET"])
 def get_services():
     """

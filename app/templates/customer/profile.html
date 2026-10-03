@@ -7,6 +7,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/profile.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reviews.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -29,6 +30,7 @@
             </div>
             
             <ul class="profile-menu">
+                <li><a href="#reviews" class="menu-link" data-section="reviews"><i class="fas fa-star"></i> Đánh giá của tôi</a></li>
                 <li><a href="#treatments" class="menu-link" data-section="treatments"><i class="fas fa-spa"></i> Liệu trình của tôi</a></li>
                 <li>
                     <a href="#" class="menu-link active" data-section="info">
@@ -66,6 +68,7 @@
         
         <!-- Main Content -->
         <div class="profile-content">
+            <div class="profile-section" id="reviews-section"><h2 class="section-title">Đánh giá của tôi</h2><div id="myReviews">Đang tải...</div></div>
             <div class="profile-section package-section" id="treatments-section">
                 <h2 class="section-title">Liệu trình của tôi</h2>
                 <p><a href="/packages">Mua gói dịch vụ</a></p>
@@ -201,6 +204,7 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/admin/qrcode.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/customers/profile.js', v='1.1') }}"></script>
+<script src="{{ url_for('static', filename='js/reviews.js') }}"></script>
+<script src="{{ url_for('static', filename='js/customers/profile.js', v='1.2') }}"></script>
 <script src="{{ url_for('static', filename='js/packages.js') }}"></script>
 {% endblock %}

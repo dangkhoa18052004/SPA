@@ -1,0 +1,17 @@
+{% extends "admin/layout.html" %}
+{% block title %}Quản lý đánh giá - Bin Spa{% endblock %}
+{% block page_title %}Quản lý đánh giá{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/reviews.css') }}">{% endblock %}
+{% block content %}
+<form id="reviewFilters" class="review-filters">
+    <input type="search" name="search" placeholder="Tìm tên khách hàng" aria-label="Tên khách hàng">
+    <select name="rating" aria-label="Số sao"><option value="">Tất cả số sao</option>{% for n in range(5,0,-1) %}<option value="{{ n }}">{{ n }} sao</option>{% endfor %}</select>
+    <select name="service" aria-label="Dịch vụ"><option value="">Tất cả dịch vụ</option></select>
+    <select name="staff" aria-label="Nhân viên"><option value="">Tất cả nhân viên</option></select>
+    <select name="replied" aria-label="Phản hồi"><option value="">Tất cả phản hồi</option><option value="yes">Đã trả lời</option><option value="no">Chưa trả lời</option></select>
+    <button class="btn btn-primary" type="submit">Tìm kiếm</button>
+</form>
+<div id="adminReviews" class="review-list">Đang tải đánh giá...</div>
+<div id="adminReviewPages" class="review-pagination"></div>
+{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/reviews.js') }}"></script>{% endblock %}

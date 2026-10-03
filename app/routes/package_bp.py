@@ -7,7 +7,7 @@ from ..services import package_service as service
 from ..services.appointment_service import AppointmentValidationError
 from ..services.vietqr_service import generate_vietqr_payment_info, vietqr_available
 from ..services.upload_service import read_validated_image, InvalidUploadError
-from sqlalchemy import or_, func
+from sqlalchemy import or_
 import json
 from functools import wraps
 from flask_jwt_extended.exceptions import NoAuthorizationError
@@ -34,6 +34,7 @@ def active_staff_roles(*roles):
 
 package_manager_required = active_staff_roles('admin', 'manager')
 package_sales_required = active_staff_roles('admin', 'manager', 'letan')
+treatment_staff_required = active_staff_roles('admin', 'manager', 'staff')
 
 
 @package_bp.errorhandler(InvalidUploadError)
@@ -235,7 +236,7 @@ def update_package(package_id):
 
 
 @package_bp.route('/api/admin/packages/treatments')
-@package_manager_required
+@treatment_staff_required
 def admin_treatments():
     query = TheLieuTrinh.query.join(KhachHang)
     term = request.args.get('search', '').strip()
@@ -245,26 +246,22 @@ def admin_treatments():
             condition = condition | (TheLieuTrinh.mathe == int(term))
         query = query.filter(condition)
     requested_status = request.args.get('status', '').strip()
-    if requested_status in ('active', 'used_up', 'expired', 'cancelled'):
-        today = service.local_now().date()
-        if requested_status == 'expired':
-            query = query.filter(or_(
-                TheLieuTrinh.status == 'expired',
-                (TheLieuTrinh.status == 'active') & (func.date(TheLieuTrinh.expires_at) < today)
-            ))
-        elif requested_status == 'active':
-            query = query.filter(
-                TheLieuTrinh.status == 'active',
-                or_(TheLieuTrinh.expires_at.is_(None), func.date(TheLieuTrinh.expires_at) >= today)
-            )
-        else:
-            query = query.filter(TheLieuTrinh.status == requested_status)
-    return jsonify(success=True, treatments=[dict(service.serialize_treatment(t, True),
-        customer_name=t.customer.hoten, phone=t.customer.sdt) for t in query.order_by(TheLieuTrinh.mathe.desc()).limit(200).all()])
+    filter_status = requested_status in ('active', 'used_up', 'expired', 'cancelled')
+    query = query.order_by(TheLieuTrinh.mathe.desc())
+    records = query.yield_per(100) if filter_status else query.limit(200).all()
+    treatments = []
+    for record in records:
+        treatment = dict(service.serialize_treatment(record, True),
+            customer_name=record.customer.hoten, phone=record.customer.sdt)
+        if not filter_status or treatment['status'] == requested_status:
+            treatments.append(treatment)
+            if len(treatments) == 200:
+                break
+    return jsonify(success=True, treatments=treatments)
 
 
 @package_bp.route('/api/admin/packages/treatments/<int:record_id>')
-@package_manager_required
+@treatment_staff_required
 def admin_treatment_detail(record_id):
     record = db.session.get(TheLieuTrinh, record_id)
     if not record:
@@ -273,7 +270,19 @@ def admin_treatment_detail(record_id):
         service.serialize_treatment(record, True),
         customer_name=record.customer.hoten,
         phone=record.customer.sdt
-    ))
+    ), can_gift=g.current_user.role in ('admin', 'manager', 'staff'),
+        services=[dict(madv=s.madv, tendv=s.tendv) for s in DichVu.query.filter_by(active=True).order_by(DichVu.tendv).all()])
+
+
+@package_bp.route('/api/admin/packages/treatments/<int:record_id>/gifts', methods=['POST'])
+@treatment_staff_required
+def grant_treatment_gift(record_id):
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise AppointmentValidationError('Dữ liệu tặng dịch vụ không hợp lệ')
+    record, item = service.gift_service(record_id, data, g.current_user)
+    db.session.commit()
+    return jsonify(success=True, item_id=item.id, treatment=service.serialize_treatment(record, True)), 201
 
 
 @package_bp.route('/api/admin/packages/purchases')
@@ -374,4 +383,3 @@ def edit_post_care(service_id):
     db.session.commit()
     return jsonify(success=True, deprecated=True,
         message='Ghi thanh cong. Luu y: endpoint nay da deprecated, hay dung /api/admin/services/<madv> thay the.')
-
