@@ -244,6 +244,9 @@
             form.elements.validity_months.value = pkg.validity_months || 6;
             form.elements.unlimited.checked = pkg.validity_months == null;
             form.elements.active.checked = Boolean(pkg.active);
+            // Load post_care_instructions neu co
+            const postCareEl = document.getElementById('packagePostCare');
+            if (postCareEl) postCareEl.value = pkg.post_care_instructions || '';
             document.getElementById('packageImagePreview').src = pkg.image_url || fallbackImage;
             (pkg.items || []).forEach((item) => addItem(item.madv, item.total_sessions));
             if (!(pkg.items || []).length) addItem();
@@ -317,12 +320,14 @@
             }));
             if (items.some((item) => !item.madv || !Number.isInteger(item.total_sessions) || item.total_sessions < 1)) return showMessage('Vui lòng chọn dịch vụ và nhập số buổi hợp lệ.', 'error');
             if (new Set(items.map((item) => item.madv)).size !== items.length) return showMessage('Một dịch vụ không thể xuất hiện nhiều lần trong cùng gói.', 'error');
+            const postCareEl = document.getElementById('packagePostCare');
             const payload = {
                 tengoi: form.elements.tengoi.value.trim(),
                 giagoi: Number(form.elements.giagoi.value),
                 mota: form.elements.mota.value.trim(),
                 validity_months: form.elements.unlimited.checked ? null : Number(form.elements.validity_months.value),
                 active: form.elements.active.checked,
+                post_care_instructions: postCareEl ? postCareEl.value.trim() : '',
                 items
             };
             const body = new FormData();
@@ -347,9 +352,12 @@
         const shell = document.getElementById('packageDetail');
         try {
             const { package: pkg } = await api(`/api/admin/packages/${id}`);
-            shell.innerHTML = `<section class="package-detail-card package-detail-hero"><img class="package-detail-image" src="${escapeHtml(pkg.image_url || fallbackImage)}" alt="${escapeHtml(pkg.tengoi)}"><div><p class="package-eyebrow">Gói dịch vụ #${pkg.magoi}</p><h2>${escapeHtml(pkg.tengoi)}</h2><div class="package-detail-meta"><span class="package-price">${money(pkg.giagoi)}</span><span>${packageValidity(pkg.validity_months)}</span><span class="package-status ${pkg.active ? 'active' : 'inactive'}">${pkg.active ? 'Đang bán' : 'Ngừng bán'}</span></div></div><div class="package-actions"><a class="btn btn-secondary" href="/admin/packages">Quay lại</a><a class="btn btn-primary" href="/admin/packages/${pkg.magoi}/edit"><i class="fas fa-edit"></i> Chỉnh sửa</a></div></section><section class="package-detail-card"><h3>Mô tả</h3><p>${escapeHtml(pkg.mota || 'Chưa có mô tả.')}</p></section><section class="package-detail-card"><h3>Dịch vụ trong gói</h3><div class="package-detail-services">${(pkg.items || []).map((item) => `<div class="package-detail-service"><strong>${escapeHtml(item.tendv)}</strong><span>${item.total_sessions} buổi × ${money(item.regular_unit_price_snapshot)}</span><span>${money(Number(item.regular_unit_price_snapshot) * item.total_sessions)}</span></div>`).join('') || '<p>Chưa có dịch vụ.</p>'}</div></section><section class="package-detail-card"><h3>Tổng quan giá</h3><div class="package-detail-meta"><span>Giá lẻ: <strong>${money(pkg.regular_total)}</strong></span><span>Giá gói: <strong>${money(pkg.giagoi)}</strong></span><span>Tiết kiệm: <strong>${money(Math.max(0, Number(pkg.savings)))}</strong></span></div></section>`;
+            const postCareSection = pkg.post_care_instructions
+                ? `<section class="package-detail-card"><h3>&#128204; D&#7863;n d&#242; li&#7879;u tr&#236;nh</h3><p style="white-space:pre-wrap;">${escapeHtml(pkg.post_care_instructions)}</p></section>`
+                : '';
+            shell.innerHTML = `<section class="package-detail-card package-detail-hero"><img class="package-detail-image" src="${escapeHtml(pkg.image_url || fallbackImage)}" alt="${escapeHtml(pkg.tengoi)}"><div><p class="package-eyebrow">G&oacute;i d&#7883;ch v&#7909; #${pkg.magoi}</p><h2>${escapeHtml(pkg.tengoi)}</h2><div class="package-detail-meta"><span class="package-price">${money(pkg.giagoi)}</span><span>${packageValidity(pkg.validity_months)}</span><span class="package-status ${pkg.active ? 'active' : 'inactive'}">${pkg.active ? '&#272;ang b&aacute;n' : 'Ng&#432;ng b&aacute;n'}</span></div></div><div class="package-actions"><a class="btn btn-secondary" href="/admin/packages">Quay l&#7841;i</a><a class="btn btn-primary" href="/admin/packages/${pkg.magoi}/edit"><i class="fas fa-edit"></i> Ch&#7881;nh s&#7917;a</a></div></section><section class="package-detail-card"><h3>M&ocirc; t&#7843;</h3><p>${escapeHtml(pkg.mota || 'Ch&#432;a c&oacute; m&ocirc; t&#7843;.')}</p></section>${postCareSection}<section class="package-detail-card"><h3>D&#7883;ch v&#7909; trong g&oacute;i</h3><div class="package-detail-services">${(pkg.items || []).map((item) => `<div class="package-detail-service"><strong>${escapeHtml(item.tendv)}</strong><span>${item.total_sessions} bu&#7893;i &times; ${money(item.regular_unit_price_snapshot)}</span><span>${money(Number(item.regular_unit_price_snapshot) * item.total_sessions)}</span></div>`).join('') || '<p>Ch&#432;a c&oacute; d&#7883;ch v&#7909;.</p>'}</div></section><section class="package-detail-card"><h3>T&#7893;ng quan gi&aacute;</h3><div class="package-detail-meta"><span>Gi&aacute; l&#7867;: <strong>${money(pkg.regular_total)}</strong></span><span>Gi&aacute; g&oacute;i: <strong>${money(pkg.giagoi)}</strong></span><span>Ti&#7871;t ki&#7879;m: <strong>${money(Math.max(0, Number(pkg.savings)))}</strong></span></div></section>`;
         } catch (error) {
-            shell.innerHTML = `<div class="package-detail-card package-empty">${escapeHtml(error.message)}<br><br><a class="btn btn-secondary" href="/admin/packages">Quay lại danh sách</a></div>`;
+            shell.innerHTML = `<div class="package-detail-card package-empty">${escapeHtml(error.message)}<br><br><a class="btn btn-secondary" href="/admin/packages">Quay l&#7841;i danh s&aacute;ch</a></div>`;
         }
     }
 

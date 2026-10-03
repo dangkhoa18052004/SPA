@@ -328,6 +328,9 @@ class GoiDichVu(db.Model):
     validity_months = db.Column(db.Integer, nullable=True)
     anhgoi = db.Column(db.LargeBinary)
     active = db.Column(db.Boolean, nullable=False, default=True)
+    # Dặn dò BỔ SUNG dành riêng cho khách đang dùng liệu trình/gói này.
+    # Khác DichVu.post_care_instructions (dặn dò sau dịch vụ vừa thực hiện).
+    post_care_instructions = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     items = db.relationship('GoiDichVuItem', cascade='all, delete-orphan', backref='package')

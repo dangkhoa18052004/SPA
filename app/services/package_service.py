@@ -66,9 +66,18 @@ def save_package(data, package=None):
     active = data.get('active', True)
     if not isinstance(active, bool):
         raise AppointmentValidationError('Active phải là boolean')
+    # Dan do BỔ SUNG danh rieng cho lieu trinh/goi (optional, max 10000 ky tu)
+    post_care = data.get('post_care_instructions')
+    if post_care is not None:
+        post_care = str(post_care).strip()
+        if len(post_care) > 10000:
+            raise AppointmentValidationError('Dan do lieu trinh toi da 10.000 ky tu')
+        post_care = post_care or None
     package = package or GoiDichVu()
     package.tengoi, package.mota = name, str(data.get('mota') or '')
     package.giagoi, package.validity_months, package.active = amount, months, active
+    if post_care is not None:
+        package.post_care_instructions = post_care
     # Purchase snapshots make editing a sold package safe; records never depend on these rows.
     if package.magoi:
         package.items.clear()
@@ -91,6 +100,9 @@ def serialize_package(package):
     retail = sum(i.regular_unit_price_snapshot * i.total_sessions for i in package.items)
     return dict(magoi=package.magoi, tengoi=package.tengoi, mota=package.mota,
         giagoi=str(package.giagoi), validity_months=package.validity_months, active=package.active,
+        # post_care_instructions: lay tu GoiDichVu hien tai (khong phai snapshot) de dam bao
+        # huong dan cham soc luon la ban moi nhat, an toan nhat.
+        post_care_instructions=package.post_care_instructions or '',
         regular_total=str(retail), savings=str(retail-package.giagoi), image_url=package_image(package),
         items=[dict(madv=i.madv, tendv=i.service.tendv, total_sessions=i.total_sessions,
             regular_unit_price_snapshot=str(i.regular_unit_price_snapshot),

@@ -240,3 +240,33 @@ def get_my_schedule_with_colleagues():
     except Exception as e:
         current_app.logger.error(f"Lỗi khi lấy lịch làm việc (chi tiết): {e}", exc_info=True)
         return jsonify({"success": False, "message": "Lỗi hệ thống"}), 500
+@profile_bp.route("/appointments/<int:malh>/post-care", methods=["GET"])
+@jwt_required()
+def get_appointment_post_care(malh):
+    """
+    Tra ve noi dung dan do sau dich vu cho mot lich hen da hoan thanh.
+    Dung cung business logic voi email (build_post_care_content).
+    Chi cho phep khach xem lich hen cua chinh ho.
+    """
+    from ..models import LichHen, AppointmentStatus
+    from ..services.notification_service import build_post_care_content
+    from flask_jwt_extended import get_jwt_identity
+
+    identity = get_jwt_identity()
+    if not identity.startswith("customer:"):
+        return jsonify({"success": False, "message": "Chi danh cho khach hang"}), 403
+
+    customer_id = int(identity.split(":")[1])
+    apt = LichHen.query.filter_by(malh=malh, makh=customer_id).first()
+    if not apt:
+        return jsonify({"success": False, "message": "Khong tim thay lich hen"}), 404
+
+    if apt.trangthai != AppointmentStatus.COMPLETED:
+        return jsonify({"success": False, "message": "Lich hen chua hoan thanh"}), 400
+
+    try:
+        content = build_post_care_content(apt)
+        return jsonify({"success": True, "post_care": content}), 200
+    except Exception as e:
+        current_app.logger.error(f"Loi lay dan do cho lich hen {malh}: {e}")
+        return jsonify({"success": False, "message": "Loi he thong"}), 500

@@ -354,12 +354,24 @@ def counter_sale_detail(purchase_id):
 @package_bp.route('/api/admin/packages/services/<int:service_id>/post-care', methods=['PUT'])
 @package_manager_required
 def edit_post_care(service_id):
+    """
+    DEPRECATED: Quan ly DichVu.post_care_instructions nen thuc hien tai /admin/services.
+    Giu lai de khong break bat ky integration nao dang dung endpoint nay.
+    Se xoa o phien ban tiep theo khi chac chan khong con duoc goi.
+    """
+    import warnings
+    current_app.logger.warning(
+        f"DEPRECATED: PUT /api/admin/packages/services/{service_id}/post-care duoc goi. "
+        "Hay chuyen sang su dung PUT /api/admin/services/<madv> voi field post_care_instructions."
+    )
     item = db.session.get(DichVu, service_id)
     if not item:
-        return jsonify(success=False, message='Không tìm thấy dịch vụ'), 404
+        return jsonify(success=False, message='Khong tim thay dich vu'), 404
     text = (request.get_json(silent=True) or {}).get('instructions', '')
     if not isinstance(text, str) or len(text) > 10000:
-        raise AppointmentValidationError('Nội dung dặn dò không hợp lệ')
+        raise AppointmentValidationError('Noi dung dan do khong hop le')
     item.post_care_instructions = text
     db.session.commit()
-    return jsonify(success=True)
+    return jsonify(success=True, deprecated=True,
+        message='Ghi thanh cong. Luu y: endpoint nay da deprecated, hay dung /api/admin/services/<madv> thay the.')
+

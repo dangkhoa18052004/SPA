@@ -1,4 +1,10 @@
-"""Persisted care outbox. UTC scheduling; appointment times are Asia/Saigon."""
+"""Helper script to write notification_service.py content."""
+import pathlib, textwrap
+
+target = pathlib.Path(__file__).parent.parent / "app" / "services" / "notification_service.py"
+
+content = textwrap.dedent("""\
+\"\"\"Persisted care outbox. UTC scheduling; appointment times are Asia/Saigon.\"\"\"
 import time as _time
 import signal
 import click
@@ -18,7 +24,7 @@ from . import email_service
 # ---------------------------------------------------------------------------
 
 def build_post_care_content(appointment):
-    """
+    \"\"\"
     Tra ve dict chua noi dung dan do sau dich vu:
       {
         'service_sections': [{'tendv': str, 'instructions': str}],
@@ -28,7 +34,7 @@ def build_post_care_content(appointment):
       }
     Nguon dan do package: noi dung HIEN TAI tu GoiDichVu (khong dung snapshot cu),
     vi huong dan cham soc co the duoc cap nhat de tot/an toan hon.
-    """
+    \"\"\"
     service_sections = []
     for detail in appointment.chitiet:
         svc = detail.dichvu
@@ -67,7 +73,7 @@ def build_post_care_content(appointment):
 
 
 def build_post_care_html(appointment):
-    """Build HTML body cho email post-care tu appointment."""
+    \"\"\"Build HTML body cho email post-care tu appointment.\"\"\"
     content = build_post_care_content(appointment)
     kh = appointment.khachhang
     nv = appointment.nhanvien
@@ -83,7 +89,7 @@ def build_post_care_html(appointment):
 
     service_care_html = ''
     for sec in content['service_sections']:
-        instr = escape(sec['instructions']).replace('\n', '<br>')
+        instr = escape(sec['instructions']).replace('\\n', '<br>')
         service_care_html += (
             '<div style="background:#faf8f5;border-left:3px solid #C9A961;'
             'padding:12px 16px;margin:12px 0;border-radius:0 6px 6px 0;">'
@@ -95,7 +101,7 @@ def build_post_care_html(appointment):
 
     package_care_html = ''
     for sec in content['package_sections']:
-        instr = escape(sec['instructions']).replace('\n', '<br>')
+        instr = escape(sec['instructions']).replace('\\n', '<br>')
         package_care_html += (
             '<div style="background:#f0f7ff;border-left:3px solid #4a90d9;'
             'padding:12px 16px;margin:12px 0;border-radius:0 6px 6px 0;">'
@@ -175,14 +181,14 @@ def enqueue(appointment, kind, scheduled_at, subject, body, suffix):
 
 
 def sync_appointment_jobs(appointment, now=None):
-    """
+    \"\"\"
     Goi sau moi lan thay doi trang thai lich hen.
     - CONFIRMED  : tao reminder 24h va 2h.
     - COMPLETED  : tao post_care (ngay) + review_request (2h sau).
     - Trang thai khac: cancel reminder pending.
     Idempotent  : unique_key dam bao khong tao trung.
     Khong fail neu khach khong co email (chi log).
-    """
+    \"\"\"
     now = now or datetime.utcnow()
     if appointment.trangthai != AppointmentStatus.CONFIRMED:
         NotificationJob.query.filter(
@@ -234,11 +240,11 @@ def sync_appointment_jobs(appointment, now=None):
 # ---------------------------------------------------------------------------
 
 def process_jobs(batch_size=50, now=None):
-    """
+    \"\"\"
     Xu ly cac NotificationJob den han.
     Idempotent: atomic claim bang UPDATE truoc khi gui.
     Retry toi da max_attempts lan; backoff 5*attempts phut.
-    """
+    \"\"\"
     now = now or datetime.utcnow()
     stale = now - timedelta(minutes=10)
     eligible = or_(
@@ -341,7 +347,7 @@ def register_commands(app):
         def handle_signal(signum, frame):
             nonlocal running
             running = False
-            click.echo('\n[notification-worker] Dang dung...')
+            click.echo('\\n[notification-worker] Dang dung...')
 
         signal.signal(signal.SIGINT, handle_signal)
         try:
@@ -364,3 +370,7 @@ def register_commands(app):
                 _time.sleep(1)
 
         click.echo('[notification-worker] Da dung.')
+""")
+
+target.write_text(content, encoding='utf-8')
+print(f"Written {len(content)} bytes to {target}")
