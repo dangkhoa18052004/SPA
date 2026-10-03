@@ -1,11 +1,12 @@
 import os
 import resend
+import requests
 from flask import current_app
 
 # Khởi tạo Resend API Key
 resend.api_key = os.getenv('RESEND_API_KEY')
 
-def send_email(to_email, subject, body):
+def send_email(to_email, subject, body, idempotency_key=None):
     """
     Hàm gửi email qua Resend API (thay thế SMTP).
     Giữ nguyên interface để tương thích với code cũ.
@@ -102,12 +103,22 @@ def send_email(to_email, subject, body):
         </html>
         """
         
-        response = resend.Emails.send({
+        payload = {
             "from": from_email,
             "to": [to_email],
             "subject": subject,
             "html": html_content
-        })
+        }
+        if idempotency_key:
+            # Installed Resend SDK predates options support. Keep transport here,
+            # sharing credentials/templates with every existing email caller.
+            http_response = requests.post('https://api.resend.com/emails', json=payload,
+                headers={'Authorization': f'Bearer {resend.api_key}',
+                         'Idempotency-Key': idempotency_key}, timeout=20)
+            http_response.raise_for_status()
+            response = http_response.json()
+        else:
+            response = resend.Emails.send(payload)
         
         current_app.logger.info(f"✅ Email đã gửi thành công tới {to_email} | Response ID: {response.get('id', 'N/A')}")
         return True

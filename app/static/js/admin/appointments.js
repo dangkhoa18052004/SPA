@@ -41,9 +41,15 @@ document.addEventListener('DOMContentLoaded', function() {
             loadServices();
             loadStaff();
             
-            // SỬA: Lắng nghe sự kiện từ ID mới
+            // Lắng nghe sự kiện từ bộ lọc
             document.getElementById('filter-status-select')?.addEventListener('change', filterAppointments);
-            document.getElementById('filter-date-select')?.addEventListener('change', filterAppointments);
+            document.getElementById('filter-date-select')?.addEventListener('change', handleDateSelectChange);
+            document.getElementById('filter-start-date')?.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') applyCustomDateFilter();
+            });
+            document.getElementById('filter-end-date')?.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') applyCustomDateFilter();
+            });
         }
     });
     
@@ -74,82 +80,144 @@ async function getCurrentUserRole() {
     }
 }
 
-// ========== HÀM HỖ TRỢ: CHUYỂN FILTER VALUE THÀNH DATE RANGE ==========
-function getDateRangeFromFilter(filterValue) {
+// ========== HÀM HỖ TRỢ ĐỊNH DẠNG DATE LOCAL YYYY-MM-DD ==========
+function formatLocalDate(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// ========== HÀM HỖ TRỢ DUY NHẤT: LẤY DATE RANGE HIỆN TẠI TỪ BỘ LỌC ==========
+function getActiveDateRange() {
+    const filterDateSelect = document.getElementById('filter-date-select');
+    const filterValue = filterDateSelect ? filterDateSelect.value : '';
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     let startDate = null;
     let endDate = null;
-    
-    const formatDate = (date) => date.toISOString().split('T')[0];
-    
+
     switch (filterValue) {
         case 'today':
-            startDate = formatDate(today);
-            endDate = formatDate(today);
+            startDate = formatLocalDate(today);
+            endDate = formatLocalDate(today);
             break;
-        case 'this_week':
+        case 'this_week': {
             const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday
             const startOfWeek = new Date(today);
-            startOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)); // Bắt đầu từ Thứ Hai
-            
-            startDate = formatDate(startOfWeek);
-            endDate = formatDate(today); // Kết thúc là ngày hiện tại
+            startOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)); // Thứ Hai
+            startDate = formatLocalDate(startOfWeek);
+            endDate = formatLocalDate(today);
             break;
-        case 'this_month':
+        }
+        case 'this_month': {
             const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            
-            startDate = formatDate(startOfMonth);
-            endDate = formatDate(today);
+            startDate = formatLocalDate(startOfMonth);
+            endDate = formatLocalDate(today);
             break;
-        case 'custom':
-            // Xử lý tùy chỉnh (nếu có)
+        }
+        case 'custom': {
+            const startInput = document.getElementById('filter-start-date');
+            const endInput = document.getElementById('filter-end-date');
+            const startVal = startInput ? startInput.value.trim() : '';
+            let endVal = endInput ? endInput.value.trim() : '';
+
+            if (!startVal) {
+                showError('Vui lòng chọn ngày bắt đầu');
+                return null;
+            }
+
+            if (!endVal) {
+                endVal = startVal;
+                if (endInput) endInput.value = startVal;
+            } else if (endVal < startVal) {
+                showError('Ngày kết thúc không được nhỏ hơn ngày bắt đầu');
+                return null;
+            }
+
+            startDate = startVal;
+            endDate = endVal;
             break;
+        }
         default:
-            // Tổng toàn bộ
+            // Tổng toàn bộ: startDate = null, endDate = null
             break;
     }
-    
+
     return { start_date: startDate, end_date: endDate };
 }
 
+function getDateRangeFromFilter(filterValue) {
+    return getActiveDateRange();
+}
+
+// ========== XỬ LÝ KHI THAY ĐỔI DROPDOWN BỘ LỌC NGÀY ==========
+function handleDateSelectChange() {
+    const filterDateSelect = document.getElementById('filter-date-select');
+    const customContainer = document.getElementById('custom-date-filter');
+    const filterValue = filterDateSelect ? filterDateSelect.value : '';
+
+    if (filterValue === 'custom') {
+        if (customContainer) {
+            customContainer.classList.remove('d-none');
+            const startInput = document.getElementById('filter-start-date');
+            if (startInput) startInput.focus();
+        }
+        // Chưa filter ngay khi chọn custom, chờ người dùng chọn ngày và bấm "Lọc"
+        return;
+    }
+
+    // Nếu chọn các tùy chọn định sẵn (Tổng toàn bộ, Hôm nay, Tuần này, Tháng này):
+    if (customContainer) {
+        customContainer.classList.add('d-none');
+        const startInput = document.getElementById('filter-start-date');
+        const endInput = document.getElementById('filter-end-date');
+        if (startInput) startInput.value = '';
+        if (endInput) endInput.value = '';
+    }
+
+    filterAppointments();
+}
+
+function applyCustomDateFilter() {
+    filterAppointments();
+}
 
 // ========== THỐNG KÊ ==========
-async function loadStatistics() {
+async function loadStatistics(dateRange = null) {
     try {
-        // Lấy giá trị từ dropdown mới
-        const filterDateSelect = document.getElementById('filter-date-select');
-        const filterValue = filterDateSelect?.value; 
-        const dateRange = getDateRangeFromFilter(filterValue);
-        
+        if (dateRange === null) {
+            dateRange = getActiveDateRange();
+            if (!dateRange) return;
+        }
+
         let url = '/api/admin/appointments/statistics';
         const params = new URLSearchParams();
-        
+
         if (dateRange.start_date) params.append('start_date', dateRange.start_date);
-        if (dateRange.end_date) params.append('end_date', dateRange.end_date); 
-        
+        if (dateRange.end_date) params.append('end_date', dateRange.end_date);
+
         if (params.toString()) {
             url += '?' + params.toString();
         }
-        
+
         const response = await fetch(url, {
             headers: getAuthHeaders(false)
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (data.success && data.statistics) {
             displayStatistics(data.statistics);
         }
-        
     } catch (error) {
         console.error('Lỗi tải thống kê:', error);
-        // Reset các giá trị khi có lỗi
         document.getElementById('stat-total').textContent = 'N/A';
         document.getElementById('stat-confirmed').textContent = 'N/A';
         document.getElementById('stat-pending-total').textContent = 'N/A';
@@ -159,76 +227,68 @@ async function loadStatistics() {
 
 function displayStatistics(stats) {
     const totalApts = stats.total || 0;
-    
     const confirmedApts = stats.confirmed || 0;
-
     const completedApts = stats.completed || 0;
     const cancelledApts = stats.cancelled || 0;
     const pendingTotalApts = totalApts - completedApts - cancelledApts;
-    
-    const expectedRevenue = stats.expected_revenue || 0; 
-    
+    const expectedRevenue = stats.expected_revenue || 0;
+
     if (document.getElementById('stat-total')) document.getElementById('stat-total').textContent = totalApts;
     if (document.getElementById('stat-confirmed')) document.getElementById('stat-confirmed').textContent = confirmedApts;
     if (document.getElementById('stat-pending-total')) document.getElementById('stat-pending-total').textContent = pendingTotalApts;
     if (document.getElementById('stat-revenue')) document.getElementById('stat-revenue').textContent = formatCurrency(expectedRevenue);
 }
 
-async function loadAppointments(filters = {}) {
+async function loadAppointments(filters = {}, dateRange = null) {
     try {
         let url;
         let params = new URLSearchParams();
-        
-        // SỬA: Lấy filter date từ UI mới
-        const filterDateSelect = document.getElementById('filter-date-select');
-        const filterValue = filterDateSelect?.value;
-        const dateRange = getDateRangeFromFilter(filterValue);
-        
+
+        if (dateRange === null) {
+            dateRange = getActiveDateRange();
+            if (!dateRange) return;
+        }
+
         if (currentUserRole === 'staff') {
             url = '/api/admin/my-schedule-list';
-            const today = new Date().toISOString().split('T')[0];
-            
-            // Ưu tiên filter từ dropdown, nếu không có thì dùng today
+            const today = formatLocalDate(new Date());
+
             const startDate = filters.startDate || dateRange.start_date || today;
-            const endDate = filters.endDate || dateRange.end_date || startDate; 
-            
+            const endDate = filters.endDate || dateRange.end_date || startDate;
+
             params.append('start_date', startDate);
             params.append('end_date', endDate);
-            
         } else {
             url = '/api/admin/appointments';
-            
-            // SỬA: Sử dụng dateRange cho cả start và end
+
             if (dateRange.start_date) params.append('start_date', dateRange.start_date);
-            if (dateRange.end_date) params.append('end_date', dateRange.end_date); 
-            
-            // SỬA: Lấy filter status từ UI mới
+            if (dateRange.end_date) params.append('end_date', dateRange.end_date);
+
             const status = document.getElementById('filter-status-select')?.value;
             if (status) params.append('status', status);
-            // Giữ lại logic lọc từ filters object (nếu có gọi từ bên ngoài)
-            if (filters.status) params.append('status', filters.status); 
+            if (filters.status) params.append('status', filters.status);
         }
-        
+
         if (params.toString()) {
             url += '?' + params.toString();
         }
-        
+
         const response = await fetch(url, {
             headers: getAuthHeaders(false)
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (currentUserRole === 'staff') {
             allAppointments = (data.success && Array.isArray(data.appointments)) ? data.appointments : [];
         } else {
             allAppointments = Array.isArray(data) ? data : (data.success && data.appointments ? data.appointments : []);
         }
-        
+
         renderAppointmentsTable();
         renderPagination();
     } catch (error) {
@@ -710,28 +770,47 @@ function changePage(page) {
 }
 
 function filterAppointments() {
-    // SỬA: Lấy giá trị từ dropdown mới
-    const dateValue = document.getElementById('filter-date-select').value;
-    const status = document.getElementById('filter-status-select').value;
-    
+    const dateRange = getActiveDateRange();
+    if (!dateRange) {
+        // Validation thất bại (đã hiển thị thông báo lỗi) -> KHÔNG gọi API
+        return;
+    }
+
+    const status = document.getElementById('filter-status-select')?.value;
     const filters = {};
     if (status) filters.status = status;
-    
+
     currentPage = 1;
-    loadAppointments(filters); 
-    loadStatistics(); 
+    loadAppointments(filters, dateRange);
+    loadStatistics(dateRange);
 }
 
 function resetFilters() {
-    document.getElementById('filter-date-select').value = ''; 
-    document.getElementById('filter-status-select').value = '';
-    
-    document.getElementById('search-input').value = '';
+    const filterDateSelect = document.getElementById('filter-date-select');
+    if (filterDateSelect) filterDateSelect.value = '';
+
+    const filterStatusSelect = document.getElementById('filter-status-select');
+    if (filterStatusSelect) filterStatusSelect.value = '';
+
+    const startInput = document.getElementById('filter-start-date');
+    if (startInput) startInput.value = '';
+
+    const endInput = document.getElementById('filter-end-date');
+    if (endInput) endInput.value = '';
+
+    const customContainer = document.getElementById('custom-date-filter');
+    if (customContainer) {
+        customContainer.classList.add('d-none');
+    }
+
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) searchInput.value = '';
     document.querySelector('.search-clear')?.classList.remove('active');
-    
+
     currentPage = 1;
-    loadAppointments();
-    loadStatistics(); 
+    const emptyRange = { start_date: null, end_date: null };
+    loadAppointments({}, emptyRange);
+    loadStatistics(emptyRange);
 }
 
 function openAddAppointmentModal() {
@@ -1317,3 +1396,12 @@ function clearSearch() {
     document.querySelector('.search-clear').classList.remove('active');
     filterAppointments(); 
 }
+
+// Gán các hàm ra window để gọi từ HTML inline và modal
+window.handleDateSelectChange = handleDateSelectChange;
+window.applyCustomDateFilter = applyCustomDateFilter;
+window.filterAppointments = filterAppointments;
+window.resetFilters = resetFilters;
+window.getActiveDateRange = getActiveDateRange;
+window.loadAppointments = loadAppointments;
+window.loadStatistics = loadStatistics;

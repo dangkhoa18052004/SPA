@@ -292,6 +292,10 @@ async function viewServiceDetail(id) {
         <div style="white-space: pre-wrap; word-wrap: break-word; background: #f9f9f9; padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
             ${service.mota || 'Không có mô tả.'}
         </div>
+        <p><strong>Hướng dẫn chăm sóc sau dịch vụ:</strong></p>
+        <div style="white-space: pre-wrap; word-wrap: break-word; background: #f9f9f9; padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
+            ${service.post_care_instructions || 'Chưa có hướng dẫn.'}
+        </div>
     `;
     
     document.getElementById('viewServiceModal').style.display = 'flex';
@@ -322,6 +326,7 @@ async function editService(id) {
     document.getElementById('service-price').value = service.gia;
     document.getElementById('service-duration').value = service.thoiluong || '';
     document.getElementById('service-desc').value = service.mota || '';
+    document.getElementById('service-post-care').value = service.post_care_instructions || '';
     document.getElementById('service-status').value = service.active.toString();
     
     const imagePreview = document.getElementById('image-preview');
@@ -345,6 +350,7 @@ async function handleSaveService(e) {
     const price = document.getElementById('service-price').value;
     const duration = document.getElementById('service-duration').value;
     const desc = document.getElementById('service-desc').value;
+    const postCare = document.getElementById('service-post-care').value;
     const active = document.getElementById('service-status').value;
     const imageFile = document.getElementById('service-image').files[0];
     
@@ -358,6 +364,7 @@ async function handleSaveService(e) {
     formData.append('gia', parseFloat(price));
     if (duration) formData.append('thoiluong', parseInt(duration));
     if (desc) formData.append('mota', desc);
+    formData.append('post_care_instructions', postCare);
     formData.append('active', active); // Gửi "true" hoặc "false"
     
     if (imageFile) {

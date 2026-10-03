@@ -5,6 +5,7 @@
 {% block title %}Đặt lịch hẹn - Bin Spa{% endblock %}
 
 {% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/appointments.css') }}">
 {% endblock %}
 
@@ -218,6 +219,7 @@
                         <span id="summaryTotal">0đ</span>
                     </div>
 
+                    <div class="package-section package-hidden" id="bookingTreatments" aria-label="Sử dụng liệu trình"></div>
                     <div class="summary-note">
                         <i class="fas fa-info-circle"></i>
                         <p>Vui lòng đến trước 10 phút để làm thủ tục. Spa sẽ xác nhận lịch hẹn của bạn trong thời gian sớm nhất.</p>
@@ -232,5 +234,6 @@
 {% block extra_js %}
     {% if session.get('user_id') and session.get('user_type') == 'customer' %}
     <script src="{{ url_for('static', filename='js/customers/appointments.js', v='1.2') }}"></script>
+    <script src="{{ url_for('static', filename='js/packages.js') }}"></script>
     {% endif %}
 {% endblock %}

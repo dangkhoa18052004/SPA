@@ -79,6 +79,7 @@ class Config:
     YOUR_REDIRECT_URL = os.getenv("YOUR_REDIRECT_URL")
     YOUR_IPN_URL = os.getenv("YOUR_IPN_URL") 
     YOUR_BASE_DOMAIN = os.getenv("YOUR_BASE_DOMAIN", "http://127.0.0.1:5000")
+    PUBLIC_SITE_URL = os.getenv("PUBLIC_SITE_URL", "https://binspa.id.vn")
     
     # VietQR & SePay Configuration
     VIETQR_BANK_ID = os.getenv("VIETQR_BANK_ID")

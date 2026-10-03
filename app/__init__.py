@@ -48,6 +48,10 @@ def create_app(config_overrides=None):
     app.register_blueprint(staff_bp, url_prefix="/api")
     app.register_blueprint(analytics_bp, url_prefix="/api/analytics")
     app.register_blueprint(review_bp, url_prefix="/api/reviews")
+    from .routes.package_bp import package_bp
+    from .services.notification_service import register_commands
+    app.register_blueprint(package_bp)
+    register_commands(app)
 
     # Đăng ký blueprints admin
     from .admin.staff_manage_bp import staff_manage_bp

@@ -1,0 +1,18 @@
+{% extends "customer/layout.html" %}
+{% block title %}Gói dịch vụ - Bin Spa{% endblock %}
+{% block body_class %}is-subpage{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">{% endblock %}
+{% block content %}
+<section class="package-section customer-packages" data-package-page="customer" data-package-id="{{ package_id or '' }}">
+    <h1>Gói dịch vụ</h1>
+    <p>Mua gói để sử dụng dịch vụ theo liệu trình. Hồ sơ của bạn được kích hoạt sau khi thanh toán được xác nhận.</p>
+    <p><a href="/profile#treatments">Liệu trình của tôi</a></p>
+    <p id="packageMessage" class="package-message" role="status"></p>
+    <div id="packageList" class="{% if package_id %}package-detail{% else %}package-grid{% endif %}">Đang tải gói dịch vụ...</div>
+    <dialog id="packagePaymentDialog" class="package-dialog" aria-label="Thanh toán gói dịch vụ">
+        <button type="button" id="closePackagePayment" class="package-dialog-close" aria-label="Đóng">×</button>
+        <div id="packagePayment" class="package-payment" aria-live="polite"></div>
+    </dialog>
+</section>
+{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/packages.js') }}"></script>{% endblock %}

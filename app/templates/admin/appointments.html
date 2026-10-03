@@ -53,10 +53,10 @@
         </div>
     </div>
     
-    <div class="filter-row align-items-center gap-3">
+    <div class="filter-row appointment-filter-grid">
         
-        <div class="filter-group-horizontal" style="max-width: 200px;"> 
-            <select id="filter-date-select" class="form-control" onchange="filterAppointments()">
+        <div class="appointment-filter-select">
+            <select id="filter-date-select" class="form-control" onchange="handleDateSelectChange()">
                 <option value="">Tổng toàn bộ</option>
                 <option value="today">Hôm nay</option>
                 <option value="this_week">Tuần này</option>
@@ -65,7 +65,21 @@
             </select>
         </div>
 
-        <div class="filter-group-horizontal" style="max-width: 200px;">
+        <div id="custom-date-filter" class="custom-date-filter d-none">
+            <div class="date-filter-field">
+                <label for="filter-start-date">Từ ngày</label>
+                <input type="date" id="filter-start-date" class="form-control">
+            </div>
+            <div class="date-filter-field">
+                <label for="filter-end-date">Đến ngày</label>
+                <input type="date" id="filter-end-date" class="form-control">
+            </div>
+            <button type="button" class="btn btn-primary date-filter-apply" onclick="applyCustomDateFilter()">
+                <i class="fas fa-filter"></i> Lọc
+            </button>
+        </div>
+
+        <div class="appointment-filter-select">
             <select id="filter-status-select" class="form-control" onchange="filterAppointments()">
                 <option value="">Tất cả trạng thái</option>
                 <option value="confirmed">Đã xác nhận</option>

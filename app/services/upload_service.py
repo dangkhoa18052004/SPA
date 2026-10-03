@@ -1,4 +1,5 @@
 import os
+from io import BytesIO
 from uuid import uuid4
 
 from PIL import Image, UnidentifiedImageError
@@ -12,6 +13,29 @@ ALLOWED_PIL_FORMATS = {"JPEG", "PNG", "WEBP"}
 
 class InvalidUploadError(ValueError):
     pass
+
+
+def read_validated_image(file_storage, max_bytes=5 * 1024 * 1024):
+    """Validate and normalize a DB-stored service/package image to JPEG."""
+    extension = os.path.splitext(secure_filename(file_storage.filename or ''))[1].lower()
+    mime = (file_storage.mimetype or '').lower()
+    if extension not in ALLOWED_IMAGE_EXTENSIONS or mime not in ALLOWED_IMAGE_MIME_TYPES:
+        raise InvalidUploadError('Chỉ chấp nhận ảnh JPG, PNG hoặc WEBP có MIME hợp lệ')
+    data = file_storage.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise InvalidUploadError('Ảnh vượt quá giới hạn 5 MB')
+    try:
+        with Image.open(BytesIO(data)) as image:
+            expected = {'JPEG': ('image/jpeg', {'.jpg', '.jpeg'}), 'PNG': ('image/png', {'.png'}), 'WEBP': ('image/webp', {'.webp'})}.get(image.format)
+            if not expected or mime != expected[0] or extension not in expected[1] or image.width * image.height > 20000000:
+                raise InvalidUploadError('Định dạng hoặc kích thước ảnh không hợp lệ')
+            image.load()
+            image.thumbnail((1600, 1600))
+            output = BytesIO()
+            image.convert('RGB').save(output, format='JPEG', quality=88)
+            return output.getvalue()
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        raise InvalidUploadError('Nội dung tệp không phải ảnh hợp lệ')
 
 
 def save_validated_image(file_storage, upload_folder, filename_prefix):

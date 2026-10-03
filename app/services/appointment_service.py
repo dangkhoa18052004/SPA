@@ -179,6 +179,8 @@ def get_staff_working_at(start_dt, duration_minutes):
 
     end_dt = start_dt + timedelta(minutes=duration_minutes)
     target_date = start_dt.date()
+    if end_dt.date() != target_date:
+        return []
     start_time = start_dt.time()
     end_time = end_dt.time()
 
@@ -197,6 +199,24 @@ def get_staff_working_at(start_dt, duration_minutes):
     return staff_list
 
 
+# Standard availability reasons
+AVAILABILITY_REASON_AVAILABLE = "available"
+AVAILABILITY_REASON_CONFLICT = "appointment_conflict"
+AVAILABILITY_REASON_NOT_WORKING = "not_working"
+AVAILABILITY_REASON_INACTIVE = "inactive"
+AVAILABILITY_REASON_INVALID = "invalid_staff"
+AVAILABILITY_REASON_API_ERROR = "api_error"
+
+AVAILABILITY_MESSAGES = {
+    AVAILABILITY_REASON_AVAILABLE: "Nhân viên khả dụng",
+    AVAILABILITY_REASON_CONFLICT: "Nhân viên đã có lịch hẹn trong khung giờ này",
+    AVAILABILITY_REASON_NOT_WORKING: "Nhân viên không có ca làm việc bao phủ khung giờ này",
+    AVAILABILITY_REASON_INACTIVE: "Nhân viên không hoạt động hoặc đã nghỉ việc",
+    AVAILABILITY_REASON_INVALID: "Nhân viên không tồn tại hoặc không phải kỹ thuật viên",
+    AVAILABILITY_REASON_API_ERROR: "Lỗi kiểm tra lịch",
+}
+
+
 def check_staff_availability(manv, start_dt, duration_minutes, exclude_malh=None):
     """
     Kiểm tra nhân viên `manv` có khả dụng trong khoảng [start_dt, start_dt + duration] hay không.
@@ -209,19 +229,36 @@ def check_staff_availability(manv, start_dt, duration_minutes, exclude_malh=None
         (is_available: bool, conflicts: list[dict], reason: str)
     """
     if not manv:
-        return False, [], "Mã nhân viên không hợp lệ"
+        return False, [], AVAILABILITY_REASON_INVALID
+
+    try:
+        manv = int(manv)
+    except (ValueError, TypeError):
+        return False, [], AVAILABILITY_REASON_INVALID
 
     if isinstance(start_dt, str):
-        start_dt = datetime.fromisoformat(start_dt)
+        try:
+            start_dt = datetime.fromisoformat(start_dt)
+        except ValueError:
+            return False, [], AVAILABILITY_REASON_API_ERROR
 
-    staff = NhanVien.query.get(manv)
-    if not staff or not staff.trangthai or staff.role != 'staff':
-        return False, [], "Nhân viên không tồn tại, đã nghỉ việc hoặc không phải kỹ thuật viên"
+    staff = db.session.get(NhanVien, manv) if hasattr(db.session, "get") else NhanVien.query.get(manv)
+    if not staff:
+        return False, [], AVAILABILITY_REASON_INVALID
+
+    if not staff.trangthai:
+        return False, [], AVAILABILITY_REASON_INACTIVE
+
+    if staff.role != 'staff':
+        return False, [], AVAILABILITY_REASON_INVALID
 
     end_dt = start_dt + timedelta(minutes=duration_minutes)
     target_date = start_dt.date()
     start_time = start_dt.time()
     end_time = end_dt.time()
+
+    if end_dt.date() != target_date:
+        return False, [], AVAILABILITY_REASON_NOT_WORKING
 
     # 1. Kiểm tra ca làm việc bao phủ
     has_covering_shift = db.session.query(CaLam).join(
@@ -234,16 +271,16 @@ def check_staff_availability(manv, start_dt, duration_minutes, exclude_malh=None
     ).first() is not None
 
     if not has_covering_shift:
-        return False, [], "Nhân viên không có ca làm việc bao phủ khung giờ này"
+        return False, [], AVAILABILITY_REASON_NOT_WORKING
 
     # 2. Kiểm tra xung đột lịch hẹn
-    start_of_day = datetime.combine(target_date, time.min)
-    end_of_day = datetime.combine(target_date + timedelta(days=1), time.min)
+    start_of_day = datetime.combine(target_date - timedelta(days=1), time.min)
+    end_of_day = datetime.combine(target_date + timedelta(days=1), time.max)
 
     query = LichHen.query.filter(
         LichHen.manv == manv,
         LichHen.ngaygio >= start_of_day,
-        LichHen.ngaygio < end_of_day,
+        LichHen.ngaygio <= end_of_day,
         LichHen.trangthai.in_(AppointmentStatus.ACTIVE_STATUSES)
     )
     if exclude_malh:
@@ -277,9 +314,47 @@ def check_staff_availability(manv, start_dt, duration_minutes, exclude_malh=None
             })
 
     if conflicts:
-        return False, conflicts, "Nhân viên đã có lịch hẹn trong khung giờ này"
+        return False, conflicts, AVAILABILITY_REASON_CONFLICT
 
-    return True, [], "Nhân viên khả dụng"
+    return True, [], AVAILABILITY_REASON_AVAILABLE
+
+
+def get_available_staff_for_booking(start_dt, madv_list):
+    """
+    Lấy kỹ thuật viên active có ca bao phủ toàn bộ khung giờ và dịch vụ yêu cầu,
+    kèm trạng thái rảnh hoặc trùng lịch.
+    Dùng cho form booking khách hàng.
+    """
+    if isinstance(start_dt, str):
+        try:
+            start_dt = datetime.fromisoformat(start_dt)
+        except ValueError:
+            raise AppointmentValidationError("Định dạng ngày giờ không hợp lệ (ISO format: YYYY-MM-DDTHH:MM)")
+
+    if not madv_list:
+        raise AppointmentValidationError("Vui lòng chọn ít nhất một dịch vụ")
+
+    duration = calculate_total_duration(madv_list)
+
+    technicians = get_staff_working_at(start_dt, duration)
+
+    staff_results = []
+    for tech in technicians:
+        is_avail, conflicts, reason = check_staff_availability(tech.manv, start_dt, duration)
+        position = tech.chucvu.tencv if tech.chucvu else "Kỹ thuật viên"
+        staff_results.append({
+            "manv": tech.manv,
+            "hoten": tech.hoten,
+            "chucvu": position,
+            "chuyenmon": position,
+            "anhdaidien": tech.anhnhanvien if hasattr(tech, 'anhnhanvien') else None,
+            "available": is_avail,
+            "reason": reason,
+            "message": AVAILABILITY_MESSAGES.get(reason, reason),
+            "conflicts": conflicts,
+        })
+
+    return staff_results
 
 
 def find_available_staff(start_dt, madv_list):
@@ -342,7 +417,7 @@ def find_available_staff(start_dt, madv_list):
     return best_staff, available_candidates
 
 
-def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, source='web'):
+def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, source='web', package_usages=None):
     """
     Tạo lịch hẹn mới (Atomic transaction).
     Dùng chung cho Customer Booking API, Admin Booking API, và AI Assistant.
@@ -407,10 +482,11 @@ def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, s
 
         is_avail, conflicts, reason = check_staff_availability(manv, start_dt, total_duration)
         if not is_avail:
-            staff = NhanVien.query.get(manv)
+            staff = db.session.get(NhanVien, manv) if hasattr(db.session, "get") else NhanVien.query.get(manv)
             staff_name = staff.hoten if staff else "Nhân viên"
+            reason_msg = AVAILABILITY_MESSAGES.get(reason, reason)
             raise AppointmentConflictError(
-                f"{staff_name} không khả dụng trong khung giờ này: {reason}",
+                f"{staff_name} không khả dụng trong khung giờ này: {reason_msg}",
                 conflicts=conflicts
             )
         assigned_manv = manv
@@ -439,7 +515,15 @@ def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, s
             )
             db.session.add(detail)
 
+        db.session.flush()
+        from .package_service import reserve_usages
+        from .notification_service import sync_appointment_jobs
+        reserve_usages(new_appointment, [] if package_usages is None else package_usages)
+        sync_appointment_jobs(new_appointment)
         db.session.commit()
+    except AppointmentValidationError:
+        db.session.rollback()
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Lỗi database khi tạo lịch hẹn: {e}", exc_info=True)
@@ -498,7 +582,8 @@ def cancel_appointment(appointment_id, user_id=None, role='customer', reason=Non
     - Nếu role in ('admin', 'manager', 'letan', 'staff'):
       + Không được hủy nếu đã completed hoặc cancelled.
     """
-    apt = LichHen.query.get(appointment_id)
+    LichHen.query.filter_by(malh=appointment_id).update({LichHen.malh:LichHen.malh}, synchronize_session=False)
+    apt = LichHen.query.filter_by(malh=appointment_id).populate_existing().first()
     if not apt:
         raise AppointmentNotFoundError("Không tìm thấy lịch hẹn")
 
@@ -523,6 +608,10 @@ def cancel_appointment(appointment_id, user_id=None, role='customer', reason=Non
 
     try:
         apt.trangthai = AppointmentStatus.CANCELLED
+        from .package_service import transition_usages
+        from .notification_service import sync_appointment_jobs
+        transition_usages(apt.malh, 'released')
+        sync_appointment_jobs(apt)
         if reason:
             cancel_str = f"[Lý do hủy: {reason.strip()}]"
             apt.ghichu = f"{apt.ghichu}\n{cancel_str}" if apt.ghichu else cancel_str
@@ -542,14 +631,15 @@ def cancel_appointment(appointment_id, user_id=None, role='customer', reason=Non
     }
 
 
-def update_appointment_status(appointment_id, new_status, user_id=None, role='staff'):
+def update_appointment_status(appointment_id, new_status, user_id=None, role='staff', commit=True):
     """
     Cập nhật trạng thái lịch hẹn:
     - new_status: 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled'
     - Kiểm tra transition hợp lệ.
     - Gửi email cảm ơn nếu hoàn thành.
     """
-    apt = LichHen.query.get(appointment_id)
+    LichHen.query.filter_by(malh=appointment_id).update({LichHen.malh:LichHen.malh}, synchronize_session=False)
+    apt = LichHen.query.filter_by(malh=appointment_id).populate_existing().first()
     if not apt:
         raise AppointmentNotFoundError("Không tìm thấy lịch hẹn")
 
@@ -561,6 +651,11 @@ def update_appointment_status(appointment_id, new_status, user_id=None, role='st
     if norm_status not in AppointmentStatus.ALL:
         raise AppointmentValidationError(f"Trạng thái '{new_status}' không hợp lệ")
 
+    from ..models import LieuTrinhUsage
+    if apt.trangthai in AppointmentStatus.FINAL_STATUSES and norm_status != apt.trangthai:
+        if LieuTrinhUsage.query.filter_by(malh=apt.malh).first():
+            raise AppointmentValidationError('Không mở lại hoặc đổi trạng thái kết thúc lịch hẹn đã dùng liệu trình')
+
     # Không thể cập nhật lịch đã ở trạng thái kết thúc (completed/cancelled) trừ khi là admin/manager
     if apt.trangthai in AppointmentStatus.FINAL_STATUSES and role not in ('admin', 'manager'):
         raise AppointmentValidationError(
@@ -569,19 +664,19 @@ def update_appointment_status(appointment_id, new_status, user_id=None, role='st
 
     try:
         apt.trangthai = norm_status
-        db.session.commit()
+        from .package_service import transition_usages
+        from .notification_service import sync_appointment_jobs
+        if norm_status == AppointmentStatus.COMPLETED:
+            transition_usages(apt.malh, 'consumed')
+        elif norm_status == AppointmentStatus.CANCELLED:
+            transition_usages(apt.malh, 'released')
+        sync_appointment_jobs(apt)
+        if commit:
+            db.session.commit()
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Lỗi cập nhật trạng thái lịch hẹn {appointment_id}: {e}", exc_info=True)
         raise AppointmentServiceError("Lỗi hệ thống khi cập nhật trạng thái", status_code=500)
-
-    # Gửi email cảm ơn nếu hoàn thành
-    if norm_status == AppointmentStatus.COMPLETED and apt.khachhang and apt.khachhang.email:
-        send_appointment_completed_email_async(
-            apt.khachhang.email,
-            apt.khachhang.hoten or "Quý khách",
-            {"malh": apt.malh, "ngaygio": apt.ngaygio}
-        )
 
     return {
         "success": True,
@@ -614,8 +709,9 @@ def assign_staff_to_appointment(appointment_id, manv):
         manv, apt.ngaygio, duration, exclude_malh=apt.malh
     )
     if not is_avail:
+        reason_msg = AVAILABILITY_MESSAGES.get(reason, reason)
         raise AppointmentConflictError(
-            f"Nhân viên {staff.hoten} không khả dụng: {reason}",
+            f"Nhân viên {staff.hoten} không khả dụng: {reason_msg}",
             conflicts=conflicts
         )
 

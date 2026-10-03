@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
 from flask import Blueprint, request, jsonify, current_app, g
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import joinedload
@@ -257,11 +257,11 @@ def get_all_appointments_admin():
 
         if start_date_str:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-            query = query.filter(LichHen.ngaygio >= start_date)
+            query = query.filter(LichHen.ngaygio >= datetime.combine(start_date, time.min))
 
         if end_date_str:
             end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date() + timedelta(days=1)
-            query = query.filter(LichHen.ngaygio < end_date)
+            query = query.filter(LichHen.ngaygio < datetime.combine(end_date, time.min))
 
         if status:
             norm_status = AppointmentStatus.normalize(status)
@@ -488,6 +488,7 @@ def update_appointment(malh):
                 new_status=data["trangthai"],
                 user_id=staff.manv,
                 role=staff.role,
+                commit=False,
             )
 
         # Nếu thay đổi ngày giờ hoặc nhân viên
@@ -502,12 +503,15 @@ def update_appointment(malh):
             apt.ghichu = data["ghichu"]
 
         if "ngaygio" in data or "manv" in data:
+            from ..services.package_service import validate_reschedule
+            validate_reschedule(apt, new_ngaygio)
             duration = appointment_service.calculate_total_duration([d.madv for d in apt.chitiet])
             if new_manv:
                 is_avail, conflicts, reason = appointment_service.check_staff_availability(
                     new_manv, new_ngaygio, duration, exclude_malh=apt.malh
                 )
                 if not is_avail:
+                    db.session.rollback()
                     return jsonify({
                         "success": False,
                         "msg": f"Không thể cập nhật: {reason}",
@@ -517,10 +521,14 @@ def update_appointment(malh):
             apt.ngaygio = new_ngaygio
             apt.manv = new_manv
 
+        from ..services.notification_service import sync_appointment_jobs
+        sync_appointment_jobs(apt)
+
         db.session.commit()
         return jsonify({"success": True, "msg": "Cập nhật lịch hẹn thành công"}), 200
 
     except AppointmentValidationError as e:
+        db.session.rollback()
         return jsonify({"msg": e.message}), 400
     except AppointmentServiceError as e:
         return jsonify({"msg": e.message}), e.status_code
@@ -667,11 +675,11 @@ def get_appointment_statistics():
 
         if start_date_str:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-            query = query.filter(LichHen.ngaygio >= start_date)
+            query = query.filter(LichHen.ngaygio >= datetime.combine(start_date, time.min))
 
         if end_date_str:
             end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date() + timedelta(days=1)
-            query = query.filter(LichHen.ngaygio < end_date)
+            query = query.filter(LichHen.ngaygio < datetime.combine(end_date, time.min))
 
         total = query.count()
         pending = query.filter(LichHen.trangthai == AppointmentStatus.PENDING).count()

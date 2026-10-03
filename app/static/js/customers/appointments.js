@@ -290,6 +290,29 @@ function setupDateTimeLimits() {
     dateInput.setAttribute('max', maxDate.toISOString().split('T')[0]);
 }
 
+// ==================== STAFF AVAILABILITY HELPER ====================
+function getStaffAvailabilityBadge(staff) {
+    const reason = staff.reason;
+    if (staff.available === true && reason === 'available') {
+        return {
+            statusClass: 'available',
+            text: 'Còn trống',
+            isSelectable: true
+        };
+    }
+
+    switch (reason) {
+        case 'appointment_conflict':
+            return {
+                statusClass: 'conflict',
+                text: 'Đã có lịch',
+                isSelectable: false
+            };
+        default:
+            return null;
+    }
+}
+
 // ==================== LOAD AVAILABLE STAFF ====================
 async function loadAvailableStaff() {
     const dateInput = document.getElementById('appointmentDate');
@@ -316,79 +339,85 @@ async function loadAvailableStaff() {
     try {
         const datetime = `${date}T${time}`;
         
-        // === SỬA LỖI 1: Sửa URL tải nhân viên ===
-        const staffResponse = await customerAuthFetch('/api/staff', {
-            headers: getAuthHeaders(false)
+        // API chỉ trả kỹ thuật viên active có ca bao phủ khung giờ đã chọn.
+        const response = await customerAuthFetch('/api/appointments/available-staff', {
+            method: 'POST',
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({
+                ngaygio: datetime,
+                madv_list: selectedServices
+            })
         });
-        
-        const staffData = await staffResponse.json();
-        
-        if (!staffData.success || !staffData.staff) {
-            staffContainer.innerHTML = '<p style="text-align: center; color: #999; grid-column: 1/-1;">Không thể tải danh sách nhân viên</p>';
+
+        if (!response.ok) {
+            staffContainer.innerHTML = '<p style="text-align: center; color: #d9534f; grid-column: 1/-1;"><i class="fas fa-exclamation-triangle"></i> Lỗi kiểm tra lịch</p>';
             return;
         }
-        
-        const availableStaff = [];
-        
-        for (const staff of staffData.staff) {
-            // === SỬA LỖI 2: Sửa URL check lịch rảnh ===
-            const checkResponse = await customerAuthFetch('/api/appointments/check-availability', {
-                method: 'POST', 
-                headers: getAuthHeaders(true),
-                body: JSON.stringify({
-                    manv: staff.manv,
-                    ngaygio: datetime,
-                    madv_list: selectedServices  // Gửi tất cả dịch vụ
-                })
-            });
-            
-            const checkData = await checkResponse.json();
-            
-            availableStaff.push({
-                ...staff,
-                available: checkData.available,
-                message: checkData.message
-            });
-        }
-        
-        if (availableStaff.length === 0) {
-            staffContainer.innerHTML = '<p style="text-align: center; color: #999; grid-column: 1/-1;">Không có nhân viên nào</p>';
+
+        const data = await response.json();
+
+        if (!data || !data.success || !Array.isArray(data.staff)) {
+            staffContainer.innerHTML = '<p style="text-align: center; color: #d9534f; grid-column: 1/-1;"><i class="fas fa-exclamation-triangle"></i> Lỗi kiểm tra lịch</p>';
             return;
         }
-        
-        staffContainer.innerHTML = availableStaff.map(staff => `
-            <div class="staff-card ${!staff.available ? 'unavailable' : ''} ${selectedStaff === staff.manv ? 'selected' : ''}"
-                 onclick="${staff.available ? `selectStaff(${staff.manv}, '${staff.hoten}')` : ''}">
-                <div class="staff-avatar">
-                    ${staff.anhdaidien ? 
-                        `<img src="/api/profile/avatar/${staff.anhdaidien}" alt="${staff.hoten}" onerror="this.onerror=null; this.src='/static/images/default-avatar.svg';">` :
-                        '<img src="/static/images/default-avatar.svg" alt="Avatar">'}
+
+        const workingStaff = data.staff.filter(staff => getStaffAvailabilityBadge(staff) !== null);
+
+        // Nếu nhân viên đang chọn không còn khả dụng trong khung giờ mới, bỏ chọn
+        if (selectedStaff) {
+            const currentSelected = workingStaff.find(s => s.manv === selectedStaff);
+            if (!currentSelected || !currentSelected.available) {
+                selectedStaff = null;
+                updateSummary();
+            }
+        }
+
+        if (workingStaff.length === 0) {
+            staffContainer.innerHTML = '<p style="text-align: center; color: #999; grid-column: 1/-1;">Không có kỹ thuật viên nào làm việc trong khung giờ này</p>';
+            return;
+        }
+
+        staffContainer.innerHTML = workingStaff.map(staff => {
+            const badge = getStaffAvailabilityBadge(staff);
+            const isSelected = selectedStaff === staff.manv;
+            return `
+                <div class="staff-card ${!badge.isSelectable ? 'unavailable' : ''} ${isSelected ? 'selected' : ''}"
+                     data-staff-id="${staff.manv}"
+                     onclick="${badge.isSelectable ? `selectStaff(${staff.manv}, '${staff.hoten}', event)` : ''}">
+                    <div class="staff-avatar">
+                        ${staff.anhdaidien ?
+                            `<img src="/api/profile/avatar/${staff.anhdaidien}" alt="${staff.hoten}" onerror="this.onerror=null; this.src='/static/images/default-avatar.svg';">` :
+                            '<img src="/static/images/default-avatar.svg" alt="Avatar">'}
+                    </div>
+                    <div class="staff-info">
+                        <h4>${staff.hoten}</h4>
+                        ${staff.chuyenmon ? `<p class="specialty">${staff.chuyenmon}</p>` : ''}
+                        <p class="status ${badge.statusClass}">
+                            <i class="fas fa-circle"></i>
+                            ${badge.text}
+                        </p>
+                    </div>
                 </div>
-                <div class="staff-info">
-                    <h4>${staff.hoten}</h4>
-                    ${staff.chuyenmon ? `<p class="specialty">${staff.chuyenmon}</p>` : ''}
-                    <p class="status ${staff.available ? 'available' : 'busy'}">
-                        <i class="fas fa-circle"></i>
-                        ${staff.available ? 'Còn trống' : 'Đã bận'}
-                    </p>
-                </div>
-            </div>
-        `).join('');
-        
+            `;
+        }).join('');
+
     } catch (error) {
         console.error('Error loading staff:', error);
-        staffContainer.innerHTML = '<p style="text-align: center; color: #999; grid-column: 1/-1;">Có lỗi xảy ra khi tải nhân viên</p>';
+        staffContainer.innerHTML = '<p style="text-align: center; color: #d9534f; grid-column: 1/-1;"><i class="fas fa-exclamation-triangle"></i> Lỗi kiểm tra lịch</p>';
     }
 }
 
-function selectStaff(staffId, staffName) {
+function selectStaff(staffId, staffName, evt) {
     selectedStaff = staffId;
     
     document.querySelectorAll('.staff-card').forEach(card => {
         card.classList.remove('selected');
     });
     
-    event.currentTarget.classList.add('selected');
+    const cardEl = (evt && evt.currentTarget) ? evt.currentTarget : document.querySelector(`.staff-card[data-staff-id="${staffId}"]`);
+    if (cardEl) {
+        cardEl.classList.add('selected');
+    }
     
     const autoAssign = document.getElementById('autoAssign');
     if (autoAssign) {
@@ -465,6 +494,7 @@ window.goToStep = goToStep;
 
 // ==================== UPDATE SUMMARY ====================
 function updateSummary() {
+    window.PackageCare?.renderBooking(selectedServices, document.getElementById('appointmentDate')?.value);
     // Services
     const summaryServices = document.getElementById('summaryServices');
     if (summaryServices) {
@@ -523,7 +553,8 @@ function updateSummary() {
     const summaryTotal = document.getElementById('summaryTotal');
     if (summaryTotal) {
         const selectedServicesData = allServices.filter(s => selectedServices.includes(s.madv));
-        const total = selectedServicesData.reduce((sum, service) => sum + parseFloat(service.gia), 0);
+        const covered = new Set((window.PackageCare?.getUsages() || []).map(u => u.madv));
+        const total = selectedServicesData.reduce((sum, service) => sum + (covered.has(service.madv) ? 0 : parseFloat(service.gia)), 0);
         const formattedTotal = formatPrice(total);
         summaryTotal.textContent = formattedTotal;
         // changeLang()/translateDOM restores data-orig-vi for existing nodes.
@@ -597,6 +628,7 @@ document.getElementById('appointmentForm')?.addEventListener('submit', async fun
             headers: getAuthHeaders(true),
             body: JSON.stringify({
                 madv_list: selectedServices,
+                package_usages: window.PackageCare?.getUsages() || [],
                 ngaygio: datetime,
                 manv: manv,
                 ghichu: ''
@@ -645,6 +677,7 @@ function formatPrice(price) {
 
 // ==================== Expose functions to global scope ====================
 window.toggleServiceSelection = toggleServiceSelection;
+window.refreshBookingSummary = updateSummary;
 window.selectStaff = selectStaff;
 window.goToStep = goToStep;
 window.filterServicesInForm = filterServicesInForm;

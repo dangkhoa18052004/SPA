@@ -9,6 +9,10 @@ __pycache__/
 tests/runtime_uploads/*
 !tests/runtime_uploads/.gitkeep
 tests/binspa-test-uploads-*/
+tests/runtime_phase4_ui/
+tests/runtime_phase4_*/
+.phase4-tmp/
+.phase4-tests-*/
 .coverage
 htmlcov/
 

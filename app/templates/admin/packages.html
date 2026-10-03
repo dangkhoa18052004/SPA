@@ -1,0 +1,120 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Quản lý gói dịch vụ - Bin Spa{% endblock %}
+{% block page_title %}Gói dịch vụ và liệu trình{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.0">
+{% endblock %}
+
+{% block content %}
+<section class="admin-packages" data-admin-packages-page="list">
+    <div class="package-page-heading">
+        <div>
+            <p class="package-eyebrow">Quản lý bán hàng</p>
+            <h2>Gói dịch vụ</h2>
+            <p class="package-subtitle">Quản lý các gói đang bán và theo dõi tiến độ sử dụng của khách hàng.</p>
+        </div>
+        <a class="btn btn-primary package-primary-action" href="/admin/packages/new">
+            <i class="fas fa-plus" aria-hidden="true"></i> Tạo gói mới
+        </a>
+    </div>
+
+    <p id="packageMessage" class="package-message" role="status" aria-live="polite"></p>
+
+    <nav class="package-tabs" aria-label="Khu vực quản lý gói">
+        <button class="package-tab active" type="button" data-package-tab="packages" aria-selected="true">
+            <i class="fas fa-box-open" aria-hidden="true"></i> Gói dịch vụ
+        </button>
+        <button class="package-tab" type="button" data-package-tab="treatments" aria-selected="false">
+            <i class="fas fa-spa" aria-hidden="true"></i> Liệu trình khách hàng
+        </button>
+        <a class="package-tab" href="/admin/package-sales">
+            <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i> Bán gói
+        </a>
+    </nav>
+
+    <div id="packagesPanel" class="package-panel" data-package-panel="packages">
+        <div class="package-toolbar">
+            <label class="package-search">
+                <span class="sr-only">Tìm gói dịch vụ</span>
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <input id="packageSearch" type="search" placeholder="Tìm theo tên gói hoặc dịch vụ..." autocomplete="off">
+            </label>
+            <label class="package-filter">
+                <span>Trạng thái</span>
+                <select id="packageStatusFilter">
+                    <option value="all">Tất cả</option>
+                    <option value="active">Đang bán</option>
+                    <option value="inactive">Ngừng bán</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="package-table-wrap package-desktop-table">
+            <table class="package-table">
+                <thead>
+                    <tr>
+                        <th>Gói dịch vụ</th>
+                        <th>Dịch vụ bao gồm</th>
+                        <th>Giá gói</th>
+                        <th>Hiệu lực</th>
+                        <th>Trạng thái</th>
+                        <th class="package-actions-column">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="adminPackageRows"></tbody>
+            </table>
+        </div>
+        <div id="adminPackageCards" class="package-mobile-cards"></div>
+    </div>
+
+    <div id="treatmentsPanel" class="package-panel" data-package-panel="treatments" hidden>
+        <div class="package-toolbar">
+            <label class="package-search">
+                <span class="sr-only">Tìm liệu trình</span>
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <input id="treatmentSearch" type="search" placeholder="Tên khách, số điện thoại hoặc mã liệu trình..." autocomplete="off">
+            </label>
+            <label class="package-filter">
+                <span>Trạng thái</span>
+                <select id="treatmentStatusFilter">
+                    <option value="">Tất cả</option>
+                    <option value="active">Đang sử dụng</option>
+                    <option value="used_up">Đã dùng hết</option>
+                    <option value="expired">Hết hạn</option>
+                    <option value="cancelled">Đã hủy</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="package-table-wrap package-desktop-table">
+            <table class="package-table">
+                <thead>
+                    <tr>
+                        <th>Mã liệu trình</th>
+                        <th>Khách hàng</th>
+                        <th>Gói dịch vụ</th>
+                        <th>Tiến độ</th>
+                        <th>Ngày kích hoạt</th>
+                        <th>Hạn dùng</th>
+                        <th>Trạng thái</th>
+                        <th class="package-actions-column">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="adminTreatmentRows"></tbody>
+            </table>
+        </div>
+        <div id="adminTreatmentCards" class="package-mobile-cards"></div>
+    </div>
+
+    <dialog id="treatmentDetailDialog" class="package-dialog" aria-labelledby="treatmentDetailTitle">
+        <button type="button" class="package-dialog-close" data-close-treatment aria-label="Đóng">×</button>
+        <div id="treatmentDetailContent"></div>
+    </dialog>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/packages.js') }}?v=1.0"></script>
+{% endblock %}

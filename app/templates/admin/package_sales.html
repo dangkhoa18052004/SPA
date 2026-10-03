@@ -1,0 +1,47 @@
+{% extends "admin/layout.html" %}
+{% block title %}Bán gói dịch vụ - Bin Spa{% endblock %}
+{% block page_title %}Bán gói dịch vụ / Phiếu bán gói{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.0">{% endblock %}
+{% block content %}
+<section class="package-section" data-package-page="sales">
+    <nav class="package-tabs" aria-label="Khu vực quản lý gói">
+        <a class="package-tab" href="/admin/packages"><i class="fas fa-box-open" aria-hidden="true"></i> Gói dịch vụ</a>
+        <a class="package-tab" href="/admin/packages#treatments"><i class="fas fa-spa" aria-hidden="true"></i> Liệu trình khách hàng</a>
+        <a class="package-tab active" href="/admin/package-sales"><i class="fas fa-file-invoice-dollar" aria-hidden="true"></i> Bán gói</a>
+    </nav>
+    <p id="packageMessage" class="package-message" role="status"></p>
+    <form id="saleForm" class="package-panel">
+        <h2>Bán gói dịch vụ</h2>
+        <div class="package-fields">
+            <label>Tìm khách theo tên / số điện thoại<input id="saleCustomerSearch" type="search" autocomplete="off"></label>
+            <label>Khách hàng<select id="saleCustomer" required></select></label>
+            <label>Gói dịch vụ<select id="salePackage" required></select></label>
+            <label>Phương thức<select id="saleMethod"><option value="cash">Tiền mặt</option><option value="vietqr">VietQR</option></select></label>
+        </div>
+        <div id="salePackagePreview" class="package-grid"></div>
+        <button type="submit" class="btn btn-primary" id="createPackageSale">Tạo phiếu bán gói</button>
+    </form>
+    <div id="cashSalePanel" class="package-panel package-hidden">
+        <h2>Thu tiền mặt</h2><p id="cashSaleSummary"></p>
+        <label>Số tiền khách đưa (VNĐ)<input id="cashReceived" type="number" min="1" step="1"></label>
+        <p id="cashChange" role="status"></p>
+        <button id="confirmPackageCash" class="btn btn-primary" type="button">Xác nhận đã nhận tiền</button>
+    </div>
+    <h2>Lịch sử / Phiếu bán gói</h2>
+    <div class="package-fields">
+        <label>Tìm theo tên, SĐT, mã phiếu<input id="saleHistorySearch" type="search"></label>
+        <label>Trạng thái<select id="saleHistoryStatus"><option value="">Tất cả</option><option value="pending">Chờ thanh toán</option><option value="paid">Đã thanh toán</option><option value="failed">Thất bại</option><option value="cancelled">Đã hủy</option></select></label>
+    </div>
+    <div class="package-sales-table"><table><thead><tr><th>Mã phiếu</th><th>Khách hàng</th><th>Gói</th><th>Số tiền</th><th>Phương thức</th><th>Trạng thái</th><th>Ngày tạo / Thanh toán</th><th>Nhân viên</th><th>Thao tác</th></tr></thead><tbody id="saleHistory"></tbody></table></div>
+    <dialog id="packagePaymentDialog" class="package-dialog" aria-label="Thanh toán VietQR">
+        <button id="closePackagePayment" type="button" class="package-dialog-close" aria-label="Đóng">×</button>
+        <div id="packagePayment" class="package-payment" aria-live="polite"></div>
+    </dialog>
+    <dialog id="saleReceiptDialog" class="package-dialog" aria-label="Phiếu bán gói">
+        <button type="button" id="closeSaleReceipt" class="package-dialog-close no-print" aria-label="Đóng">×</button>
+        <div id="saleReceipt" class="package-receipt"></div>
+        <button type="button" id="printSaleReceipt" class="btn btn-primary no-print">In phiếu</button>
+    </dialog>
+</section>
+{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/packages.js') }}"></script><script src="{{ url_for('static', filename='js/admin/package-sales.js') }}"></script>{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Chi tiết gói dịch vụ - Bin Spa{% endblock %}
+{% block page_title %}Chi tiết gói dịch vụ{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.0">
+{% endblock %}
+
+{% block content %}
+<section class="admin-packages" data-admin-packages-page="detail" data-package-id="{{ package_id }}">
+    <nav class="package-breadcrumb" aria-label="Điều hướng"><a href="/admin/packages">Gói dịch vụ</a><span>/</span><span>Chi tiết</span></nav>
+    <p id="packageMessage" class="package-message" role="status" aria-live="polite"></p>
+    <div id="packageDetail" class="package-detail-shell">
+        <div class="package-loading"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Đang tải thông tin gói...</div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/packages.js') }}?v=1.0"></script>
+{% endblock %}

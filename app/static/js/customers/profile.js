@@ -27,6 +27,10 @@ function customerAuthFetch(input, options) {
 }
 
 // ==================== INIT ====================
+window.addEventListener('hashchange', () => {
+    const section = location.hash.slice(1);
+    if (section && document.getElementById(`${section}-section`)) switchSection(section);
+});
 document.addEventListener('DOMContentLoaded', async function() {
     initMenuLinks();
     initAvatarUpload();
@@ -35,8 +39,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (window.location.hash === '#appointments') {
         switchSection('appointments');
     }
+    if (window.location.hash === '#treatments') switchSection('treatments');
 
     await initializeProfilePage();
+    const reviewId = Number(new URLSearchParams(location.search).get('review'));
+    if (reviewId > 0) {
+        switchSection('appointments');
+        openReviewModal(reviewId, 'Lịch hẹn đã hoàn thành');
+    }
 });
 
 // ==================== CHECK LOGIN ====================
@@ -180,6 +190,8 @@ function switchSection(sectionName) {
         loadUserAppointments();
     } else if (sectionName === 'invoices') {
         loadUserInvoices();
+    } else if (sectionName === 'treatments') {
+        window.PackageCare?.loadTreatments();
     }
 }
 

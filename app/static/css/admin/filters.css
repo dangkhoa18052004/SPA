@@ -64,6 +64,95 @@
     flex-wrap: nowrap;
 }
 
+/* Appointment filters only; custom dates get their own grid row. */
+.appointment-filter-grid {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) minmax(180px, 220px) minmax(260px, 1fr);
+    gap: 16px;
+    align-items: end;
+    container-type: inline-size;
+}
+
+.appointment-filter-grid > * {
+    min-width: 0;
+}
+
+.appointment-filter-grid .search-wrapper {
+    width: 100%;
+    max-width: none;
+}
+
+.appointment-filter-grid:has(.custom-date-filter:not(.d-none)) {
+    grid-template-columns: minmax(0, 220px) minmax(432px, 1fr);
+}
+
+.appointment-filter-grid .custom-date-filter {
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) auto;
+    gap: 16px;
+    align-items: end;
+}
+
+.appointment-filter-grid .date-filter-field {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.appointment-filter-grid .date-filter-field label {
+    font-size: var(--font-sm);
+    font-weight: var(--font-semibold);
+    white-space: nowrap;
+}
+
+.appointment-filter-grid .form-control,
+.appointment-filter-grid .search-input,
+.appointment-filter-grid .date-filter-apply {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: var(--input-height);
+}
+
+.appointment-filter-grid .date-filter-apply {
+    min-width: 80px;
+    white-space: nowrap;
+    justify-content: center;
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+    .appointment-filter-grid {
+        grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr);
+    }
+
+    .appointment-filter-grid > .search-wrapper {
+        grid-column: 1 / -1;
+    }
+
+    .appointment-filter-grid:has(.custom-date-filter:not(.d-none)) > .search-wrapper {
+        grid-column: auto;
+    }
+}
+
+@container (max-width: 650px) {
+    .appointment-filter-grid:has(.custom-date-filter:not(.d-none)) > .appointment-filter-select:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .appointment-filter-grid > .custom-date-filter {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}
+
+@media (max-width: 767px) {
+    .filter-row.appointment-filter-grid,
+    .appointment-filter-grid:has(.custom-date-filter:not(.d-none)),
+    .appointment-filter-grid .custom-date-filter {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 /* ========== FILTER SECTION ========== */
 .filter-section {
     background: var(--bg-card);

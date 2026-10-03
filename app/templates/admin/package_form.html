@@ -1,0 +1,100 @@
+{% extends "admin/layout.html" %}
+
+{% set is_edit = form_mode == 'edit' %}
+{% block title %}{{ 'Chỉnh sửa' if is_edit else 'Tạo' }} gói dịch vụ - Bin Spa{% endblock %}
+{% block page_title %}{{ 'Chỉnh sửa' if is_edit else 'Tạo' }} gói dịch vụ{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.0">
+{% endblock %}
+
+{% block content %}
+<section class="admin-packages" data-admin-packages-page="form" data-form-mode="{{ form_mode }}" data-package-id="{{ package_id or '' }}">
+    <nav class="package-breadcrumb" aria-label="Điều hướng">
+        <a href="/admin/packages">Gói dịch vụ</a><span>/</span>
+        <span>{{ 'Chỉnh sửa gói' if is_edit else 'Tạo gói mới' }}</span>
+    </nav>
+
+    <div class="package-page-heading compact">
+        <div>
+            <h2>{{ 'Chỉnh sửa gói dịch vụ' if is_edit else 'Tạo gói dịch vụ mới' }}</h2>
+            <p class="package-subtitle">Thiết lập thông tin, dịch vụ và mức giá áp dụng cho gói.</p>
+        </div>
+    </div>
+    <p id="packageMessage" class="package-message" role="status" aria-live="polite"></p>
+
+    <form id="packageForm" novalidate>
+        <div class="package-form-layout">
+            <div class="package-form-main">
+                <section class="package-form-card">
+                    <div class="package-section-heading"><span>A</span><div><h3>Thông tin gói</h3><p>Thông tin cơ bản hiển thị cho nhân viên và khách hàng.</p></div></div>
+                    <div class="package-form-grid">
+                        <label class="package-field package-field-wide"><span>Tên gói <em>*</em></span>
+                            <input name="tengoi" maxlength="200" required placeholder="Ví dụ: Gói chăm sóc da chuyên sâu">
+                        </label>
+                        <label class="package-field"><span>Giá gói (VNĐ) <em>*</em></span>
+                            <input name="giagoi" type="number" min="1" step="1" required placeholder="0">
+                        </label>
+                        <label class="package-field package-field-wide">Mô tả
+                            <textarea name="mota" rows="4" placeholder="Mô tả quyền lợi và đối tượng phù hợp..."></textarea>
+                        </label>
+                        <div class="package-field package-field-wide">
+                            <span>Ảnh đại diện</span>
+                            <div class="package-image-field">
+                                <img id="packageImagePreview" src="{{ url_for('static', filename='images/default-package.svg') }}" alt="Xem trước ảnh gói">
+                                <label class="package-file-button"><i class="fas fa-upload" aria-hidden="true"></i> Chọn ảnh
+                                    <input id="packageImage" type="file" accept="image/jpeg,image/png,image/webp">
+                                </label>
+                                <small>JPG, PNG hoặc WEBP, tối đa 5 MB.</small>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="package-form-card">
+                    <div class="package-section-heading"><span>B</span><div><h3>Thời hạn sử dụng</h3><p>Thời gian khách hàng có thể sử dụng các buổi trong gói.</p></div></div>
+                    <div class="package-validity-row">
+                        <label class="package-field"><span>Hiệu lực (tháng) <em>*</em></span>
+                            <input name="validity_months" type="number" min="1" max="120" value="6" required>
+                        </label>
+                        <label class="package-check"><input name="unlimited" type="checkbox"><span><strong>Không giới hạn thời gian</strong><small>Gói không có ngày hết hạn.</small></span></label>
+                    </div>
+                </section>
+
+                <section class="package-form-card">
+                    <div class="package-section-heading package-heading-action">
+                        <span>C</span><div><h3>Dịch vụ trong gói</h3><p>Chọn dịch vụ và số buổi được sử dụng.</p></div>
+                        <button id="addPackageItem" class="btn btn-secondary" type="button"><i class="fas fa-plus" aria-hidden="true"></i> Thêm dịch vụ</button>
+                    </div>
+                    <div class="package-item-labels" aria-hidden="true"><span>Dịch vụ</span><span>Số buổi</span><span>Đơn giá</span><span>Thành tiền</span><span></span></div>
+                    <div id="packageItems" class="package-items"></div>
+                </section>
+
+                <section class="package-form-card">
+                    <div class="package-section-heading"><span>E</span><div><h3>Trạng thái</h3><p>Kiểm soát khả năng bán gói trên hệ thống.</p></div></div>
+                    <label class="package-check"><input name="active" type="checkbox" checked><span><strong>Đang bán</strong><small>Tắt lựa chọn này để tạm ngừng bán gói.</small></span></label>
+                </section>
+            </div>
+
+            <aside class="package-form-card package-summary-card">
+                <div class="package-section-heading"><span>D</span><div><h3>Tóm tắt giá</h3><p>Kiểm tra mức giá trước khi lưu.</p></div></div>
+                <dl class="package-price-summary">
+                    <div><dt>Tổng giá lẻ</dt><dd id="summaryRetail">0 ₫</dd></div>
+                    <div><dt>Giá gói</dt><dd id="summaryPackagePrice">0 ₫</dd></div>
+                    <div class="package-saving"><dt>Khách tiết kiệm</dt><dd id="summarySavings">0 ₫</dd></div>
+                </dl>
+                <p id="packagePriceWarning" class="package-price-warning" hidden></p>
+            </aside>
+        </div>
+
+        <div class="package-form-actions">
+            <a class="btn btn-secondary" href="/admin/packages">Hủy</a>
+            <button id="savePackage" class="btn btn-primary" type="submit"><i class="fas fa-save" aria-hidden="true"></i> {{ 'Lưu thay đổi' if is_edit else 'Lưu gói' }}</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/packages.js') }}?v=1.0"></script>
+{% endblock %}

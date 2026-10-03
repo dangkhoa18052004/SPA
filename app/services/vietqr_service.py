@@ -5,9 +5,19 @@ from flask import current_app
 from ..extensions import db
 from ..models import HoaDon, ThanhToan
 from datetime import datetime
+from urllib.parse import urlencode, quote
 from .payment_webhook_service import begin_event, duplicate_response, finish_event
 
 def generate_vietqr_info(invoice):
+    return generate_vietqr_payment_info(invoice.tongtien, f'HD{invoice.mahd}')
+
+
+def vietqr_available():
+    return all(str(current_app.config.get(name) or '').strip() for name in
+               ('VIETQR_BANK_ID', 'VIETQR_ACCOUNT_NO', 'VIETQR_ACCOUNT_NAME'))
+
+
+def generate_vietqr_payment_info(amount, description):
     """
     Tạo thông tin VietQR cho hóa đơn.
     Trả về URL ảnh QR VietQR QuickLink (Napas247) và thông tin chuyển khoản.
@@ -18,14 +28,13 @@ def generate_vietqr_info(invoice):
     if not all([bank_id, account_no, account_name]):
         raise RuntimeError("Thiếu cấu hình tài khoản VietQR")
     
-    amount = int(float(invoice.tongtien))
-    description = f"HD{invoice.mahd}"
+    amount = int(Decimal(str(amount)))
     
     # Mã hóa URL cho tên chủ tài khoản và nội dung
-    encoded_name = account_name.replace(" ", "%20")
+    query = urlencode({'amount': amount, 'addInfo': description, 'accountName': account_name})
     
     # URL ảnh VietQR QuickLink tiêu chuẩn Napas247
-    qr_image_url = f"https://img.vietqr.io/image/{bank_id}-{account_no}-compact2.png?amount={amount}&addInfo={description}&accountName={encoded_name}"
+    qr_image_url = f"https://img.vietqr.io/image/{quote(str(bank_id), safe='')}-{quote(str(account_no), safe='')}-compact2.png?{query}"
     
     return {
         "bank_id": bank_id,
@@ -71,6 +80,25 @@ def process_sepay_webhook(data, authorization_header=None):
     
     # 1. Lấy nội dung giao dịch và tìm mã hóa đơn HDxxx (Ví dụ: HD27 -> 27)
     content = str(data.get("content") or data.get("description") or data.get("code") or "")
+    package_match = re.search(r'\bPKG\s*(\d+)\b', content, re.IGNORECASE)
+    if package_match:
+        from .package_service import confirm_purchase
+        from .appointment_service import AppointmentValidationError
+        if str(data.get('transferType', 'in')).lower() != 'in':
+            finish_event(event, 'rejected')
+            db.session.commit()
+            return {'status':'failed', 'message':'Không phải giao dịch tiền vào'}
+        try:
+            _, record, created = confirm_purchase(int(package_match.group(1)),
+                data.get('transferAmount') or data.get('amountIn') or data.get('amount') or 0,
+                external_id=f'sepay:{event.external_transaction_id}', method='vietqr')
+        except AppointmentValidationError as error:
+            finish_event(event, 'rejected')
+            db.session.commit()
+            return {'status':'failed', 'message':error.message}
+        finish_event(event, 'processed')
+        db.session.commit()
+        return {'status':'success' if created else 'duplicate', 'mathe':record.mathe}
     match = re.search(r'HD\s*(\d+)', content, re.IGNORECASE)
     if not match:
         finish_event(event, "ignored")

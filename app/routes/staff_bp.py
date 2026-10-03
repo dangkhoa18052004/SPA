@@ -7,17 +7,19 @@ staff_bp = Blueprint("staff", __name__)
 @staff_bp.route("/staff", methods=["GET"])
 def get_all_staff():
     """
-    Lấy danh sách tất cả nhân viên (public API - không cần đăng nhập)
-    Dùng cho form đặt lịch hẹn
+    Lấy danh sách tất cả kỹ thuật viên (public API - không cần đăng nhập).
+    Chỉ lấy KTV đang hoạt động (role='staff', trangthai=True) cho form đặt lịch hẹn.
+    Không trả về email, sdt, diachi hay thông tin nhạy cảm.
     """
     try:
         staff_list = NhanVien.query.filter(
-            NhanVien.role.in_(['staff', 'letan']) 
-        ).all()
+            NhanVien.role == 'staff',
+            NhanVien.trangthai == True
+        ).order_by(NhanVien.manv.asc()).all()
         
         result = []
         for staff in staff_list:
-            position = staff.chucvu.tencv if staff.chucvu else None
+            position = staff.chucvu.tencv if staff.chucvu else "Kỹ thuật viên"
             result.append({
                 "manv": staff.manv,
                 "hoten": staff.hoten,
@@ -44,10 +46,15 @@ def get_all_staff():
 @staff_bp.route("/staff/<int:manv>", methods=["GET"])
 def get_staff_detail(manv):
     """
-    Lấy thông tin chi tiết 1 nhân viên
+    Lấy thông tin chi tiết 1 kỹ thuật viên (role='staff', trangthai=True).
+    Không trả về email, sdt, diachi hay thông tin nhạy cảm.
     """
     try:
-        staff = NhanVien.query.get(manv)
+        staff = NhanVien.query.filter(
+            NhanVien.manv == manv,
+            NhanVien.role == 'staff',
+            NhanVien.trangthai == True
+        ).first()
         
         if not staff:
             return jsonify({
@@ -55,12 +62,13 @@ def get_staff_detail(manv):
                 "message": "Không tìm thấy nhân viên"
             }), 404
         
+        position = staff.chucvu.tencv if staff.chucvu else "Kỹ thuật viên"
         result = {
             "manv": staff.manv,
             "hoten": staff.hoten,
-            "chuyenmon": staff.chucvu.tencv if staff.chucvu else None,
+            "chuyenmon": position,
+            "chucvu": position,
             "anhdaidien": staff.anhnhanvien if hasattr(staff, 'anhnhanvien') else None,
-            "chucvu": staff.chucvu.tencv if staff.chucvu else None
         }
         
         return jsonify({

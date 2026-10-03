@@ -47,12 +47,17 @@ def create_invoice_from_appointment(appointment_id):
     if HoaDon.query.filter_by(malh=appointment_id).first(): 
         return jsonify({"msg": "Hóa đơn cho lịch hẹn này đã tồn tại"}), 400
     try:
-        total_price = sum(detail.dichvu.gia for detail in appointment.chitiet if detail.dichvu)
+        from ..models import LieuTrinhUsage
+        covered = {u.madv for u in LieuTrinhUsage.query.filter_by(malh=appointment_id, state='consumed').all()}
+        billable = [d for d in appointment.chitiet if d.dichvu and d.madv not in covered]
+        if not billable:
+            return jsonify({'msg':'Lịch hẹn đã được thanh toán bằng liệu trình; không cần hóa đơn mới'}), 400
+        total_price = sum(detail.dichvu.gia for detail in billable)
         # pyrefly: ignore [unexpected-keyword]
         new_invoice = HoaDon(makh=appointment.makh, manv=staff.manv, tongtien=total_price, trangthai='Chưa thanh toán', malh=appointment_id)
         db.session.add(new_invoice)
         db.session.flush() 
-        for detail in appointment.chitiet:
+        for detail in billable:
             if detail.dichvu:
                 # pyrefly: ignore [unexpected-keyword]
                 new_invoice_detail = ChiTietHoaDon(mahd=new_invoice.mahd, madv=detail.madv, soluong=1, dongia=detail.dichvu.gia, thanhtien=detail.dichvu.gia)

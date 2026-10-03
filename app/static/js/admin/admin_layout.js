@@ -24,13 +24,13 @@ function getAdminAuthToken() {
  */
 function getAuthHeaders(includeContentType = true) {
     const token = getAdminAuthToken();
-    
+
     if (!token) {
         console.warn('⚠️ No auth token found, redirecting to login...');
         logout();
         return null;
     }
-    
+
     const headers = {
         'Authorization': `Bearer ${token}`
     };
@@ -39,7 +39,7 @@ function getAuthHeaders(includeContentType = true) {
         headers['Content-Type'] = 'application/json';
         headers['Accept'] = 'application/json';
     }
-    
+
     return headers;
 }
 
@@ -50,18 +50,18 @@ function getAuthHeaders(includeContentType = true) {
 function isTokenValid() {
     const token = getAdminAuthToken();
     if (!token) return false;
-    
+
     try {
         // Parse JWT token (phần payload)
         const payload = JSON.parse(atob(token.split('.')[1]));
         const exp = payload.exp * 1000; // Convert to milliseconds
-        
+
         // Kiểm tra expiration
         if (Date.now() >= exp) {
             console.warn('⚠️ Token expired');
             return false;
         }
-        
+
         return true;
     } catch (error) {
         console.error('❌ Error parsing token:', error);
@@ -74,12 +74,12 @@ function isTokenValid() {
  */
 function logout() {
     console.log('🚪 Logging out...');
-    
+
     // Clear all auth data
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_ROLE_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
-    
+
     // Redirect to login if not already there
     if (!window.location.pathname.includes(LOGIN_PATH)) {
         window.location.href = LOGIN_PATH;
@@ -93,12 +93,12 @@ function logout() {
  */
 function hasRole(allowedRoles) {
     const userRole = localStorage.getItem(AUTH_ROLE_KEY);
-    
+
     if (!userRole) return false;
-    
+
     // Convert to array nếu là string
     const rolesArray = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
-    
+
     return rolesArray.includes(userRole);
 }
 
@@ -115,15 +115,19 @@ const MENU_CONFIG = {
         { key: 'invoices', title: 'Quản lý Hóa đơn', href: '/admin/invoices', icon: 'fa-file-invoice-dollar' },
         { key: 'customers', title: 'Quản lý Khách hàng', href: '/admin/customers', icon: 'fa-user-friends' },
         { key: 'staff', title: 'Quản lý Nhân viên', href: '/admin/staff', icon: 'fa-users-cog' },
-        // { key: 'shifts', title: 'Quản lý Ca làm', href: '/admin/shifts', icon: 'fa-clock' },
-        // { key: 'approve_shifts', title: 'Duyệt đăng ký ca', href: '/admin/approve-shifts', icon: 'fa-calendar-check' },
-        // { key: 'salary', title: 'Quản lý Lương', href: '/admin/salary', icon: 'fa-money-bill-wave' },
+        { key: 'shifts', title: 'Quản lý Ca làm', href: '/admin/shifts', icon: 'fa-clock' },
+        { key: 'approve_shifts', title: 'Duyệt đăng ký ca', href: '/admin/approve-shifts', icon: 'fa-calendar-check' },
+        { key: 'salary', title: 'Quản lý Lương', href: '/admin/salary', icon: 'fa-money-bill-wave' },
         { key: 'services', title: 'Quản lý Dịch vụ', href: '/admin/services', icon: 'fa-spa' },
+        { key: 'packages', title: 'Gói dịch vụ / Liệu trình', href: '/admin/packages', icon: 'fa-spa' },
+        { key: 'package_sales', title: 'Bán gói / Phiếu bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
         { key: 'roles', title: 'Quản lý Chức vụ', href: '/admin/roles', icon: 'fa-user-tag' },
         { key: 'chat', title: 'Tin nhắn', href: '/admin/chat', icon: 'fa-comments' }
     ],
-    
+
     manager: [
+        { key: 'package_sales', title: 'Bán gói / Phiếu bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
+        { key: 'packages', title: 'Gói dịch vụ / Liệu trình', href: '/admin/packages', icon: 'fa-spa' },
         { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
         { key: 'dashboard', title: 'Dashboard', href: '/admin/dashboard', icon: 'fa-tachometer-alt' },
         { key: 'my_salary', title: 'Lương của tôi', href: '/admin/my-salary', icon: 'fa-money-bill-wave' },
@@ -134,8 +138,9 @@ const MENU_CONFIG = {
         // { key: 'approve_shifts', title: 'Duyệt đăng ký ca', href: '/admin/approve-shifts', icon: 'fa-calendar-check' },
         { key: 'chat', title: 'Tin nhắn', href: '/admin/chat', icon: 'fa-comments' }
     ],
-    
+
     letan: [
+        { key: 'package_sales', title: 'Bán gói / Phiếu bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
         { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
         { key: 'appointments', title: 'Quản lý Lịch hẹn', href: '/admin/appointments', icon: 'fa-calendar-alt' },
         { key: 'invoices', title: 'Quản lý Hóa đơn', href: '/admin/invoices', icon: 'fa-file-invoice-dollar' },
@@ -145,7 +150,7 @@ const MENU_CONFIG = {
         { key: 'my_salary', title: 'Lương của tôi', href: '/admin/my-salary', icon: 'fa-money-bill-wave' },
         { key: 'chat', title: 'Tin nhắn', href: '/admin/chat', icon: 'fa-comments' }
     ],
-    
+
     staff: [
         { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
         { key: 'my_schedule', title: 'Lịch làm của tôi', href: '/admin/my-schedule', icon: 'fa-calendar-check' },
@@ -160,29 +165,29 @@ const MENU_CONFIG = {
 function buildSidebar() {
     const role = localStorage.getItem(AUTH_ROLE_KEY);
     const menu = document.getElementById('sidebar-menu');
-    
+
     if (!role) {
         console.error('❌ No role found');
         logout();
         return;
     }
-    
+
     if (!menu) {
         console.error('❌ Sidebar menu element not found');
         return;
     }
-    
+
     // Lấy menu items cho role
     const menuItems = MENU_CONFIG[role] || [];
-    
+
     if (menuItems.length === 0) {
         console.warn(`⚠️ No menu items defined for role: ${role}`);
         menu.innerHTML = '<li><a href="#"><i class="fas fa-exclamation-triangle"></i> <span>Không có menu</span></a></li>';
         return;
     }
-    
+
     const currentPath = window.location.pathname;
-    
+
     // Build HTML
     const menuHTML = menuItems.map(item => {
         const isActive = currentPath === item.href ? 'active' : '';
@@ -195,9 +200,9 @@ function buildSidebar() {
             </li>
         `;
     }).join('');
-    
+
     menu.innerHTML = menuHTML;
-    
+
     console.log(`✅ Sidebar built for role: ${role} (${menuItems.length} items)`);
 }
 
@@ -210,20 +215,20 @@ function updateHeaderInfo() {
     try {
         const userStr = localStorage.getItem(AUTH_USER_KEY);
         const role = localStorage.getItem(AUTH_ROLE_KEY);
-        
+
         if (!userStr || !role) {
             console.warn('⚠️ Missing user info or role');
             return;
         }
-        
+
         const user = JSON.parse(userStr);
-        
+
         // Update username
         const usernameEl = document.getElementById('admin-username');
         if (usernameEl) {
             usernameEl.textContent = user.hoten || user.taikhoan || 'User';
         }
-        
+
         // Update role
         const roleEl = document.getElementById('admin-role');
         if (roleEl) {
@@ -235,9 +240,9 @@ function updateHeaderInfo() {
             };
             roleEl.textContent = roleLabels[role] || role;
         }
-        
+
         console.log('✅ Header info updated:', user.hoten, role);
-        
+
     } catch (error) {
         console.error('❌ Error updating header info:', error);
     }
@@ -250,46 +255,46 @@ function updateHeaderInfo() {
  */
 function initializeLayout() {
     const currentPath = window.location.pathname;
-    
+
     console.log('📍 Current path:', currentPath);
-    
+
     // Bỏ qua kiểm tra nếu đang ở trang login
     if (currentPath.includes(LOGIN_PATH)) {
         console.log('✅ On login page, skipping auth check');
         return;
     }
-    
+
     // Kiểm tra authentication
     const token = getAdminAuthToken();
     const role = localStorage.getItem(AUTH_ROLE_KEY);
     const user = localStorage.getItem(AUTH_USER_KEY);
-    
+
     console.log('🔐 Auth check:', {
         token: token ? '✅ Found' : '❌ Not found',
         role: role || '❌ Not found',
         user: user ? '✅ Found' : '❌ Not found'
     });
-    
+
     // Redirect nếu thiếu thông tin auth
     if (!token || !role) {
         console.log('❌ Missing auth data, redirecting to login...');
         logout();
         return;
     }
-    
+
     // Kiểm tra token có hợp lệ không
     if (!isTokenValid()) {
         console.log('❌ Invalid or expired token, redirecting to login...');
         logout();
         return;
     }
-    
+
     console.log('✅ Auth valid, building UI...');
-    
+
     // Build UI
     buildSidebar();
     updateHeaderInfo();
-    
+
     // Setup auto-refresh token (optional)
     setupTokenRefresh();
 }
@@ -300,17 +305,17 @@ function initializeLayout() {
 function setupTokenRefresh() {
     // Refresh token mỗi 25 phút (nếu token hết hạn sau 30 phút)
     const REFRESH_INTERVAL = 25 * 60 * 1000; // 25 minutes
-    
+
     setInterval(async () => {
         if (!isTokenValid()) {
             console.warn('⚠️ Token expired during session');
             logout();
             return;
         }
-        
+
         // Call API để refresh token (nếu backend hỗ trợ)
         // await refreshAuthToken();
-        
+
     }, REFRESH_INTERVAL);
 }
 
@@ -330,7 +335,7 @@ function setupEventListeners() {
             }
         });
     });
-    
+
     // Handle unauthorized API responses globally
     window.addEventListener('unhandledrejection', (event) => {
         if (event.reason && event.reason.status === 401) {
@@ -364,15 +369,17 @@ function formatRoleName(role) {
 function checkPageAccess() {
     const currentPath = window.location.pathname;
     const role = localStorage.getItem(AUTH_ROLE_KEY);
-    
+
     // Define restricted pages
     const restrictions = {
+        '/admin/packages': ['admin', 'manager'],
+        '/admin/package-sales': ['admin', 'manager', 'letan'],
         '/admin/staff': ['admin', 'manager'],
         '/admin/salary': ['admin', 'manager'],
         '/admin/roles': ['admin'],
         '/admin/approve-shifts': ['admin', 'manager']
     };
-    
+
     for (const [path, allowedRoles] of Object.entries(restrictions)) {
         if (currentPath.includes(path)) {
             if (!allowedRoles.includes(role)) {
@@ -381,26 +388,26 @@ function checkPageAccess() {
             }
         }
     }
-    
+
     return true;
 }
 
 // ====== DOM READY ======
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('🚀 Admin layout initializing...');
-    
+
     // Small delay để đảm bảo DOM đã sẵn sàng
     setTimeout(() => {
         initializeLayout();
         setupEventListeners();
-        
+
         // Check page access
         if (!checkPageAccess()) {
             alert('Bạn không có quyền truy cập trang này!');
             window.location.href = '/admin/dashboard';
         }
-        
+
         console.log('✅ Admin layout initialized successfully');
     }, 100);
 });

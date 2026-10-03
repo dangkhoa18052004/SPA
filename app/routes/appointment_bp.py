@@ -4,6 +4,8 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from ..extensions import db
+from ..decorators import customer_required
+from flask import g
 from ..models import (
     ChucVu,
     LichHen,
@@ -50,7 +52,7 @@ def _parse_jwt_user_id(identity):
 # =========================================================================
 
 @appointment_bp.route("/create", methods=["POST"])
-@jwt_required()
+@customer_required
 def create_appointment():
     """Tạo lịch hẹn mới (khách hàng tự đặt qua web)."""
     identity = get_jwt_identity()
@@ -76,6 +78,7 @@ def create_appointment():
             manv=manv,
             note=ghichu,
             source="web",
+            package_usages=data.get('package_usages', []),
         )
         return jsonify(result), 201
 
@@ -212,11 +215,44 @@ def get_available_slots():
         return jsonify({"success": False, "message": "Lỗi lấy danh sách khung giờ trống"}), 500
 
 
+@appointment_bp.route("/available-staff", methods=["POST"])
+@jwt_required(optional=True)
+def get_available_staff():
+    """
+    Lấy kỹ thuật viên active có ca phù hợp, kèm trạng thái rảnh/trùng lịch cho booking.
+    Business logic được xử lý tập trung trong appointment_service.
+    """
+    data = request.get_json(silent=True) or {}
+    ngaygio_str = data.get("ngaygio")
+    dichvu_ids = data.get("madv_list", [])
+
+    if not ngaygio_str or not dichvu_ids:
+        return jsonify({
+            "success": False,
+            "message": "Thiếu ngày giờ hoặc danh sách dịch vụ",
+        }), 400
+
+    try:
+        staff_data = appointment_service.get_available_staff_for_booking(ngaygio_str, dichvu_ids)
+        return jsonify({
+            "success": True,
+            "staff": staff_data,
+        }), 200
+    except AppointmentValidationError as e:
+        return jsonify({"success": False, "message": e.message}), 400
+    except Exception as e:
+        current_app.logger.error(f"Lỗi kiểm tra danh sách nhân viên khả dụng: {e}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "message": "Lỗi hệ thống khi kiểm tra nhân viên khả dụng",
+        }), 500
+
+
 @appointment_bp.route("/check-availability", methods=["POST"])
 @jwt_required(optional=True)
 def api_check_staff_availability():
     """API kiểm tra nhân viên có khả dụng trong khung giờ hay không."""
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     manv = data.get("manv")
     ngaygio_str = data.get("ngaygio")
     dichvu_ids = data.get("madv_list", [])
@@ -225,6 +261,7 @@ def api_check_staff_availability():
         return jsonify({
             "success": False,
             "available": False,
+            "reason": appointment_service.AVAILABILITY_REASON_INVALID,
             "message": "Thiếu thông tin nhân viên, ngày giờ hoặc dịch vụ",
         }), 400
 
@@ -236,27 +273,22 @@ def api_check_staff_availability():
             duration_minutes=duration,
         )
 
-        if is_available:
-            return jsonify({
-                "success": True,
-                "available": True,
-                "message": "Nhân viên rảnh trong khung giờ này",
-                "duration": duration,
-            }), 200
-        else:
-            return jsonify({
-                "success": True,
-                "available": False,
-                "message": f"Nhân viên không khả dụng: {reason}",
-                "conflicts": conflicts,
-                "duration": duration,
-            }), 200
+        message = appointment_service.AVAILABILITY_MESSAGES.get(reason, reason)
+        return jsonify({
+            "success": True,
+            "available": is_available,
+            "reason": reason,
+            "message": message,
+            "conflicts": conflicts,
+            "duration": duration,
+        }), 200
 
     except Exception as e:
         current_app.logger.error(f"Lỗi kiểm tra tính khả dụng: {e}", exc_info=True)
         return jsonify({
             "success": False,
             "available": False,
+            "reason": appointment_service.AVAILABILITY_REASON_API_ERROR,
             "message": "Lỗi hệ thống khi kiểm tra",
         }), 500
 

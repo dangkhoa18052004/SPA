@@ -63,6 +63,7 @@ class DichVu(db.Model):
     anhdichvu = db.Column(db.LargeBinary) # Sử dụng LargeBinary cho kiểu bytea
     active = db.Column(db.Boolean, default=True)
     mota = db.Column(db.Text)
+    post_care_instructions = db.Column(db.Text, nullable=True)
 
 class AppointmentStatus:
     PENDING = 'pending'
@@ -317,3 +318,123 @@ class DanhGia(db.Model):
     khachhang = db.relationship('KhachHang', backref='danhgia_list')
     nhanvien = db.relationship('NhanVien', backref='danhgia_list')
 
+
+class GoiDichVu(db.Model):
+    __tablename__ = 'goidichvu'
+    magoi = db.Column(db.Integer, primary_key=True)
+    tengoi = db.Column(db.String(200), nullable=False)
+    mota = db.Column(db.Text)
+    giagoi = db.Column(db.Numeric(12, 2), nullable=False)
+    validity_months = db.Column(db.Integer, nullable=True)
+    anhgoi = db.Column(db.LargeBinary)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    items = db.relationship('GoiDichVuItem', cascade='all, delete-orphan', backref='package')
+    __table_args__ = (db.CheckConstraint('giagoi > 0 AND (validity_months IS NULL OR validity_months > 0)', name='ck_package_values'),)
+
+
+class GoiDichVuItem(db.Model):
+    __tablename__ = 'goidichvuitem'
+    id = db.Column(db.Integer, primary_key=True)
+    magoi = db.Column(db.Integer, db.ForeignKey('goidichvu.magoi'), nullable=False)
+    madv = db.Column(db.Integer, db.ForeignKey('dichvu.madv'), nullable=False)
+    total_sessions = db.Column(db.Integer, nullable=False)
+    regular_unit_price_snapshot = db.Column(db.Numeric(12, 2), nullable=False)
+    package_unit_value = db.Column(db.Numeric(12, 2), nullable=False)
+    service = db.relationship('DichVu')
+    __table_args__ = (db.UniqueConstraint('magoi', 'madv', name='uq_package_service'),
+                      db.CheckConstraint('total_sessions > 0', name='ck_package_sessions'))
+
+
+class GoiDichVuPurchase(db.Model):
+    __tablename__ = 'goidichvupurchase'
+    id = db.Column(db.Integer, primary_key=True)
+    makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), nullable=False, index=True)
+    magoi = db.Column(db.Integer, db.ForeignKey('goidichvu.magoi'), nullable=False)
+    amount = db.Column(db.Numeric(12, 2), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='pending', index=True)
+    payment_method = db.Column(db.String(30), nullable=False)
+    external_transaction_id = db.Column(db.String(150), nullable=True, unique=True)
+    snapshot_json = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    paid_at = db.Column(db.DateTime)
+    created_by_staff = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'))
+    confirmed_by_staff = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'))
+    cash_received = db.Column(db.Numeric(12, 2))
+    creator = db.relationship('NhanVien', foreign_keys=[created_by_staff])
+    confirmer = db.relationship('NhanVien', foreign_keys=[confirmed_by_staff])
+    package = db.relationship('GoiDichVu')
+    customer = db.relationship('KhachHang')
+    __table_args__ = (db.CheckConstraint("status IN ('pending','paid','failed','cancelled')", name='ck_purchase_status'),)
+
+
+class TheLieuTrinh(db.Model):
+    """Customer treatment entitlement record; never a customer-issued electronic card."""
+    __tablename__ = 'thelieutrinh'
+    mathe = db.Column(db.Integer, primary_key=True)
+    makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), nullable=False, index=True)
+    magoi = db.Column(db.Integer, db.ForeignKey('goidichvu.magoi'), nullable=False)
+    purchase_id = db.Column(db.Integer, db.ForeignKey('goidichvupurchase.id'), nullable=False, unique=True)
+    purchased_at = db.Column(db.DateTime, nullable=False)
+    activated_at = db.Column(db.DateTime, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='active')
+    version = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    purchase = db.relationship('GoiDichVuPurchase')
+    customer = db.relationship('KhachHang')
+    items = db.relationship('TheLieuTrinhItem', backref='treatment', cascade='all, delete-orphan')
+    __table_args__ = (db.CheckConstraint("status IN ('active','used_up','expired','cancelled')", name='ck_treatment_status'),)
+
+
+class TheLieuTrinhItem(db.Model):
+    __tablename__ = 'thelieutrinhitem'
+    id = db.Column(db.Integer, primary_key=True)
+    mathe = db.Column(db.Integer, db.ForeignKey('thelieutrinh.mathe'), nullable=False)
+    madv = db.Column(db.Integer, db.ForeignKey('dichvu.madv'), nullable=False)
+    total_sessions = db.Column(db.Integer, nullable=False)
+    unit_value_snapshot = db.Column(db.Numeric(12, 2), nullable=False)
+    regular_price_snapshot = db.Column(db.Numeric(12, 2), nullable=False)
+    service = db.relationship('DichVu')
+    __table_args__ = (db.UniqueConstraint('mathe', 'madv', name='uq_treatment_service'),
+                      db.CheckConstraint('total_sessions > 0', name='ck_treatment_sessions'))
+
+
+class LieuTrinhUsage(db.Model):
+    __tablename__ = 'lieutrinhusage'
+    id = db.Column(db.Integer, primary_key=True)
+    mathe = db.Column(db.Integer, db.ForeignKey('thelieutrinh.mathe'), nullable=False, index=True)
+    the_item_id = db.Column(db.Integer, db.ForeignKey('thelieutrinhitem.id'), nullable=False)
+    malh = db.Column(db.Integer, db.ForeignKey('lichhen.malh'), nullable=False, index=True)
+    madv = db.Column(db.Integer, db.ForeignKey('dichvu.madv'), nullable=False)
+    state = db.Column(db.String(20), nullable=False)
+    reserved_at = db.Column(db.DateTime, nullable=False)
+    consumed_at = db.Column(db.DateTime)
+    released_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    item = db.relationship('TheLieuTrinhItem')
+    __table_args__ = (db.UniqueConstraint('malh', 'madv', name='uq_usage_appointment_service'),
+                      db.CheckConstraint("state IN ('reserved','consumed','released')", name='ck_usage_state'))
+
+
+class NotificationJob(db.Model):
+    __tablename__ = 'notificationjob'
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(40), nullable=False)
+    makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), nullable=False)
+    malh = db.Column(db.Integer, db.ForeignKey('lichhen.malh'), nullable=True)
+    scheduled_at = db.Column(db.DateTime, nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default='pending', index=True)
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    max_attempts = db.Column(db.Integer, nullable=False, default=3)
+    sent_at = db.Column(db.DateTime)
+    last_error = db.Column(db.Text)
+    payload_json = db.Column(db.JSON, nullable=False)
+    unique_key = db.Column(db.String(200), nullable=False, unique=True)
+    processing_at = db.Column(db.DateTime)
+    first_attempt_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    __table_args__ = (db.CheckConstraint("status IN ('pending','processing','sent','failed','cancelled')", name='ck_job_status'),)
