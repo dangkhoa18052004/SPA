@@ -122,3 +122,18 @@ def test_customer_cannot_read_or_use_another_customers_rewards(app, client, admi
     assert client.post(f'/api/payment/invoices/{invoice}/reward', headers=customer_auth_headers, json={'redemption_id': foreign_id}).status_code == 400
     with app.app_context():
         assert db.session.get(LoyaltyRewardRedemption, foreign_id).status == 'available'
+
+
+def test_catalog_and_my_rewards_expose_voucher_terms(client, admin_auth_headers, customer_auth_headers, funded):
+    rid = reward(client, admin_auth_headers, name='Voucher điều kiện', apply_to='service_invoice', minimum_spend=200000, stock=4, validity_days=30)
+    gid = reward(client, admin_auth_headers, name='Khăn', reward_type='physical_gift', points_cost=50, reward_value=0)
+    items = {r['id']: r for r in client.get('/api/loyalty/rewards', headers=customer_auth_headers).json['items']}
+    assert {k: items[rid][k] for k in ('reward_value', 'apply_to', 'minimum_spend', 'validity_days', 'stock', 'points_cost')} == dict(
+        reward_value='50000.00', apply_to='service_invoice', minimum_spend='200000.00', validity_days=30, stock=4, points_cost=100)
+    assert (items[gid]['apply_to'], items[gid]['minimum_spend']) == (None, None)
+    assert redeem(client, customer_auth_headers, rid, 'terms').status_code == 201
+    offer = client.get('/api/loyalty/my-rewards', headers=customer_auth_headers).json['items'][0]
+    assert (offer['reward']['apply_to'], offer['reward']['minimum_spend'], offer['status']) == ('service_invoice', '200000.00', 'available')
+    assert offer['code'].startswith('BIN-') and offer['redeemed_at'] and offer['expires_at']
+    # The wallet API keeps reserved_points for staff screens; the customer UI simply never renders it.
+    assert 'reserved_points' in client.get('/api/loyalty/me', headers=customer_auth_headers).json['wallet']

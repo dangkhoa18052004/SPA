@@ -1,7 +1,7 @@
 {% extends "admin/layout.html" %}
 {% block title %}Điểm thưởng - Bin Spa{% endblock %}
 {% block page_title %}Điểm thưởng{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css', v='2.2') }}">{% endblock %}
 {% block content %}
 <section id="adminLoyalty" class="loyalty-page">
     <p id="loyaltyMessage" role="status" aria-live="polite"></p>
@@ -11,9 +11,16 @@
         <button class="btn btn-secondary" data-tab="customers">Khách hàng</button>
         <button class="btn btn-secondary" data-tab="transactions">Lịch sử điểm</button>
         <button class="btn btn-secondary" data-tab="rewards">Quà đổi thưởng</button>
-        <button class="btn btn-secondary" data-tab="redemptions">Lịch sử đổi quà</button>
+        <button class="btn btn-secondary" data-tab="redemptions">Đổi quà / Tra mã</button>
     </nav>
     <div id="loyaltyContent" aria-live="polite">Đang tải...</div>
+    <dialog id="giftHandover" class="loyalty-dialog" aria-labelledby="giftHandoverTitle">
+        <h3 id="giftHandoverTitle">Xác nhận đã giao quà</h3>
+        <div id="giftHandoverDetail"></div>
+        <p>Chỉ xác nhận sau khi đã kiểm tra mã và trao quà tận tay khách.</p>
+        <button type="button" class="btn btn-primary" id="giftHandoverConfirm">Xác nhận đã giao</button>
+        <button type="button" class="btn btn-secondary" data-close>Hủy</button>
+    </dialog>
     <dialog id="loyaltyAdjust" class="loyalty-dialog">
         <h3>Điều chỉnh điểm</h3><p id="adjustCustomer"></p>
         <form id="adjustForm">
@@ -26,11 +33,21 @@
     </dialog>
     <dialog id="loyaltyRewardEditor" class="loyalty-dialog">
         <h3>Quà đổi thưởng</h3><form id="rewardForm">
-            <label>Tên quà<input name="name" maxlength="200" required></label>
+            <label>Loại quà<select name="reward_type"><option value="voucher_amount">Voucher giảm tiền</option><option value="voucher_percent">Voucher giảm %</option><option value="physical_gift">Quà tại cửa hàng</option></select></label>
+            <label><span data-name-label>Tên voucher</span><input name="name" maxlength="200" required></label>
             <label>Mô tả<textarea name="description"></textarea></label>
-            <label>Loại quà<select name="reward_type"><option value="voucher_amount">Voucher giảm tiền</option><option value="physical_gift">Quà tại cửa hàng</option></select></label>
             <label>Điểm cần đổi<input name="points_cost" type="number" min="1" step="1" required></label>
-            <label>Giá trị voucher (VNĐ)<input name="reward_value" type="number" min="0" step="1" value="0" required></label>
+            <fieldset data-amount-fields class="loyalty-fieldset">
+                <label>Giá trị giảm (VNĐ)<input name="reward_value" type="number" min="1" step="1" required></label>
+            </fieldset>
+            <fieldset data-percent-fields class="loyalty-fieldset">
+                <label>% giảm<input name="percentage_value" type="number" min="0.01" max="100" step="0.01" required></label>
+                <label>Giảm tối đa (VNĐ, để trống nếu không giới hạn)<input name="max_discount_amount" type="number" min="1" step="1"></label>
+            </fieldset>
+            <fieldset data-voucher-fields class="loyalty-fieldset">
+                <label>Áp dụng cho<select name="apply_to"><option value="both">Cả hai</option><option value="service_invoice">Hóa đơn dịch vụ</option><option value="package_purchase">Mua gói</option></select></label>
+                <label>Đơn tối thiểu (VNĐ, 0 nếu không yêu cầu)<input name="minimum_spend" type="number" min="0" step="1" value="0"></label>
+            </fieldset>
             <label>Số lượng (để trống nếu không giới hạn)<input name="stock" type="number" min="0" step="1"></label>
             <label>Hiệu lực (ngày, để trống nếu không hết hạn)<input name="validity_days" type="number" min="1" step="1"></label>
             <label><input name="active" type="checkbox" checked> Đang cho đổi</label>
@@ -39,4 +56,4 @@
     </dialog>
 </section>
 {% endblock %}
-{% block extra_js %}<script src="{{ url_for('static', filename='js/admin/loyalty.js') }}"></script>{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/admin/loyalty.js', v='2.4') }}"></script>{% endblock %}

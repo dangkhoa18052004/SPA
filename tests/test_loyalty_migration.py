@@ -82,7 +82,7 @@ def test_flask_db_upgrade_from_existing_head(migration_engine, monkeypatch):
     result=runner.invoke(args=['db','upgrade'])
     assert result.exit_code==0,result.output
     with engine.connect() as c:
-        assert c.execute(text('SELECT version_num FROM alembic_version')).scalar()=='20261004_0011'
+        assert c.execute(text('SELECT version_num FROM alembic_version')).scalar()=='20261004_0013'
         assert c.execute(text('SELECT payable_amount FROM hoadon')).scalar()==500000
     with application.app_context():
         db.session.remove();db.engine.dispose()

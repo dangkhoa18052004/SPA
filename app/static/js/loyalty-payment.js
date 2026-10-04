@@ -11,6 +11,13 @@
         if (!response.ok) throw Object.assign(new Error(data.msg || data.message || 'Không thể cập nhật điểm'), {status: response.status});
         return data;
     }
+    const scopes = {service_invoice:'Hóa đơn dịch vụ', package_purchase:'Mua gói', both:'Cả hai'};
+    const pct = value => new Intl.NumberFormat('vi-VN', {maximumFractionDigits:2}).format(Number(value)) + '%';
+    function voucherTerms(reward) {
+        const minimum = Number(reward.minimum_spend || 0);
+        const value = reward.reward_type === 'voucher_percent' ? pct(reward.percentage_value) + (reward.max_discount_amount ? ` (tối đa ${money(reward.max_discount_amount)})` : '') : money(reward.reward_value);
+        return `Giảm ${value} · ${minimum ? 'Đơn từ '+money(minimum) : 'Không yêu cầu đơn tối thiểu'} · ${scopes[reward.apply_to || 'both']}`;
+    }
     function summary(data) {
         return `<p>Tạm tính: ${money(data.original_total ?? data.tongtien ?? data.amount)}</p>`+
             (Number(data.reward_discount) ? `<p>Voucher: −${money(data.reward_discount)}</p>` : '')+
@@ -57,14 +64,25 @@
             }
             const remove = host.querySelector('[data-remove]');
             if (remove) remove.onclick=run(async()=>{await api(base+'/loyalty','DELETE');await changed();});
-            const endpoint = admin ? `/api/admin/loyalty/customers/${makh}/vouchers?per_page=100` : '/api/loyalty/my-rewards?status=usable&per_page=100';
-            const vouchers = (await api(endpoint)).items.filter(v=>v.status==='available' && v.reward.reward_type==='voucher_amount');
+            // The server filters by transaction type; the backend still validates every apply.
+            const kind = base.includes('/packages/') ? 'package_purchase' : 'service_invoice';
+            const endpoint = admin ? `/api/admin/loyalty/customers/${makh}/vouchers?usable_for=${kind}&per_page=100` : `/api/loyalty/my-rewards?status=usable&usable_for=${kind}&per_page=100`;
+            const vouchers = (await api(endpoint)).items.filter(v=>v.status==='available' && ['voucher_amount','voucher_percent'].includes(v.reward.reward_type) && [undefined,null,'both',kind].includes(v.reward.apply_to));
             if (!host.isConnected) return;
             const section = host.querySelector('[data-vouchers]');
-            section.innerHTML = state.reward_redemption_id ? '<button type="button" class="btn btn-secondary" data-remove-voucher>Bỏ voucher</button>' :
-                vouchers.length ? `<label>Ưu đãi của khách<select data-voucher><option value="">Chọn voucher</option>${vouchers.map(v=>`<option value="${v.id}">${esc(v.reward.name)} · ${esc(v.code)}</option>`).join('')}</select></label><button type="button" class="btn btn-secondary" data-apply-voucher>Áp dụng voucher</button>` : '';
+            const total = Number(state.original_total);
+            const option = v => {
+                const minimum = Number(v.reward.minimum_spend || 0), short = minimum > total;
+                return `<option value="${v.id}" ${short ? 'disabled' : ''}>${esc(v.reward.name)} · ${esc(v.code)} · ${esc(voucherTerms(v.reward))}${short ? ' (chưa đạt đơn tối thiểu)' : ''}</option>`;
+            };
+            section.innerHTML = state.reward_redemption_id ? `<p data-applied-voucher>Voucher đang áp dụng: ${esc(state.reward_name)} · ${esc(state.reward_code)}</p><button type="button" class="btn btn-secondary" data-remove-voucher>Bỏ voucher</button>` :
+                vouchers.length ? `<label>Ưu đãi của khách<select data-voucher><option value="">Chọn voucher</option>${vouchers.map(option).join('')}</select></label><button type="button" class="btn btn-secondary" data-apply-voucher>Áp dụng voucher</button>` : '';
             const apply = section.querySelector('[data-apply-voucher]');
-            if (apply) apply.onclick=run(async()=>{await api(base+'/reward','POST',{redemption_id:Number(section.querySelector('select').value)});await changed();});
+            if (apply) apply.onclick=run(async()=>{
+                const id = Number(section.querySelector('select').value);
+                if (!id) { note.textContent='Hãy chọn voucher.'; return; }
+                await api(base+'/reward','POST',{redemption_id:id});await changed();
+            });
             const removeVoucher = section.querySelector('[data-remove-voucher]');
             if (removeVoucher) removeVoucher.onclick=run(async()=>{await api(base+'/reward','DELETE');await changed();});
         } catch(error) { if(host.isConnected) host.textContent=error.message; }
@@ -102,5 +120,5 @@
         };
         await mount(dialog.querySelector('[data-editor]'),base,null,()=>openCustomerInvoice(id));
     }
-    window.LoyaltyPayment={api,mount,summary,money,esc,openCustomerInvoice};
+    window.LoyaltyPayment={api,mount,summary,money,esc,voucherTerms,openCustomerInvoice};
 })();

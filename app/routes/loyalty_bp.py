@@ -81,9 +81,9 @@ def rewards():
     search = text_arg('search')
     if search:
         query = query.filter(LoyaltyReward.name.ilike(service.like_pattern(search), escape='!'))
-    reward_type = choice_arg('reward_type', service.REWARD_TYPES)
+    reward_type = choice_arg('reward_type', service.REWARD_FILTERS)
     if reward_type:
-        query = query.filter(LoyaltyReward.reward_type == reward_type)
+        query = query.filter(LoyaltyReward.reward_type.in_(service.VOUCHER_TYPES) if reward_type == 'voucher' else LoyaltyReward.reward_type == reward_type)
     if choice_arg('affordable_only', ('0', '1')) == '1':
         query = query.filter(LoyaltyReward.points_cost <= service.get_balance(g.current_user.makh)['available_points'])
     return jsonify(success=True, **paginate(query.order_by(LoyaltyReward.id), service.serialize_reward))
@@ -95,8 +95,8 @@ def my_rewards():
     # Ownership comes only from the token; one `now` keeps filter, total and labels consistent.
     now = datetime.utcnow()
     query = service.filter_redemptions(LoyaltyRewardRedemption.query.filter_by(makh=g.current_user.makh),
-        choice_arg('status', service.REDEMPTION_GROUPS) or 'all', choice_arg('reward_type', service.REWARD_TYPES),
-        text_arg('search'), now)
+        choice_arg('status', service.REDEMPTION_GROUPS) or 'all', choice_arg('reward_type', service.REWARD_FILTERS),
+        text_arg('search'), now, choice_arg('usable_for', service.TARGET_KINDS))
     return jsonify(success=True, **paginate(query.order_by(LoyaltyRewardRedemption.id.desc()),
         lambda row: service.serialize_redemption(row, now)))
 

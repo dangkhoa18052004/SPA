@@ -51,3 +51,12 @@
   #loyalty-section .loyalty-grid{grid-template-columns:1fr}
   .loyalty-reward-dialog{padding:18px}.loyalty-reward-dialog .loyalty-actions .btn{flex:1}
 }
+.loyalty-fieldset{border:0;margin:0;padding:0;min-width:0}.loyalty-fieldset[hidden]{display:none}
+/* Gift desk: codes wrap, the handover button stays with the status; phones get one card per redemption. */
+.loyalty-desk code{word-break:break-all}.loyalty-desk td{vertical-align:top;font-size:14px}.loyalty-desk [data-fulfill]{display:block;margin:8px 0 0;white-space:nowrap}
+@media (max-width:640px){
+.loyalty-desk thead{display:none}.loyalty-desk table,.loyalty-desk tbody,.loyalty-desk tr,.loyalty-desk td{display:block;width:100%;box-sizing:border-box}
+.loyalty-desk tr{border:1px solid #ede4d5;border-radius:10px;margin:0 0 12px;padding:8px 12px;background:#fff}
+.loyalty-page .loyalty-desk td{display:grid;grid-template-columns:110px 1fr;gap:8px;padding:6px 0;border:0}
+.loyalty-desk td::before{content:attr(data-label);color:#6b6257;font-size:13px}.loyalty-desk td[colspan]{display:block}.loyalty-desk td[colspan]::before{content:none}
+}

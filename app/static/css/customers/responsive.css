@@ -500,6 +500,8 @@ textarea {
 
     .profile-sidebar {
         position: static;
+        max-height: none;
+        overflow-y: visible;
     }
 
     .avatar-wrapper {

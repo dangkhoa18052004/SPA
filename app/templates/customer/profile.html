@@ -5,10 +5,10 @@
 {% block title %}Thông tin cá nhân - Bin Spa{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/customers/profile.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/customers/profile.css', v='1.1') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/reviews.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css', v='2.0') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css', v='2.1') }}">
 {% endblock %}
 
 {% block content %}
@@ -219,5 +219,5 @@
 <script src="{{ url_for('static', filename='js/reviews.js') }}"></script>
 <script src="{{ url_for('static', filename='js/customers/profile.js', v='1.2') }}"></script>
 <script src="{{ url_for('static', filename='js/packages.js') }}"></script>
-<script src="{{ url_for('static', filename='js/customers/loyalty.js', v='2.0') }}"></script>
+<script src="{{ url_for('static', filename='js/customers/loyalty.js', v='2.3') }}"></script>
 {% endblock %}

@@ -1,10 +1,11 @@
+from datetime import datetime
 from flask import Blueprint, jsonify, request, g, render_template
 from sqlalchemy import func, or_
 from ..extensions import db
 from ..decorators import roles_required
-from ..models import KhachHang, LoyaltyWallet, LoyaltyPointTransaction, LoyaltyReward, LoyaltyRewardRedemption
+from ..models import KhachHang, NhanVien, LoyaltyWallet, LoyaltyPointTransaction, LoyaltyReward, LoyaltyRewardRedemption
 from ..services import loyalty_service as service
-from ..routes.loyalty_bp import paginate, payload, request_key, validation, conflict
+from ..routes.loyalty_bp import paginate, payload, request_key, validation, conflict, choice_arg, text_arg
 from sqlalchemy.exc import IntegrityError
 
 admin_loyalty_bp = Blueprint('admin_loyalty', __name__)
@@ -111,27 +112,55 @@ def reward_detail(reward_id):
     return jsonify(success=True, reward=service.serialize_reward(reward))
 
 
+# Front desk (letan) may look up and hand over gifts; catalog, rules and points stay admin/manager only.
+GIFT_DESK_ROLES = ('admin', 'manager', 'letan')
+
+
+def desk_query():
+    return db.session.query(LoyaltyRewardRedemption, KhachHang, NhanVien.hoten).join(
+        KhachHang, KhachHang.makh == LoyaltyRewardRedemption.makh).outerjoin(
+        NhanVien, NhanVien.manv == LoyaltyRewardRedemption.fulfilled_by_staff)
+
+
+def desk_redemption(row, now=None):
+    redemption, customer, staff_name = row
+    return dict(service.serialize_redemption(redemption, now), customer=dict(makh=customer.makh, hoten=customer.hoten,
+        sdt=customer.sdt, email=customer.email), fulfilled_by_name=staff_name)
+
+
 @admin_loyalty_bp.route('/api/admin/loyalty/redemptions')
-@roles_required('admin', 'manager')
+@roles_required(*GIFT_DESK_ROLES)
 def redemptions():
     manager()
-    query = LoyaltyRewardRedemption.query
+    now = datetime.utcnow()
+    query = service.filter_redemptions(desk_query(), choice_arg('status', service.REDEMPTION_GROUPS) or 'all',
+        choice_arg('reward_type', service.REWARD_FILTERS), now=now)
     if request.args.get('makh'):
-        query = query.filter_by(makh=request.args.get('makh', type=int))
-    return jsonify(success=True, **paginate(query.order_by(LoyaltyRewardRedemption.id.desc()), service.serialize_redemption))
+        query = query.filter(LoyaltyRewardRedemption.makh == request.args.get('makh', type=int))
+    search = text_arg('search')
+    if search:
+        pattern = service.like_pattern(search)
+        query = query.filter(or_(*(column.ilike(pattern, escape='!') for column in (
+            LoyaltyRewardRedemption.code, LoyaltyRewardRedemption.reward_snapshot_json['name'].as_string(),
+            KhachHang.hoten, KhachHang.sdt, KhachHang.email))))
+    return jsonify(success=True, **paginate(query.order_by(LoyaltyRewardRedemption.id.desc()), lambda row: desk_redemption(row, now)))
 
 
 @admin_loyalty_bp.route('/api/admin/loyalty/redemptions/<int:redemption_id>/fulfill', methods=['POST'])
-@roles_required('admin', 'manager')
+@roles_required(*GIFT_DESK_ROLES)
 def fulfill(redemption_id):
     manager()
-    redemption = service.fulfill_reward(redemption_id, g.current_user.manv)
+    redemption, changed = service.fulfill_reward(redemption_id, g.current_user.manv)
     db.session.commit()
-    return jsonify(success=True, redemption=service.serialize_redemption(redemption))
+    row = desk_query().filter(LoyaltyRewardRedemption.id == redemption.id).one()
+    return jsonify(success=True, already_fulfilled=not changed, redemption=desk_redemption(row))
 
 
 @admin_loyalty_bp.route('/api/admin/loyalty/customers/<int:makh>/vouchers')
 @roles_required('admin', 'manager', 'letan', 'staff')
 def payment_vouchers(makh):
     manager()
-    return jsonify(success=True, **paginate(LoyaltyRewardRedemption.query.filter_by(makh=makh, status='available').order_by(LoyaltyRewardRedemption.id), service.serialize_redemption))
+    now = datetime.utcnow()
+    usable_for = choice_arg('usable_for', service.TARGET_KINDS)
+    query = service.filter_redemptions(LoyaltyRewardRedemption.query.filter_by(makh=makh), 'usable', now=now, usable_for=usable_for)
+    return jsonify(success=True, **paginate(query.order_by(LoyaltyRewardRedemption.id), lambda row: service.serialize_redemption(row, now)))

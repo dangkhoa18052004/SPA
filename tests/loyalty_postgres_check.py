@@ -37,7 +37,7 @@ def main():
         run([str(binaries/'pg_ctl.exe'),'-D',str(data),'-l',str(log),'-o',f'-h 127.0.0.1 -p {port}','-w','start'])
         started=True
         env=dict(os.environ,TEST_LOYALTY_POSTGRES_URL=f'postgresql+psycopg2://loyalty_test@127.0.0.1:{port}/postgres',PYTHONDONTWRITEBYTECODE='1')
-        target=['tests'] if '--full' in sys.argv else ['tests/test_loyalty_concurrency.py','tests/test_loyalty_migration.py']
+        target=['tests'] if '--full' in sys.argv else ['tests/test_loyalty_concurrency.py','tests/test_loyalty_migration.py','tests/test_loyalty_voucher_terms.py','tests/test_loyalty_voucher_apply.py','tests/test_loyalty_voucher_finalize.py','tests/test_loyalty_gift_fulfillment.py','tests/test_loyalty_voucher_percent.py','tests/test_package_sale_channels_migration.py']
         report=artifacts/'results.xml'
         result=subprocess.run([sys.executable,'-m','pytest',*target,'-q','--disable-warnings','--basetemp',str(artifacts/'pytest'),'--junitxml',str(report)],cwd=root,env=env,creationflags=flags)
         if report.exists():

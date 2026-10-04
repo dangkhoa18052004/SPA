@@ -144,6 +144,7 @@ const MENU_CONFIG = {
     ],
 
     letan: [
+        { key: 'loyalty', title: 'Đổi quà / Tra mã', href: '/admin/loyalty?tab=redemptions', icon: 'fa-gift' },
         { key: 'package_sales', title: 'Bán gói / Phiếu bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
         { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
         { key: 'appointments', title: 'Quản lý Lịch hẹn', href: '/admin/appointments', icon: 'fa-calendar-alt' },
@@ -378,7 +379,8 @@ function checkPageAccess() {
 
     // Define restricted pages
     const restrictions = {
-        '/admin/loyalty': ['admin', 'manager'],
+        // letan sees only the gift desk tab there; every other loyalty API stays admin/manager.
+        '/admin/loyalty': ['admin', 'manager', 'letan'],
         '/admin/packages': ['admin', 'manager', 'staff'],
         '/admin/reviews': ['admin', 'manager', 'staff'],
         '/admin/package-sales': ['admin', 'manager', 'letan'],

@@ -5,13 +5,14 @@ available + reserved equals SUM(ledger.points_delta); reserving never writes led
 Money is Decimal, points are integers, earning rounds down by complete amount units.
 """
 from datetime import datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_DOWN
 from uuid import uuid4
 from sqlalchemy import func
 from ..extensions import db
 from ..models import (KhachHang, HoaDon, GoiDichVuPurchase, LoyaltyWallet,
     LoyaltyConfig, LoyaltyPointTransaction, LoyaltyRedemptionReservation,
     LoyaltyReward, LoyaltyRewardRedemption)
+from ..loyalty_models import VOUCHER_TYPES
 
 
 class LoyaltyError(ValueError):
@@ -328,10 +329,30 @@ def reverse_loyalty_for_payment(kind, record_id):
     db.session.flush()
 
 
+APPLY_TO = ('service_invoice', 'package_purchase', 'both')
+
+
 def serialize_reward(reward):
+    # Also the redemption snapshot: every voucher term must be listed here.
     return dict(id=reward.id, name=reward.name, description=reward.description,
         reward_type=reward.reward_type, points_cost=reward.points_cost,
-        reward_value=str(reward.reward_value), stock=reward.stock, validity_days=reward.validity_days, active=reward.active)
+        reward_value=str(reward.reward_value), stock=reward.stock, validity_days=reward.validity_days, active=reward.active,
+        minimum_spend=optional_str(reward.minimum_spend), apply_to=reward.apply_to,
+        percentage_value=optional_str(reward.percentage_value), max_discount_amount=optional_str(reward.max_discount_amount))
+
+
+def optional_str(value):
+    return str(value) if value is not None else None
+
+
+def percent(value):
+    try:
+        result = money(value)
+    except LoyaltyError:
+        result = None
+    if result is None or not 0 < result <= 100:
+        raise LoyaltyError('Phần trăm giảm phải lớn hơn 0 và tối đa 100')
+    return result
 
 
 def save_reward(data, reward=None):
@@ -339,12 +360,39 @@ def save_reward(data, reward=None):
         raise LoyaltyError('Quà không hợp lệ')
     values = dict(serialize_reward(reward) if reward else {}, **data)
     name = values.get('name')
-    if not isinstance(name, str) or not name.strip() or len(name) > 200 or values.get('reward_type') not in ('voucher_amount', 'physical_gift'):
+    if not isinstance(name, str) or not name.strip() or len(name) > 200 or values.get('reward_type') not in REWARD_TYPES:
         raise LoyaltyError('Tên hoặc loại quà không hợp lệ')
     values['points_cost'] = integer(values.get('points_cost'), 1)
-    values['reward_value'] = money(values.get('reward_value', 0))
-    if values['reward_type'] == 'voucher_amount' and not values['reward_value']:
+    values['reward_value'] = money(values.get('reward_value') or 0)
+    kind = values['reward_type']
+    if kind == 'voucher_percent':
+        # The percentage replaces the fixed value; the optional cap is a VND amount.
+        values['reward_value'] = Decimal(0)
+        values['percentage_value'] = percent(values.get('percentage_value'))
+        cap = values.get('max_discount_amount')
+        if cap is not None and cap != '':
+            try:
+                cap = money(cap)
+            except LoyaltyError:
+                cap = None
+            if not cap:
+                raise LoyaltyError('Giảm tối đa phải là số tiền lớn hơn 0 hoặc để trống')
+        values['max_discount_amount'] = cap or None
+    else:
+        values['percentage_value'] = values['max_discount_amount'] = None
+    if kind == 'voucher_amount' and not values['reward_value']:
         raise LoyaltyError('Voucher cần giá trị lớn hơn 0')
+    if kind in VOUCHER_TYPES:
+        try:
+            values['minimum_spend'] = money(values.get('minimum_spend') or 0)
+        except LoyaltyError:
+            raise LoyaltyError('Đơn tối thiểu phải là số tiền không âm')
+        values['apply_to'] = values.get('apply_to') or 'both'
+        if values['apply_to'] not in APPLY_TO:
+            raise LoyaltyError('Phạm vi áp dụng voucher không hợp lệ')
+    else:
+        # Physical gifts are never applied to a payment.
+        values['minimum_spend'] = values['apply_to'] = None
     for key in ('stock', 'validity_days'):
         if values.get(key) is not None:
             values[key] = integer(values[key], 0 if key == 'stock' else 1)
@@ -353,7 +401,8 @@ def save_reward(data, reward=None):
     if not isinstance(values.get('active', True), bool) or not isinstance(values.get('description', ''), str):
         raise LoyaltyError('Quà không hợp lệ')
     reward = reward or LoyaltyReward()
-    for key in ('description', 'reward_type', 'points_cost', 'reward_value', 'stock', 'validity_days', 'active'):
+    for key in ('description', 'reward_type', 'points_cost', 'reward_value', 'stock', 'validity_days', 'active', 'minimum_spend', 'apply_to',
+                'percentage_value', 'max_discount_amount'):
         setattr(reward, key, values.get(key, '' if key == 'description' else True if key == 'active' else None))
     reward.name = name.strip()
     db.session.add(reward)
@@ -388,24 +437,62 @@ def redeem_reward(makh, reward_id, idempotency_key):
     return redemption
 
 
+def vnd(amount):
+    return f'{int(amount):,}'.replace(',', '.') + 'đ'
+
+
+def voucher_terms(snapshot):
+    # Snapshots taken before migration 0012 carry no terms: usable everywhere, no minimum.
+    return snapshot.get('apply_to') or 'both', money(snapshot.get('minimum_spend') or 0)
+
+
+def voucher_discount(snapshot, amount):
+    """Discount for one voucher on the original amount; Decimal only, never above the amount."""
+    if snapshot['reward_type'] == 'voucher_percent':
+        # Whole VND, rounded down, so the customer never pays a fraction of a đồng.
+        discount = (amount * Decimal(str(snapshot['percentage_value'])) / Decimal(100)).quantize(Decimal(1), rounding=ROUND_DOWN)
+        if snapshot.get('max_discount_amount') is not None:
+            discount = min(discount, money(snapshot['max_discount_amount']))
+    else:
+        discount = money(snapshot['reward_value'])
+    return money(min(discount, amount))
+
+
 def apply_reward(target, redemption_id):
     require_unpaid(target)
     get_wallet(target.makh, lock=True)
+    # Ownership comes from the locked payment target, never from client input.
     if not LoyaltyRewardRedemption.query.filter_by(id=redemption_id, makh=target.makh).update(
             {LoyaltyRewardRedemption.id: LoyaltyRewardRedemption.id}, synchronize_session=False):
         raise LoyaltyError('Không tìm thấy ưu đãi của khách hàng')
     voucher = LoyaltyRewardRedemption.query.filter_by(id=redemption_id).populate_existing().one()
-    if voucher.status == 'reserved' and voucher.target_type == target_kind(target) and voucher.target_id == target_id(target):
+    kind = target_kind(target)
+    if voucher.status == 'reserved' and voucher.target_type == kind and voucher.target_id == target_id(target):
         return voucher
-    if voucher.status != 'available' or voucher.reward_snapshot_json['reward_type'] != 'voucher_amount' or (voucher.expires_at and voucher.expires_at < datetime.utcnow()):
+    snapshot = voucher.reward_snapshot_json
+    if snapshot['reward_type'] not in VOUCHER_TYPES:
+        raise LoyaltyError('Ưu đãi này không phải voucher giảm tiền')
+    if voucher.status == 'reserved':
+        raise LoyaltyError('Voucher đang được áp dụng cho giao dịch khác')
+    if redemption_status(voucher) == 'expired':
+        raise LoyaltyError('Voucher đã hết hạn')
+    if voucher.status != 'available':
         raise LoyaltyError('Voucher không còn khả dụng')
-    if LoyaltyRewardRedemption.query.filter_by(target_type=target_kind(target), target_id=target_id(target), status='reserved').first():
+    apply_to, minimum = voucher_terms(snapshot)
+    if apply_to not in ('both', kind):
+        raise LoyaltyError('Voucher này chỉ dùng cho ' + ('hóa đơn dịch vụ' if apply_to == 'service_invoice' else 'giao dịch mua gói'))
+    if original_total(target) < minimum:
+        raise LoyaltyError(('Hóa đơn' if kind == 'service_invoice' else 'Giao dịch mua gói')
+            + f' chưa đạt giá trị tối thiểu {vnd(minimum)} để sử dụng ưu đãi này.')
+    if LoyaltyRewardRedemption.query.filter_by(target_type=kind, target_id=target_id(target), status='reserved').first():
         raise LoyaltyError('Hãy bỏ voucher hiện tại trước khi áp dụng voucher khác')
-    voucher.status, voucher.target_type, voucher.target_id = 'reserved', target_kind(target), target_id(target)
-    target.reward_discount = min(original_total(target), money(voucher.reward_snapshot_json['reward_value']))
+    # Points are capped on the amount after the voucher; never shrink a reservation silently.
+    previous, target.reward_discount = target.reward_discount, voucher_discount(snapshot, original_total(target))
     reservation = active_reservation(target)
     if reservation and calculate_point_discount(target, reservation.points_reserved)['points_allowed'] != reservation.points_reserved:
-        raise LoyaltyError('Hãy giảm/bỏ điểm trước khi áp dụng voucher')
+        target.reward_discount = previous
+        raise LoyaltyError('Hãy giảm hoặc bỏ số điểm đang áp dụng trước khi sử dụng Voucher này.')
+    voucher.status, voucher.target_type, voucher.target_id = 'reserved', kind, target_id(target)
     recalculate(target)
     db.session.flush()
     return voucher
@@ -428,12 +515,17 @@ def fulfill_reward(redemption_id, staff_id):
             {LoyaltyRewardRedemption.id: LoyaltyRewardRedemption.id}, synchronize_session=False):
         raise LoyaltyError('Không tìm thấy quà đã đổi')
     redemption = LoyaltyRewardRedemption.query.filter_by(id=redemption_id).populate_existing().one()
+    if redemption.reward_snapshot_json['reward_type'] != 'physical_gift':
+        raise LoyaltyError('Đây là voucher thanh toán, không bàn giao tại quầy')
+    # A second confirmation (double click, two counters) changes nothing and reports the first handover.
     if redemption.status == 'fulfilled':
-        return redemption
-    if redemption.reward_snapshot_json['reward_type'] != 'physical_gift' or redemption.status != 'available' or (redemption.expires_at and redemption.expires_at < datetime.utcnow()):
-        raise LoyaltyError('Quà không thể bàn giao')
+        return redemption, False
+    if redemption_status(redemption) == 'expired':
+        raise LoyaltyError('Quà đã hết hạn, không thể bàn giao')
+    if redemption.status != 'available':
+        raise LoyaltyError('Quà không ở trạng thái chờ nhận')
     redemption.status, redemption.fulfilled_at, redemption.fulfilled_by_staff = 'fulfilled', datetime.utcnow(), staff_id
-    return redemption
+    return redemption, True
 
 
 def payment_summary(target):
@@ -446,7 +538,8 @@ def payment_summary(target):
         loyalty_discount=str(money(target.loyalty_discount or 0)), payable_amount=str(payable(target)),
         points_used=reservation.points_reserved if reservation else -sum(r.points_delta for r in rows if r.type == 'redeem'),
         points_earned=sum(r.points_delta for r in rows if r.type == 'earn'),
-        reward_redemption_id=voucher.id if voucher else None)
+        reward_redemption_id=voucher.id if voucher else None, reward_code=voucher.code if voucher else None,
+        reward_name=voucher.reward_snapshot_json.get('name') if voucher else None)
 
 
 def serialize_transaction(row):
@@ -454,7 +547,10 @@ def serialize_transaction(row):
 
 
 REDEMPTION_GROUPS = ('all', 'usable', 'pickup', 'applied', 'done', 'closed')
-REWARD_TYPES = ('voucher_amount', 'physical_gift')
+REWARD_TYPES = VOUCHER_TYPES + ('physical_gift',)
+# 'voucher' filters both voucher kinds at once (customer and desk "Voucher" filter).
+REWARD_FILTERS = REWARD_TYPES + ('voucher',)
+TARGET_KINDS = ('service_invoice', 'package_purchase')
 
 
 def redemption_status(row, now=None):
@@ -468,19 +564,25 @@ def like_pattern(text):
     return '%' + text.replace('!', '!!').replace('%', '!%').replace('_', '!_') + '%'
 
 
-def filter_redemptions(query, group='all', reward_type=None, search=None, now=None):
+def filter_redemptions(query, group='all', reward_type=None, search=None, now=None, usable_for=None):
     model = LoyaltyRewardRedemption
     now = now or datetime.utcnow()
     kind = model.reward_snapshot_json['reward_type'].as_string()
     live = db.and_(model.status == 'available', db.or_(model.expires_at.is_(None), model.expires_at >= now))
-    conditions = dict(all=[], usable=[live, kind == 'voucher_amount'], pickup=[live, kind == 'physical_gift'],
+    conditions = dict(all=[], usable=[live, kind.in_(VOUCHER_TYPES)], pickup=[live, kind == 'physical_gift'],
         applied=[model.status == 'reserved'], done=[model.status.in_(['used', 'fulfilled'])],
         closed=[db.or_(model.status.in_(['expired', 'cancelled']), db.and_(model.status == 'available', model.expires_at < now))])
     if group not in conditions:
         raise LoyaltyError('Nhóm trạng thái không hợp lệ')
     query = query.filter(*conditions[group])
     if reward_type:
-        query = query.filter(kind == reward_type)
+        query = query.filter(kind.in_(VOUCHER_TYPES) if reward_type == 'voucher' else kind == reward_type)
+    if usable_for:
+        if usable_for not in TARGET_KINDS:
+            raise LoyaltyError('Loại thanh toán không hợp lệ')
+        # Same rule as voucher_terms(): a snapshot without apply_to is usable everywhere.
+        scope = model.reward_snapshot_json['apply_to'].as_string()
+        query = query.filter(kind.in_(VOUCHER_TYPES), db.or_(scope.is_(None), scope.in_(['both', usable_for])))
     if search:
         pattern = like_pattern(search)
         query = query.filter(db.or_(model.code.ilike(pattern, escape='!'),

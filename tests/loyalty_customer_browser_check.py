@@ -32,7 +32,7 @@ def main():
     with app.app_context():
         customer = app.config['TEST_CUSTOMER_ID']; staff = app.config['TEST_ADMIN_ID']
         loyalty.admin_adjust_points(customer, 1000, 'Initial', staff, 'initial')
-        voucher = loyalty.save_reward(dict(name='Voucher 50.000', description='Giảm trực tiếp khi thanh toán', reward_type='voucher_amount', points_cost=200, reward_value=50000, stock=3, validity_days=30))
+        voucher = loyalty.save_reward(dict(name='Voucher 50.000', description='Giảm trực tiếp khi thanh toán', reward_type='voucher_amount', points_cost=200, reward_value=50000, stock=3, validity_days=30, apply_to='both', minimum_spend=200000))
         gift = loyalty.save_reward(dict(name='Khăn tắm Bin Spa', reward_type='physical_gift', points_cost=100, reward_value=0, stock=2))
         loyalty.save_reward(dict(name='Liệu trình VIP', reward_type='voucher_amount', points_cost=5000, reward_value=900000))
         old = loyalty.redeem_reward(customer, voucher.id, 'old-voucher')
@@ -99,12 +99,21 @@ def main():
         b.wait('document.querySelectorAll("[data-redeem]").length===1 && document.querySelector("[data-redeem]").dataset.redeem==="%d"' % gift_id)
         b.evaluate('{const f=document.querySelector("[data-filter]");f.elements.reward_type.value="";f.elements.affordable_only.checked=false;f.requestSubmit()}')
         b.wait('document.querySelectorAll("[data-redeem]").length===3'); screenshot('catalog.png')
+        card = b.evaluate('document.querySelector(' + json.dumps(f'[data-redeem="{voucher_id}"]') + ').closest("article").innerText')
+        for expected in ('Voucher 50.000', '200 điểm', 'Giảm', '50.000', 'Dịch vụ và gói', 'Đơn tối thiểu', '200.000', '30 ngày sau khi đổi', 'Còn 2 quà'):
+            assert expected in card, (expected, card)
+        vip_text = b.evaluate('[...document.querySelectorAll("article.loyalty-reward")].find(a=>a.innerText.includes("Liệu trình VIP")).innerText')
+        assert 'Cần thêm 4300 điểm' in vip_text and 'Chưa đủ điểm' in vip_text, vip_text
+        assert b.evaluate('[...document.querySelectorAll("article.loyalty-reward")].find(a=>a.innerText.includes("Liệu trình VIP")).querySelector("[data-redeem]").disabled')
+        gift_card = b.evaluate('document.querySelector(' + json.dumps(f'[data-redeem="{gift_id}"]') + ').closest("article").innerText')
+        assert 'Quà nhận tại Bin Spa' in gift_card and 'Đơn tối thiểu' not in gift_card, gift_card
 
         # T04: opening and cancelling the dialog never redeems.
         before = redemptions()
         click(f'[data-redeem="{voucher_id}"]'); b.wait('document.getElementById("loyaltyRewardDialog").open')
         dialog_text = text('#loyaltyRewardDialog')
-        assert 'Còn lại sau khi đổi' in dialog_text and '500 điểm' in dialog_text, dialog_text
+        for expected in ('Điểm hiện có', '700 điểm', 'Điểm dùng', 'Điểm còn lại', '500 điểm', 'Giảm', 'Dịch vụ và gói', 'Đơn tối thiểu', '200.000', '30 ngày sau khi đổi'):
+            assert expected in dialog_text, (expected, dialog_text)
         no_reserved('#loyaltyRewardDialog'); screenshot('confirm.png')
         click('#loyaltyRewardDialog [data-cancel]'); b.wait('!document.getElementById("loyaltyRewardDialog").open')
         assert redemptions() == before
@@ -112,10 +121,19 @@ def main():
         # T05/T07: double click on confirm creates exactly one redemption and lands on the new offer.
         click(f'[data-redeem="{voucher_id}"]'); b.wait('document.getElementById("loyaltyRewardDialog").open')
         b.evaluate('{const c=document.querySelector("#loyaltyRewardDialog [data-confirm]");c.click();c.click()}')
-        b.wait('location.search.includes("loyalty_view=mine") && !!document.querySelector(".loyalty-offer.is-new")')
+        b.wait('location.search.includes("loyalty_view=mine") && !!document.querySelector(".loyalty-offer.is-new") && !!document.querySelector("#loyaltyRewardDialog [data-success]")')
         assert redemptions() == before + 1
         assert 'thành công' in text('#customerLoyaltyMessage')
+        success = text('#loyaltyRewardDialog')
+        for expected in ('Đổi thưởng thành công', 'Voucher 50.000', 'BIN-', 'Điểm đã dùng', '200 điểm', 'Điểm còn lại', '500 điểm', 'Xem ưu đãi của tôi'):
+            assert expected in success, (expected, success)
+        assert b.evaluate('document.activeElement.hasAttribute("data-view-offers")')
+        no_reserved('#loyaltyRewardDialog'); screenshot('success.png')
+        click('#loyaltyRewardDialog [data-view-offers]'); b.wait('!document.getElementById("loyaltyRewardDialog").open')
         assert b.evaluate('document.activeElement.classList.contains("is-new")')
+        new_offer = b.evaluate('document.activeElement.innerText')
+        for expected in ('Có thể sử dụng', 'Mã ưu đãi', 'Dịch vụ và gói', 'Đơn tối thiểu', 'Ngày đổi', 'Hạn dùng'):
+            assert expected in new_offer, (expected, new_offer)
         assert '500' in text('#loyaltyBalance'); screenshot('mine-new.png')
 
         # T07: response lost after the server processed it -> retry (even after reload) reuses the key.
@@ -131,11 +149,12 @@ def main():
         click('[data-pending-retry]'); b.wait('document.getElementById("loyaltyRewardDialog").open')
         assert 'không trừ điểm hai lần' in text('#loyaltyRewardDialog')
         click('#loyaltyRewardDialog [data-confirm]')
-        b.wait('location.search.includes("loyalty_status=pickup") && !!document.querySelector(".loyalty-offer.is-new")')
+        b.wait('location.search.includes("loyalty_status=pickup") && !!document.querySelector(".loyalty-offer.is-new") && !!document.querySelector("#loyaltyRewardDialog [data-success]")')
+        click('#loyaltyRewardDialog [data-view-offers]'); b.wait('!document.getElementById("loyaltyRewardDialog").open')
         assert redemptions() == before + 2 and b.evaluate('sessionStorage.getItem("binspa.loyalty.pendingRedeem")') is None
         with app.app_context():
             assert LoyaltyWallet.query.one().available_points == 400
-        assert 'Chờ nhận quà' in text() and 'Mang mã này tới Bin Spa' in text()
+        assert 'Chờ nhận quà' in text() and 'Vui lòng đưa mã này cho nhân viên Bin Spa' in text()
 
         # T09/T10: status groups, expired derived from time, details and copy.
         click('[data-group="closed"]'); b.wait('!document.querySelector("[data-list]").hasAttribute("aria-busy") && document.querySelectorAll(".loyalty-offer").length===1')
@@ -166,9 +185,15 @@ def main():
         assert 'Đang áp dụng' in text() and f'HD{iid:06d}' in text() and 'Tiếp tục thanh toán' in text()
         errors()
 
-        # T17: mobile 390px has no horizontal overflow, dialog fits.
-        b.call('Emulation.setDeviceMetricsOverride', dict(width=390, height=844, deviceScaleFactor=1, mobile=True))
+        # T17: tablet and mobile have no horizontal overflow, dialogs fit.
+        b.call('Emulation.setDeviceMetricsOverride', dict(width=768, height=1024, deviceScaleFactor=1, mobile=True))
         navigate('/profile?loyalty_view=rewards#loyalty'); b.wait('document.querySelectorAll("[data-redeem]").length===3')
+        assert b.evaluate('document.documentElement.scrollWidth') <= 768, b.evaluate('document.documentElement.scrollWidth')
+        click(f'[data-redeem="{gift_id}"]'); b.wait('document.getElementById("loyaltyRewardDialog").open')
+        assert b.evaluate('document.getElementById("loyaltyRewardDialog").getBoundingClientRect().right') <= 768
+        screenshot('tablet-confirm.png'); click('#loyaltyRewardDialog [data-cancel]')
+        b.call('Emulation.setDeviceMetricsOverride', dict(width=390, height=844, deviceScaleFactor=1, mobile=True))
+        reload(); b.wait('document.querySelectorAll("[data-redeem]").length===3')
         assert b.evaluate('document.documentElement.scrollWidth') <= 390, b.evaluate('document.documentElement.scrollWidth')
         screenshot('mobile-catalog.png')
         click(f'[data-redeem="{gift_id}"]'); b.wait('document.getElementById("loyaltyRewardDialog").open')

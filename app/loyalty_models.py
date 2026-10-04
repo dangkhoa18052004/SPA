@@ -2,6 +2,21 @@
 from datetime import datetime
 from .extensions import db
 
+# Migration 20261004_0013 creates the same constraints.
+VOUCHER_TYPES = ('voucher_amount', 'voucher_percent')
+REWARD_CHECK = ("reward_type IN ('voucher_amount','voucher_percent','physical_gift') AND points_cost > 0 AND reward_value >= 0 "
+    "AND (reward_type <> 'voucher_amount' OR reward_value > 0) AND (stock IS NULL OR stock >= 0) AND (validity_days IS NULL OR validity_days > 0)")
+VOUCHER_TERMS_CHECK = ("(minimum_spend IS NULL OR minimum_spend >= 0) AND (reward_type IN ('voucher_amount','voucher_percent') "
+    "AND apply_to IS NOT NULL AND apply_to IN ('service_invoice','package_purchase','both') OR reward_type NOT IN ('voucher_amount','voucher_percent') "
+    "AND apply_to IS NULL AND minimum_spend IS NULL)")
+PERCENT_CHECK = ("reward_type = 'voucher_percent' AND percentage_value IS NOT NULL AND percentage_value > 0 AND percentage_value <= 100 "
+    "AND (max_discount_amount IS NULL OR max_discount_amount > 0) "
+    "OR reward_type <> 'voucher_percent' AND percentage_value IS NULL AND max_discount_amount IS NULL")
+
+
+def voucher_default(context, value):
+    return value if context.get_current_parameters().get('reward_type') in VOUCHER_TYPES else None
+
 
 class LoyaltyWallet(db.Model):
     __tablename__ = 'loyalty_wallet'
@@ -78,9 +93,17 @@ class LoyaltyReward(db.Model):
     stock = db.Column(db.Integer)
     validity_days = db.Column(db.Integer)
     active = db.Column(db.Boolean, nullable=False, default=True)
+    # Voucher terms only; physical gifts keep both NULL. 0 means no minimum spend.
+    minimum_spend = db.Column(db.Numeric(12, 2), default=lambda context: voucher_default(context, 0))
+    apply_to = db.Column(db.String(30), default=lambda context: voucher_default(context, 'both'))
+    # voucher_percent only: percent of the original amount, optionally capped in VND.
+    percentage_value = db.Column(db.Numeric(5, 2))
+    max_discount_amount = db.Column(db.Numeric(12, 2))
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow, server_default=db.func.now())
-    __table_args__ = (db.CheckConstraint("reward_type IN ('voucher_amount','physical_gift') AND points_cost > 0 AND reward_value >= 0 AND (reward_type <> 'voucher_amount' OR reward_value > 0) AND (stock IS NULL OR stock >= 0) AND (validity_days IS NULL OR validity_days > 0)", name='ck_loyalty_reward'),)
+    __table_args__ = (db.CheckConstraint(REWARD_CHECK, name='ck_loyalty_reward'),
+        db.CheckConstraint(VOUCHER_TERMS_CHECK, name='ck_loyalty_reward_voucher_terms'),
+        db.CheckConstraint(PERCENT_CHECK, name='ck_loyalty_reward_percent'))
 
 
 class LoyaltyRewardRedemption(db.Model):
