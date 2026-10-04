@@ -23,15 +23,15 @@
         document.getElementById('sharedInvoicePayment')?.remove();
         refresh();
     }
-    function render(invoice, content) {
+    function render(invoice, content, editable = false) {
         document.getElementById('sharedInvoicePayment')?.remove();
         const modal = document.createElement('div');
         modal.id = 'sharedInvoicePayment';
         modal.className = 'modal show';
         modal.style.cssText = 'display:grid;place-items:center;z-index:10000';
         modal.innerHTML = `<div class="modal-content" style="max-width:560px;max-height:90vh;overflow:auto">
-            <div class="modal-header"><h3>HÓA ĐƠN #HD${String(invoice.mahd).padStart(6, '0')}</h3><button class="close" data-close>&times;</button></div>
-            <div class="modal-body"><p>Khách hàng: ${escape(invoice.khachhang_hoten)}</p><p>Tổng tiền: <strong>${money(invoice.tongtien)}</strong></p><p>Trạng thái: ${escape(invoice.trangthai)}</p>${content}</div>
+            <div class="modal-header"><h3>THANH TOÁN HÓA ĐƠN #HD${String(invoice.mahd).padStart(6, '0')}</h3><button class="close" data-close>&times;</button></div>
+            <div class="modal-body"><p>Khách hàng: ${escape(invoice.khachhang_hoten)}</p><p>Trạng thái: ${escape(invoice.trangthai)}</p>${editable && window.LoyaltyPayment ? '<div data-loyalty-editor></div>' : window.LoyaltyPayment ? LoyaltyPayment.summary(invoice) : `<p>Tổng tiền: <strong>${money(invoice.tongtien)}</strong></p>`}${content}</div>
             <div class="modal-footer"><button class="btn btn-secondary" data-close>Đóng</button></div></div>`;
         modal.querySelectorAll('[data-close]').forEach(button => button.onclick = close);
         modal.onclick = event => { if (event.target === modal) close(); };
@@ -49,15 +49,25 @@
                 refresh();
                 return;
             }
-            const modal = render(invoice, '<p>Chọn phương thức:</p><button class="btn btn-success" data-cash>Tiền mặt</button> <button class="btn btn-primary" data-qr>Chuyển khoản VietQR</button>');
-            modal.querySelector('[data-cash]').onclick = () => openCashPayment(invoice);
-            modal.querySelector('[data-qr]').onclick = () => generateVietQrCode(invoice);
+            const zero = Number(invoice.payable_amount ?? invoice.tongtien) === 0;
+            const modal = render(invoice, zero ? '<button class="btn btn-success" data-points-pay>Thanh toán bằng điểm</button>' : '<p>Chọn phương thức:</p><button class="btn btn-success" data-cash>Tiền mặt</button> <button class="btn btn-primary" data-qr>Chuyển khoản VietQR</button>', true);
+            if (zero) modal.querySelector('[data-points-pay]').onclick = async event => {
+                event.currentTarget.disabled=true;
+                try { await request(id, '/pay-points', {}); close(); showSuccess('Thanh toán bằng điểm thành công.'); }
+                catch(error) { showError(error.message); if(modal.isConnected) event.currentTarget.disabled=false; }
+            };
+            else {
+                modal.querySelector('[data-cash]').onclick = () => openCashPayment(invoice);
+                modal.querySelector('[data-qr]').onclick = () => generateVietQrCode(invoice);
+            }
+            if(window.LoyaltyPayment) await LoyaltyPayment.mount(modal.querySelector('[data-loyalty-editor]'), `/api/admin/invoices/${id}`, invoice.makh, ()=>openInvoicePayment(id));
         } catch (error) { if (token === generation) showError(error.message); }
     }
     function openCashPayment(invoice) {
-        const modal = render(invoice, `<form><label>Số tiền khách trả</label><input class="form-control" type="number" min="${Number(invoice.tongtien)}" step="1" required value="${Number(invoice.tongtien)}"><p data-change></p><button class="btn btn-success" type="submit">Xác nhận thanh toán</button></form>`);
+        const payable = invoice.payable_amount ?? invoice.tongtien;
+        const modal = render(invoice, `<form><label>Số tiền khách trả</label><input class="form-control" type="number" min="${Number(payable)}" step="1" required value="${Number(payable)}"><p data-change></p><button class="btn btn-success" type="submit">Xác nhận thanh toán</button></form>`);
         const input = modal.querySelector('input');
-        input.oninput = () => { modal.querySelector('[data-change]').textContent = 'Tiền thừa: ' + money(Math.max(0, Number(input.value) - Number(invoice.tongtien))); };
+        input.oninput = () => { modal.querySelector('[data-change]').textContent = 'Tiền thừa: ' + money(Math.max(0, Number(input.value) - Number(payable))); };
         modal.querySelector('form').onsubmit = async event => {
             event.preventDefault();
             const button = modal.querySelector('[type=submit]');

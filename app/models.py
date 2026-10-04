@@ -2,6 +2,8 @@ from .extensions import db
 from datetime import datetime
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.schema import FetchedValue
+from .loyalty_models import (LoyaltyWallet, LoyaltyConfig, LoyaltyPointTransaction,
+    LoyaltyRedemptionReservation, LoyaltyReward, LoyaltyRewardRedemption)
 nhanvien_calam = db.Table('nhanvien_calam',
     db.Column('manv', db.Integer, db.ForeignKey('nhanvien.manv'), primary_key=True),
     db.Column('maca', db.Integer, db.ForeignKey('calam.maca'), primary_key=True)
@@ -128,9 +130,12 @@ class LichHen(db.Model):
     makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), nullable=False)
     manv = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'), nullable=True, index=True)
     ghichu = db.Column(db.Text, nullable=True)
+    booking_source = db.Column(db.String(20), nullable=True, default='legacy', server_default='legacy')
+    created_by_staff = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'), nullable=True)
     khachhang = db.relationship('KhachHang', backref='lichhen', lazy=True)
     chitiet = db.relationship('ChiTietLichHen', backref='lichhen', lazy=True, cascade="all, delete-orphan")
-    nhanvien = db.relationship('NhanVien', lazy=True)
+    nhanvien = db.relationship('NhanVien', foreign_keys=[manv], lazy=True)
+    booking_creator = db.relationship('NhanVien', foreign_keys=[created_by_staff], lazy=True)
 
     @property
     def trangthai_vi(self):
@@ -150,6 +155,10 @@ class HoaDon(db.Model):
     mahd = db.Column(db.Integer, primary_key=True)
     ngaylap = db.Column(db.DateTime, default=datetime.utcnow)
     tongtien = db.Column(db.Numeric(12, 2), nullable=False)
+    reward_discount = db.Column(db.Numeric(12, 2), nullable=False, default=0, server_default='0')
+    loyalty_discount = db.Column(db.Numeric(12, 2), nullable=False, default=0, server_default='0')
+    payable_amount = db.Column(db.Numeric(12, 2), nullable=False,
+        default=lambda context: context.get_current_parameters()['tongtien'])
     makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), nullable=False)
     manv = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'), nullable=False)
     trangthai = db.Column(db.String(50), default='Chưa thanh toán')
@@ -377,6 +386,10 @@ class GoiDichVuPurchase(db.Model):
     makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), nullable=False, index=True)
     magoi = db.Column(db.Integer, db.ForeignKey('goidichvu.magoi'), nullable=False)
     amount = db.Column(db.Numeric(12, 2), nullable=False)
+    reward_discount = db.Column(db.Numeric(12, 2), nullable=False, default=0, server_default='0')
+    loyalty_discount = db.Column(db.Numeric(12, 2), nullable=False, default=0, server_default='0')
+    payable_amount = db.Column(db.Numeric(12, 2), nullable=False,
+        default=lambda context: context.get_current_parameters()['amount'])
     status = db.Column(db.String(20), nullable=False, default='pending', index=True)
     payment_method = db.Column(db.String(30), nullable=False)
     external_transaction_id = db.Column(db.String(150), nullable=True, unique=True)

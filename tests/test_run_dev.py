@@ -61,3 +61,26 @@ def test_launcher_ctrl_c_stops_both_and_starts_only_one_worker(monkeypatch):
     assert all(child.stopped for child in children)
     assert sum('notification-worker' in command for command in starts) == 1
     assert starts[0][-2:] == ['--appointment-id', '64']
+    assert starts[1][-2:] == ['run.py', '--web-only']
+
+
+def test_default_entrypoint_starts_supervisor(monkeypatch):
+    import run as entrypoint
+    monkeypatch.delenv('WERKZEUG_RUN_MAIN', raising=False)
+    calls = []
+    monkeypatch.setattr(run_dev, 'run', lambda: calls.append('supervisor') or 0)
+    monkeypatch.setattr(entrypoint.app, 'run', lambda **kw: calls.append('web'))
+    assert entrypoint.main([]) == 0
+    assert calls == ['supervisor']
+
+
+def test_web_child_and_reloader_do_not_start_another_worker(monkeypatch):
+    import run as entrypoint
+    calls = []
+    monkeypatch.setattr(run_dev, 'run', lambda: calls.append('supervisor') or 0)
+    monkeypatch.setattr(entrypoint.app, 'run', lambda **kw: calls.append('web'))
+    monkeypatch.delenv('WERKZEUG_RUN_MAIN', raising=False)
+    assert entrypoint.main(['--web-only']) == 0
+    monkeypatch.setenv('WERKZEUG_RUN_MAIN', 'true')
+    assert entrypoint.main([]) == 0
+    assert calls == ['web', 'web']

@@ -6,6 +6,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/invoice-receipt.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/appointment-treatments.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -176,8 +177,22 @@
                     <input type="hidden" id="customer-id" required> 
                 </div>
 
+                <fieldset id="booking-service-method" class="form-group" hidden>
+                    <legend>Phương thức sử dụng dịch vụ</legend>
+                    <div class="booking-method-options">
+                        <label><input type="radio" name="service-method" value="regular" checked onchange="setBookingServiceMethod('regular')"> Dịch vụ thông thường</label>
+                        <label><input type="radio" name="service-method" value="treatment" onchange="setBookingServiceMethod('treatment')"> Sử dụng gói / liệu trình</label>
+                    </div>
+                </fieldset>
+                <div id="booking-treatment-panel" class="form-group" hidden>
+                    <label>Liệu trình của khách</label>
+                    <p id="booking-treatment-message" role="status" aria-live="polite"></p>
+                    <div id="booking-treatment-list"></div>
+                    <button type="button" class="btn btn-secondary" onclick="setBookingServiceMethod('regular')">Chuyển sang đặt dịch vụ thông thường</button>
+                </div>
+
                 <div class="form-group">
-                    <label>Dịch vụ <span class="required">*</span></label>
+                    <label id="booking-services-label">Dịch vụ <span class="required">*</span></label>
                     <div class="multi-select-container">
                         <input 
                             type="text" 
@@ -196,7 +211,7 @@
                 <div class="row">
                     <div class="form-group">
                         <label>Ngày <span class="required">*</span></label>
-                        <input type="date" id="appointment-date" class="form-control" required onchange="loadAvailableStaff()">
+                        <input type="date" id="appointment-date" class="form-control" required onchange="bookingDateChanged()">
                     </div>
                 </div>
                 
@@ -251,7 +266,7 @@
                     <input type="hidden" id="staff-id">
                 </div>
 
-                <div class="form-group d-none">
+                <div class="form-group">
                     <label>Ghi chú</label>
                     <textarea id="appointment-note" class="form-control" rows="3" placeholder="Nhập ghi chú (nếu có)..."></textarea>
                 </div>
@@ -263,7 +278,7 @@
                 <i class="fas fa-times"></i>
                 Hủy
             </button>
-            <button type="submit" class="btn btn-primary" onclick="handleAppointmentSubmit(event)">
+            <button id="appointment-save" type="submit" form="appointmentForm" class="btn btn-primary">
                 <i class="fas fa-save"></i>
                 Lưu lịch hẹn
             </button>
@@ -293,6 +308,7 @@
                 <p><strong>Nhân viên:</strong> <span id="detail-apt-staff">...</span></p>
                 <p><strong>Trạng thái:</strong> <span id="detail-apt-status">...</span></p>
                 <p><strong>Ghi chú:</strong> <span id="detail-apt-notes">...</span></p>
+                <p><strong>Nguồn đặt lịch:</strong> <span id="detail-booking-source">...</span></p>
             </div>
 
             <div class="detail-section">

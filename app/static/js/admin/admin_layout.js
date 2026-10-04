@@ -109,6 +109,7 @@ function hasRole(allowedRoles) {
  */
 const MENU_CONFIG = {
     admin: [
+        { key: 'loyalty', title: 'Điểm thưởng', href: '/admin/loyalty', icon: 'fa-gift' },
         { key: 'reviews', title: 'Quản lý Đánh giá', href: '/admin/reviews', icon: 'fa-star' },
         { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
         { key: 'dashboard', title: 'Dashboard', href: '/admin/dashboard', icon: 'fa-tachometer-alt' },
@@ -127,6 +128,7 @@ const MENU_CONFIG = {
     ],
 
     manager: [
+        { key: 'loyalty', title: 'Điểm thưởng', href: '/admin/loyalty', icon: 'fa-gift' },
         { key: 'reviews', title: 'Quản lý Đánh giá', href: '/admin/reviews', icon: 'fa-star' },
         { key: 'package_sales', title: 'Bán gói / Phiếu bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
         { key: 'packages', title: 'Gói dịch vụ / Liệu trình', href: '/admin/packages', icon: 'fa-spa' },
@@ -376,6 +378,7 @@ function checkPageAccess() {
 
     // Define restricted pages
     const restrictions = {
+        '/admin/loyalty': ['admin', 'manager'],
         '/admin/packages': ['admin', 'manager', 'staff'],
         '/admin/reviews': ['admin', 'manager', 'staff'],
         '/admin/package-sales': ['admin', 'manager', 'letan'],

@@ -41,7 +41,7 @@ def run(interval=15, appointment_id=None):
               'notification-worker', '--interval', str(interval)]
     if appointment_id is not None:
         worker += ['--appointment-id', str(appointment_id)]
-    commands = [('worker', worker), ('web', [sys.executable, '-u', 'run.py'])]
+    commands = [('worker', worker), ('web', [sys.executable, '-u', 'run.py', '--web-only'])]
     options = dict(cwd=ROOT, env=dict(os.environ, PYTHONUNBUFFERED='1'))
     if os.name == 'nt':
         options['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP

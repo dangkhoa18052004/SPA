@@ -15,7 +15,11 @@
             <ul class="receipt-items">${(transaction.items || []).map(item => `<li>${esc(item.name)} ${packageSale
                 ? `· ${esc(item.sessions)} buổi` : `× ${esc(item.quantity)} <span>${money(item.total)}</span>`}</li>`).join('') || '<li>Chưa có chi tiết</li>'}</ul>
             ${packageSale ? line('Hiệu lực', transaction.validity_months == null ? 'Vô thời hạn' : `${transaction.validity_months} tháng từ khi kích hoạt`) : ''}
-            <p class="receipt-total">Tổng tiền: <strong>${money(transaction.total_amount)}</strong></p>
+            ${line('Tạm tính', money(transaction.original_total ?? transaction.total_amount))}
+            ${Number(transaction.reward_discount) ? line('Voucher', '−'+money(transaction.reward_discount)) : ''}
+            ${Number(transaction.loyalty_discount) ? line('Điểm sử dụng', transaction.points_used+' điểm')+line('Giảm bằng điểm', '−'+money(transaction.loyalty_discount)) : ''}
+            <p class="receipt-total">Thành tiền: <strong>${money(transaction.payable_amount ?? transaction.total_amount)}</strong></p>
+            ${transaction.points_earned ? line('Điểm tích được', '+'+transaction.points_earned+' điểm') : ''}
             ${line('Phương thức', transaction.payment_method || (transaction.status === 'Đã thanh toán' ? 'Chưa có thông tin' : 'Chưa chọn phương thức'))}${line('Trạng thái', transaction.status)}
             ${transaction.payment_method === 'Tiền mặt' && transaction.cash_received != null
                 ? line('Khách đưa', money(transaction.cash_received)) + line('Tiền thối', money(transaction.change)) : ''}

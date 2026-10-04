@@ -13,6 +13,13 @@ let currentUserRole = null;
 let selectedServiceIds = []; 
 let selectedCustomerId = null;
 let selectedStaffId = null;
+let customerTreatments = [];
+let selectedPackageItems = new Map(); // One exact entitlement per service in this appointment.
+let bookingServiceMethod = 'regular';
+let treatmentLoadVersion = 0;
+let treatmentLoadState = 'idle';
+let treatmentLoadError = '';
+let appointmentSubmitting = false;
 
 
 // ========================================
@@ -504,6 +511,162 @@ function filterStaff() {
 
 
 
+function escapeBookingText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
+}
+
+function resetCustomerTreatments() {
+    treatmentLoadVersion++; // Ignore responses for a previous customer or modal session.
+    clearPackageSelections();
+    customerTreatments = [];
+    treatmentLoadState = 'idle';
+    treatmentLoadError = '';
+    document.getElementById('booking-service-method').hidden = selectedCustomerId === null;
+    renderBookingTreatments();
+}
+
+function clearPackageSelections() {
+    selectedServiceIds = selectedServiceIds.filter(id => !selectedPackageItems.has(id));
+    selectedPackageItems.clear();
+    renderServiceList();
+    updateSelectedServices();
+    removeSelectedStaff();
+    loadAvailableStaff();
+}
+
+function setBookingServiceMethod(method) {
+    bookingServiceMethod = method;
+    document.querySelectorAll('input[name="service-method"]').forEach(input => {
+        input.checked = input.value === method;
+    });
+    if (method === 'regular') clearPackageSelections();
+    document.getElementById('booking-services-label').textContent = method === 'treatment'
+        ? 'Dịch vụ mua thêm (thanh toán riêng, tùy chọn)' : 'Dịch vụ *';
+    renderBookingTreatments();
+}
+
+async function loadCustomerTreatments() {
+    const customerId = selectedCustomerId;
+    const version = ++treatmentLoadVersion;
+    if (customerId === null) return;
+    treatmentLoadState = 'loading';
+    renderBookingTreatments();
+    try {
+        const response = await fetch(`/api/admin/appointments/customers/${customerId}/treatments`, {
+            headers: getAuthHeaders(false)
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.msg || 'Không thể tải liệu trình của khách');
+        if (version !== treatmentLoadVersion || customerId !== selectedCustomerId) return;
+        customerTreatments = data.treatments || [];
+        treatmentLoadState = 'ready';
+        // Refresh selected rows from the server before validating remaining sessions.
+        for (const [serviceId, selection] of selectedPackageItems) {
+            const treatment = customerTreatments.find(t => t.mathe === selection.mathe);
+            const item = treatment?.items.find(i => i.id === selection.item.id);
+            selectedPackageItems.set(serviceId, {...selection, item: item || {...selection.item, usable: false}});
+        }
+        if (revalidatePackageSelections()) showError('Liệu trình đã thay đổi. Vui lòng kiểm tra lại dịch vụ còn buổi và hạn sử dụng.');
+    } catch (error) {
+        if (version !== treatmentLoadVersion || customerId !== selectedCustomerId) return;
+        treatmentLoadState = 'error';
+        treatmentLoadError = error.message;
+        customerTreatments = [];
+        clearPackageSelections();
+    }
+    if (version === treatmentLoadVersion) renderBookingTreatments();
+}
+
+function bookingItemUsable(item) {
+    if (!item.usable || item.available_sessions <= 0) return false;
+    const day = document.getElementById('appointment-date').value;
+    // Backend expiry uses calendar days in Asia/Saigon; gifts have their own effective expiry.
+    return !day || ((!item.valid_from || day >= item.valid_from.slice(0, 10))
+        && (!item.effective_expires_at || day <= item.effective_expires_at.slice(0, 10)));
+}
+
+function renderBookingTreatments() {
+    const panel = document.getElementById('booking-treatment-panel');
+    panel.hidden = bookingServiceMethod !== 'treatment' || selectedCustomerId === null;
+    const message = document.getElementById('booking-treatment-message');
+    const list = document.getElementById('booking-treatment-list');
+    message.textContent = treatmentLoadState === 'loading' ? 'Đang tải liệu trình của khách…'
+        : treatmentLoadState === 'error' ? treatmentLoadError
+        : !customerTreatments.some(t => t.items.some(bookingItemUsable))
+            ? 'Khách hàng hiện chưa có gói/liệu trình khả dụng.'
+            : 'Chọn đúng nguồn cho mỗi dịch vụ. Có thể thêm dịch vụ thanh toán riêng bên dưới.';
+    if (treatmentLoadState === 'loading') { list.innerHTML = ''; return; }
+    if (treatmentLoadState === 'error') {
+        list.innerHTML = '<button type="button" class="btn btn-secondary" onclick="loadCustomerTreatments()">Thử tải lại liệu trình</button>';
+        return;
+    }
+    list.innerHTML = customerTreatments.map(treatment => `<details class="booking-treatment-card" open>
+        <summary>${escapeBookingText(treatment.tengoi)} · #${treatment.mathe}</summary>
+        ${treatment.items.map(item => {
+            const usable = bookingItemUsable(item);
+            const selected = selectedPackageItems.get(item.madv)?.item.id === item.id;
+            const reason = item.available_sessions <= 0 ? 'Đã hết lượt' : !usable ? 'Không còn hiệu lực vào ngày đã chọn' : '';
+            const expiry = item.effective_expires_at ? item.effective_expires_at.slice(0, 10).split('-').reverse().join('/') : 'Không giới hạn';
+            return `<label class="booking-treatment-item">
+                <input type="checkbox" ${selected ? 'checked' : ''} ${usable ? '' : 'disabled'}
+                    onchange="togglePackageItem(${treatment.mathe}, ${item.id})" aria-label="${escapeBookingText(item.tendv)} · ${item.source_type === 'gift' ? 'Spa tặng' : 'Trong gói'} · ${escapeBookingText(treatment.tengoi)}">
+                <span><strong>${escapeBookingText(item.tendv)}</strong>
+                    <span class="booking-source-badge ${item.source_type === 'gift' ? 'gift' : ''}">${item.source_type === 'gift' ? '🎁 Spa tặng' : 'Trong gói'}</span>
+                    <small>Còn ${item.available_sessions}/${item.total_sessions} buổi · Đã dùng ${item.consumed} · Đang giữ ${item.reserved}</small>
+                    <small>Hạn: ${expiry}${item.valid_from ? ' · Từ: ' + item.valid_from.slice(0, 10).split('-').reverse().join('/') : ''}</small>
+                    ${item.gifted_by_name ? `<small>Người tặng: ${escapeBookingText(item.gifted_by_name)}</small>` : ''}
+                    ${item.gift_note ? `<small>${escapeBookingText(item.gift_note)}</small>` : ''}
+                    ${reason ? `<small>${reason}</small>` : ''}
+                </span></label>`;
+        }).join('')}
+    </details>`).join('');
+}
+
+function togglePackageItem(treatmentId, itemId) {
+    if (bookingServiceMethod !== 'treatment' || treatmentLoadState !== 'ready') return;
+    const treatment = customerTreatments.find(t => t.mathe === treatmentId);
+    const item = treatment?.items.find(i => i.id === itemId);
+    if (!item || !bookingItemUsable(item)) return;
+    if (selectedPackageItems.get(item.madv)?.item.id === itemId) {
+        removeService(item.madv);
+        return;
+    }
+    selectedPackageItems.set(item.madv, {mathe: treatmentId, tengoi: treatment.tengoi, item});
+    if (!selectedServiceIds.includes(item.madv)) selectedServiceIds.push(item.madv);
+    renderServiceList();
+    updateSelectedServices();
+    renderBookingTreatments();
+    removeSelectedStaff();
+    loadAvailableStaff();
+}
+
+function revalidatePackageSelections() {
+    let removed = false;
+    for (const [serviceId, selection] of selectedPackageItems) {
+        if (!bookingItemUsable(selection.item)) {
+            selectedPackageItems.delete(serviceId);
+            selectedServiceIds = selectedServiceIds.filter(id => id !== serviceId);
+            removed = true;
+        }
+    }
+    if (removed) {
+        renderServiceList();
+        updateSelectedServices();
+        removeSelectedStaff();
+        loadAvailableStaff();
+    }
+    return removed;
+}
+
+function bookingDateChanged() {
+    if (revalidatePackageSelections()) showError('Dịch vụ liệu trình không còn hiệu lực vào ngày đã chọn.');
+    renderBookingTreatments();
+    removeSelectedStaff();
+    loadAvailableStaff();
+}
+
 function renderServiceList() {
     const serviceList = document.getElementById('serviceList');
     if (!serviceList) return;
@@ -517,9 +680,9 @@ function renderServiceList() {
         <div class="service-item ${selectedServiceIds.includes(service.madv) ? 'selected' : ''}" 
              data-madv="${service.madv}" 
              onclick="toggleService(${service.madv})">
-            <input type="checkbox" id="service-checkbox-${service.madv}" value="${service.madv}" ${selectedServiceIds.includes(service.madv) ? 'checked' : ''}>
-            <label for="service-checkbox-${service.madv}">
-                <span>${service.tendv}</span>
+            <input type="checkbox" id="service-checkbox-${service.madv}" value="${service.madv}" ${selectedServiceIds.includes(service.madv) ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleService(${service.madv})" ${selectedPackageItems.has(service.madv) ? 'disabled' : ''}>
+            <label for="service-checkbox-${service.madv}" onclick="event.stopPropagation()">
+                <span>${escapeBookingText(service.tendv)}${selectedPackageItems.has(service.madv) ? ' · Liệu trình' : ''}</span>
                 <span class="service-duration">${service.thoiluong || 60} phút</span>
             </label>
         </div>
@@ -527,8 +690,10 @@ function renderServiceList() {
 }
 
 function toggleService(serviceId) {
+    if (selectedPackageItems.has(serviceId)) return;
     const checkbox = document.getElementById(`service-checkbox-${serviceId}`);
-    if (checkbox) checkbox.checked = !checkbox.checked; 
+    if (!checkbox) return;
+    checkbox.checked = !selectedServiceIds.includes(serviceId);
 
     if (checkbox.checked) {
         if (!selectedServiceIds.includes(serviceId)) {
@@ -554,10 +719,12 @@ function updateSelectedServices() {
     
     container.innerHTML = selectedServiceIds.map(id => {
         const service = allServices.find(s => s.madv === id);
-        if (!service) return '';
+        const selection = selectedPackageItems.get(id);
+        if (!service && !selection) return '';
+        const source = selection ? `${selection.item.source_type === 'gift' ? '🎁 Spa tặng' : 'Trong gói'} · ${selection.tengoi}` : 'Thanh toán riêng';
         return `
             <div class="service-tag">
-                <span>${service.tendv}</span>
+                <span>${escapeBookingText(service?.tendv || selection.item.tendv)} · ${escapeBookingText(source)}</span>
                 <button type="button" onclick="removeService(${id})">×</button>
             </div>
         `;
@@ -565,11 +732,14 @@ function updateSelectedServices() {
 }
 
 function removeService(serviceId) {
+    selectedPackageItems.delete(serviceId);
     selectedServiceIds = selectedServiceIds.filter(id => id !== serviceId);
     const checkbox = document.getElementById(`service-checkbox-${serviceId}`);
     if (checkbox) checkbox.checked = false;
     updateSelectedServices();
     updateServiceItemStyles();
+    renderServiceList();
+    renderBookingTreatments();
     loadAvailableStaff();
 }
 
@@ -619,6 +789,8 @@ function toggleCustomer(makh, hoten, sdt) {
     }
 
     updateSelectedCustomer(makh, hoten, sdt);
+    resetCustomerTreatments();
+    if (selectedCustomerId !== null) loadCustomerTreatments();
 }
 
 function updateSelectedCustomer(makh, hoten, sdt) {
@@ -644,6 +816,7 @@ function removeSelectedCustomer() {
     selectedCustomerId = null;
     updateSelectedCustomer(null, '', '');
     document.querySelectorAll('.customer-item').forEach(item => item.classList.remove('selected'));
+    resetCustomerTreatments();
 }
 
 function filterCustomers() {
@@ -791,6 +964,8 @@ function openAddAppointmentModal() {
     selectedCustomerId = null;
     selectedStaffId = null;
     availableStaff = [];
+    resetCustomerTreatments();
+    setBookingServiceMethod('regular');
     
     updateSelectedServices();
     updateSelectedCustomer(null, '', '');
@@ -801,8 +976,9 @@ function openAddAppointmentModal() {
     
     document.getElementById('staffList').innerHTML = '<div style="padding: 12px; color: #9ca3af; text-align: center;">Vui lòng chọn ngày, giờ và dịch vụ để xem nhân viên rảnh</div>';
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatLocalDate(new Date());
     document.getElementById('appointment-date').value = today;
+    document.getElementById('appointment-date').min = today;
     
     document.getElementById('appointmentModal').style.display = 'flex';
 }
@@ -812,6 +988,14 @@ function closeAppointmentModal() {
 }
 
 async function handleAppointmentSubmit(e) {
+    e?.preventDefault();
+    if (appointmentSubmitting) return;
+    const form = document.getElementById('appointmentForm');
+    if (!form.reportValidity()) return;
+    if (revalidatePackageSelections()) {
+        showError('Dịch vụ liệu trình không còn hiệu lực vào ngày đã chọn. Vui lòng kiểm tra lại dịch vụ.');
+        return;
+    }
     const malh = document.getElementById('appointment-id').value;
     const makh = document.getElementById('customer-id').value;
     const manv = document.getElementById('staff-id').value;
@@ -833,6 +1017,11 @@ async function handleAppointmentSubmit(e) {
 
     const url = malh ? `/api/admin/appointments/${malh}` : '/api/admin/appointments';
     const method = malh ? 'PUT' : 'POST';
+    const packageUsages = [...selectedPackageItems.values()].map(selection => ({
+        mathe: selection.mathe, the_item_id: selection.item.id, madv: selection.item.madv, quantity: 1
+    }));
+    appointmentSubmitting = true;
+    document.getElementById('appointment-save').disabled = true;
     
     try {
         const response = await fetch(url, {
@@ -843,6 +1032,7 @@ async function handleAppointmentSubmit(e) {
                 madv_list: madv_list,
                 manv: manv ? parseInt(manv) : null,
                 ngaygio: ngaygio,
+                package_usages: packageUsages,
                 ghichu: document.getElementById('appointment-note')?.value || ''
             })
         });
@@ -855,6 +1045,7 @@ async function handleAppointmentSubmit(e) {
             loadAppointments();
             loadStatistics(); 
         } else {
+            if (packageUsages.length && [400, 409].includes(response.status)) await loadCustomerTreatments();
             if (response.status === 409 && data.conflicts) {
                  const conflictMsg = data.conflicts.map(c => 
                      ` - ${c.ngaygio} - ${c.ketthuc}: ${c.dichvu} (${c.khachhang})`
@@ -867,6 +1058,9 @@ async function handleAppointmentSubmit(e) {
     } catch (error) {
         console.error('Lỗi:', error);
         showError('Có lỗi xảy ra khi lưu lịch hẹn');
+    } finally {
+        appointmentSubmitting = false;
+        document.getElementById('appointment-save').disabled = false;
     }
 }
 
@@ -898,11 +1092,15 @@ function populateAndShowDetailModal(apt) {
     document.getElementById('detail-apt-status').innerHTML = `<span class="badge badge-${getStatusClass(apt.trangthai)}">${getAppointmentStatusText(apt.trangthai)}</span>`;
     document.getElementById('detail-invoice').innerHTML = `Thanh toán: ${appointmentPaymentBadge(apt)} ${appointmentInvoiceAction(apt)}`;
     document.getElementById('detail-apt-notes').textContent = apt.ghichu || 'Không có ghi chú';
+    const bookingSources = {admin: 'Bin Spa hỗ trợ đặt lịch', customer: 'Khách tự đặt', ai: 'Trợ lý AI', legacy: 'Lịch cũ'};
+    document.getElementById('detail-booking-source').textContent = `${bookingSources[apt.booking_source] || 'Lịch cũ'}${apt.created_by_staff_name ? ' · ' + apt.created_by_staff_name : ''}`;
 
     const servicesList = document.getElementById('detail-services-list');
     if (apt.services && apt.services.length > 0) {
         servicesList.innerHTML = apt.services.map(s => `
-            <li><span>${s.tendv}</span><span>${formatCurrency(s.gia)}</span></li>
+            <li><span>${escapeBookingText(s.tendv)}</span><span>${s.coverage
+                ? `${s.coverage.state === 'reserved' ? 'Đã giữ buổi' : 'Đã sử dụng liệu trình'} · ${s.coverage.source_type === 'gift' ? '🎁 Spa tặng' : 'Trong gói'} · ${escapeBookingText(s.coverage.tengoi)}`
+                : `Thanh toán riêng · ${formatCurrency(s.gia)}`}</span></li>
         `).join('');
     } else {
         servicesList.innerHTML = '<li>Không có dịch vụ</li>';

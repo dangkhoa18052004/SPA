@@ -37,14 +37,32 @@
         const dialog=document.getElementById('packagePaymentDialog');
         if(dialog && !dialog.open) dialog.showModal();
         if (purchase.status==='paid') {
-            panel.innerHTML='<h2>Thanh toán thành công</h2><p>Liệu trình của bạn đã được kích hoạt.</p>'+(!isAdmin()?'<a class="btn btn-primary" href="/profile#treatments">Liệu trình của tôi</a>':'');
+            panel.innerHTML='<h2>Thanh toán thành công</h2><p>Liệu trình của bạn đã được kích hoạt.</p>'+(window.LoyaltyPayment?LoyaltyPayment.summary(purchase):'')+(!isAdmin()?'<a class="btn btn-primary" href="/profile#treatments">Liệu trình của tôi</a>':'');
             clearInterval(pollTimer); document.dispatchEvent(new CustomEvent('package:paid',{detail:purchase})); return;
         }
         const payment=purchase.payment;
-        panel.innerHTML=`<h2>${esc(purchase.tengoi)} · PKG${purchase.id}</h2><p>${esc(status(purchase.status))} · ${price(purchase.amount)}</p>`+
-            (payment ? `<img src="${esc(payment.qrCodeUrl)}" alt="Mã VietQR thanh toán gói"><p>${esc(payment.account_name)} · ${esc(payment.account_no)} · ${esc(payment.bank_id)}</p><p>Nội dung chuyển khoản: <strong>${esc(payment.description)}</strong></p><p>Chuyển đúng ${price(payment.amount)}. Liệu trình chỉ kích hoạt khi ngân hàng xác nhận.</p>` : purchase.payment_method==='vietqr'?'<p>VietQR tạm thời chưa khả dụng. Vui lòng liên hệ cửa hàng.</p>':'<p>Vui lòng đến quầy thanh toán. Nhân viên xác nhận đã nhận tiền để kích hoạt liệu trình.</p>')+
+        const payable=purchase.payable_amount ?? purchase.amount;
+        const zero=Number(payable)===0;
+        panel.innerHTML=`<h2>${esc(purchase.tengoi)} · PKG${purchase.id}</h2><p>${esc(status(purchase.status))}</p>`+
+            (window.LoyaltyPayment?'<div data-package-loyalty></div>':`<p>${price(payable)}</p>`)+
+            (zero ? '<button type="button" class="btn btn-primary" data-pay-points>Thanh toán bằng điểm</button>' :
+            payment ? `<button type="button" class="btn btn-primary" data-reveal-qr>Tiếp tục thanh toán VietQR</button><div data-package-qr hidden><img src="${esc(payment.qrCodeUrl)}" alt="Mã VietQR thanh toán gói"><p>${esc(payment.account_name)} · ${esc(payment.account_no)} · ${esc(payment.bank_id)}</p><p>Nội dung chuyển khoản: <strong>${esc(payment.description)}</strong></p><p>Chuyển đúng ${price(payment.amount)}. Liệu trình chỉ kích hoạt khi ngân hàng xác nhận.</p></div>` :
+            purchase.payment_method==='vietqr'?'<p>VietQR tạm thời chưa khả dụng. Vui lòng liên hệ cửa hàng.</p>':
+            isAdmin()?`<form data-package-cash><label>Số tiền khách đưa<input type="number" min="${esc(payable)}" step="1" value="${esc(payable)}" required></label><p data-cash-change></p><button type="submit" class="btn btn-primary">Xác nhận đã nhận tiền</button></form>`:'<p>Vui lòng đến quầy thanh toán. Nhân viên xác nhận đã nhận tiền để kích hoạt liệu trình.</p>')+
             '<button type="button" class="btn btn-secondary" id="checkPackagePayment">Kiểm tra thanh toán</button>';
         const endpoint=isAdmin()?`/api/admin/package-sales/${purchase.id}/status`:`/api/packages/purchases/${purchase.id}/status`;
+        const base=isAdmin()?`/api/admin/packages/purchases/${purchase.id}`:`/api/packages/purchases/${purchase.id}`;
+        const reload=async()=>showPayment((await api(endpoint)).purchase);
+        const reveal=panel.querySelector('[data-reveal-qr]');
+        if(reveal) reveal.onclick=()=>{panel.querySelector('[data-package-qr]').hidden=false;reveal.hidden=true;};
+        const pointButton=panel.querySelector('[data-pay-points]');
+        if(pointButton) pointButton.onclick=async()=>{pointButton.disabled=true;try{await api(base+'/pay-points','POST',{});await reload();}catch(e){message(e.message);pointButton.disabled=false;}};
+        const cashForm=panel.querySelector('[data-package-cash]');
+        if(cashForm){
+            const input=cashForm.querySelector('input');
+            input.oninput=()=>cashForm.querySelector('[data-cash-change]').textContent='Tiền thối: '+price(Math.max(0,Number(input.value)-Number(payable)));
+            cashForm.onsubmit=async e=>{e.preventDefault();const b=cashForm.querySelector('button');b.disabled=true;try{await api(base+'/confirm-payment','POST',{cash_received:input.value});await reload();}catch(error){message(error.message);b.disabled=false;}};
+        }
         document.getElementById('checkPackagePayment').onclick=()=>api(endpoint).then(r=>{
             if (!dialog || dialog.open) return showPayment(r.purchase);
         }).catch(e=>message(e.message));
@@ -54,6 +72,7 @@
             try{const r=await api(endpoint);if(dialog && !dialog.open)return;if(r.purchase.status==='paid')await showPayment(r.purchase);else if(r.purchase.status!=='pending'){clearInterval(pollTimer);message(status(r.purchase.status));}}
             catch(e){clearInterval(pollTimer);message(e.message);}
         },5000);
+        if(window.LoyaltyPayment) await LoyaltyPayment.mount(panel.querySelector('[data-package-loyalty]'),base,purchase.makh,reload);
     }
     async function buy(id) {
         const method=document.getElementById(`packageMethod-${id}`).value;
@@ -95,7 +114,7 @@
                 try {const t=(await api(`/api/packages/my-treatments/${b.dataset.history}`)).treatment;document.getElementById(`history-${b.dataset.history}`).innerHTML=historyHtml(t.history);}catch(e){b.textContent=e.message;}
             });
             const purchases=await api('/api/packages/my-purchases');
-            document.getElementById('myPackagePurchases').innerHTML=purchases.purchases.filter(p=>p.status==='pending').map(p=>`<p>${esc(p.tengoi)} · ${price(p.amount)} · Chờ thanh toán <a href="/packages?purchase=${p.id}">Tiếp tục thanh toán</a></p>`).join('');
+            document.getElementById('myPackagePurchases').innerHTML=purchases.purchases.filter(p=>p.status==='pending').map(p=>`<p>${esc(p.tengoi)} · ${price(p.payable_amount ?? p.amount)} · Chờ thanh toán <a href="/packages?purchase=${p.id}">Tiếp tục thanh toán</a></p>`).join('');
         } catch(e){list.textContent=e.message;}
     }
     let treatmentSelections=new Map(), renderVersion=0, lastBookingKey='', bookingRequest;
@@ -158,7 +177,7 @@
             const selector=document.getElementById('postCareService');selector.innerHTML=services.map(s=>`<option value="${s.madv}">${esc(s.tendv)}</option>`).join('');
             selector.onchange=()=>document.getElementById('postCareText').value=services.find(s=>s.madv===Number(selector.value))?.post_care_instructions||'';selector.onchange();
             const purchases=(await api('/api/admin/packages/purchases')).purchases;
-            document.getElementById('packagePurchases').innerHTML=purchases.map(p=>`<article class="package-panel"><h3>PKG${p.id} · ${esc(p.tengoi)}</h3><p>${esc(p.customer_name)} · ${price(p.amount)} · ${esc(status(p.status))}</p>${p.status==='pending'&&p.payment_method==='cash'?`<button type="button" class="btn btn-primary" data-cash="${p.id}" data-amount="${esc(p.amount)}">Xác nhận đã nhận ${price(p.amount)}</button>`:''}</article>`).join('');
+            document.getElementById('packagePurchases').innerHTML=purchases.map(p=>`<article class="package-panel"><h3>PKG${p.id} · ${esc(p.tengoi)}</h3><p>${esc(p.customer_name)} · ${price(p.payable_amount ?? p.amount)} · ${esc(status(p.status))}</p>${p.status==='pending'&&p.payment_method==='cash'?`<button type="button" class="btn btn-primary" data-cash="${p.id}" data-amount="${esc(p.payable_amount ?? p.amount)}">Xác nhận đã nhận ${price(p.payable_amount ?? p.amount)}</button>`:''}</article>`).join('');
             document.querySelectorAll('[data-cash]').forEach(b=>b.onclick=async()=>{if(!confirm('Xác nhận cửa hàng đã nhận đủ tiền mua gói?'))return;b.disabled=true;try{await api(`/api/admin/packages/purchases/${b.dataset.cash}/confirm-payment`,'POST',{amount:b.dataset.amount});await loadAdmin();}catch(e){message(e.message);b.disabled=false;}});
             await loadAdminTreatments();
         } catch(e){message(e.message);}

@@ -1,0 +1,12 @@
+.loyalty-page,.loyalty-payment{padding:20px;border:1px solid #e7ddcd;border-radius:12px;background:#fff;color:#403a32;margin-bottom:20px}
+.loyalty-tabs,.loyalty-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.loyalty-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin:20px 0}
+.loyalty-card{padding:18px;background:#faf6ed;border:1px solid #ede4d5;border-radius:10px}
+.loyalty-card strong{display:block;font-size:26px;margin:10px 0;color:#795c27}
+.loyalty-page table{width:100%;border-collapse:collapse}.loyalty-page th,.loyalty-page td{padding:12px;text-align:left;border-bottom:1px solid #eee}
+.loyalty-table{overflow-x:auto}.loyalty-page label,.loyalty-dialog label,.loyalty-payment label{display:block;margin:12px 0}
+.loyalty-page input:not([type=checkbox]),.loyalty-page select,.loyalty-page textarea,.loyalty-payment input:not([type=checkbox]),.loyalty-payment select{padding:10px;border:1px solid #d5cdbf;border-radius:6px;max-width:100%;width:100%}
+.loyalty-dialog{position:fixed;inset:0;margin:auto;box-sizing:border-box;width:min(540px,92vw);max-height:85vh;overflow:auto;padding:25px;border:1px solid #c9a961;border-radius:14px}
+.loyalty-dialog::backdrop{background:#0006}.loyalty-page button,.loyalty-payment button{margin:4px}
+.loyalty-page [role=status]{color:#795c27}.loyalty-history{list-style:none;padding:0}.loyalty-history li{padding:14px 0;border-bottom:1px solid #eee}
+.loyalty-payment [hidden]{display:none!important}.loyalty-page .btn:disabled{opacity:.5;cursor:not-allowed}

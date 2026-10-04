@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     if (window.location.hash === '#treatments') switchSection('treatments');
     if (window.location.hash === '#reviews') switchSection('reviews');
+    if (window.location.hash === '#loyalty') switchSection('loyalty');
 
     await initializeProfilePage();
     const reviewId = Number(new URLSearchParams(location.search).get('review'));
@@ -195,6 +196,8 @@ function switchSection(sectionName) {
         window.PackageCare?.loadTreatments();
     } else if (sectionName === 'reviews') {
         window.ReviewUI?.loadMy();
+    } else if (sectionName === 'loyalty') {
+        window.CustomerLoyalty?.load();
     }
 }
 
@@ -469,7 +472,7 @@ function displayInvoices(invoices) {
                     </div>
                     <div class="invoice-detail">
                         <span class="invoice-label">Tổng tiền</span>
-                        <span class="invoice-amount">${formatCurrency(invoice.tongtien)}</span>
+                        <span class="invoice-amount">${formatCurrency(invoice.payable_amount ?? invoice.tongtien)}</span>
                     </div>
                 </div>
                 <span class="invoice-status status-${getStatusClass(invoice.trangthai)}">
@@ -557,8 +560,8 @@ function showInvoiceModal(invoice) {
                 `).join('') : '<li>Không có chi tiết</li>'}
             </ul>
             
-            <div class="total-section">
-                Tổng cộng: ${formatCurrency(invoice.tongtien)}
+              <div class="total-section">
+                ${window.LoyaltyPayment ? LoyaltyPayment.summary(invoice) : 'Tổng cộng: '+formatCurrency(invoice.tongtien)}
             </div>
             
             ${invoice.trangthai !== 'Đã thanh toán' ? `
@@ -599,6 +602,10 @@ async function ensureQRCodeLoaded() {
 }
 
 async function payInvoice(invoiceId, amount) {
+    if(window.LoyaltyPayment?.openCustomerInvoice){
+        try{await LoyaltyPayment.openCustomerInvoice(invoiceId);}catch(error){showAlert('error',error.message);}
+        return;
+    }
     if (!confirm(`Bạn có chắc muốn thanh toán hóa đơn #${invoiceId} với số tiền ${formatCurrency(amount)}? Hệ thống sẽ tạo mã QR Momo.`)) {
         return;
     }

@@ -9,6 +9,7 @@ from decimal import Decimal, InvalidOperation
 import json
 from sqlalchemy import func
 from datetime import datetime, date
+from ..services import loyalty_service as loyalty
 from sqlalchemy.sql.expression import case
 
 invoice_manage_bp = Blueprint("invoice_manage", __name__)
@@ -80,25 +81,36 @@ def create_invoice_from_appointment(appointment_id):
 @invoice_manage_bp.route("/invoices/<int:invoice_id>/record-payment", methods=["POST"])
 @roles_required('letan','staff', 'manager', 'admin')
 def record_payment(invoice_id):
-
-    invoice = HoaDon.query.get(invoice_id);
-    if not invoice: return jsonify({"msg": "Không tìm thấy hóa đơn"}), 404
-    if invoice.trangthai == 'Đã thanh toán': return jsonify({"msg": "Hóa đơn này đã được thanh toán rồi"}), 400
     data = request.get_json(silent=True) or {}
     try: sotien_nhan_duoc = Decimal(str(data.get("sotien")))
     except (InvalidOperation, ValueError, TypeError): return jsonify({"msg": "Số tiền không hợp lệ"}), 400
     phuongthuc = data.get("phuongthuc")
     if phuongthuc != "Tiền mặt": return jsonify({"msg": "Chỉ chấp nhận phương thức 'Tiền mặt'."}), 400
-    if not sotien_nhan_duoc.is_finite() or sotien_nhan_duoc < invoice.tongtien: return jsonify({"msg": "Số tiền nhận được không đủ"}), 400
     try:
+        invoice = loyalty.lock_target('service_invoice', invoice_id)
+        if invoice.trangthai == 'Đã thanh toán':
+            db.session.rollback()
+            return jsonify({"msg": "Hóa đơn này đã được thanh toán rồi"}), 400
+        loyalty.require_unpaid(invoice)
+        if not sotien_nhan_duoc.is_finite() or sotien_nhan_duoc < loyalty.payable(invoice):
+            db.session.rollback()
+            return jsonify({"msg": "Số tiền nhận được không đủ"}), 400
+        if loyalty.payable(invoice) == 0:
+            raise loyalty.LoyaltyError('Vui lòng chọn Thanh toán bằng điểm')
         from ..services.payment_webhook_service import claim_invoice_payment
         if not claim_invoice_payment(invoice_id):
             db.session.rollback()
             return jsonify({"msg": "Hóa đơn đã được thanh toán."}), 409
-        new_payment = ThanhToan(mahd=invoice_id, sotien=invoice.tongtien, phuongthuc="Tiền mặt",
+        new_payment = ThanhToan(mahd=invoice_id, sotien=loyalty.payable(invoice), phuongthuc="Tiền mặt",
                                ghichu=json.dumps({"cash_received": str(sotien_nhan_duoc)}))
-        invoice.trangthai = 'Đã thanh toán'; db.session.add(new_payment); db.session.commit()
+        invoice.trangthai = 'Đã thanh toán'
+        db.session.add(new_payment)
+        loyalty.finalize_payment(invoice)
+        db.session.commit()
         return jsonify({"msg": f"Đã ghi nhận thanh toán thành công cho hóa đơn #{invoice_id}"}), 201
+    except loyalty.LoyaltyError as error:
+        db.session.rollback()
+        return jsonify(msg=str(error)), 400
     except Exception as e:
         db.session.rollback(); current_app.logger.error(f"Lỗi khi ghi nhận thanh toán: {e}"); return jsonify({"msg": "Ghi nhận thất bại"}), 500
 
@@ -109,6 +121,7 @@ def generate_payment_qr(invoice_id):
     invoice = HoaDon.query.get(invoice_id)
     if not invoice: return jsonify({"msg": "Không tìm thấy hóa đơn"}), 404
     if invoice.trangthai == 'Đã thanh toán': return jsonify({"msg": "Hóa đơn đã thanh toán"}), 400
+    if loyalty.payable(invoice) == 0: return jsonify(msg='Vui lòng chọn Thanh toán bằng điểm'), 400
     
     try:
         vietqr_data = vietqr_service.generate_vietqr_info(invoice)
@@ -154,7 +167,7 @@ def get_all_invoices():
             func.count().label('total_count'),
             func.sum(case((HoaDon.trangthai == 'Đã thanh toán', 1), else_=0)).label('paid_count'),
             func.sum(case((HoaDon.trangthai == 'Chưa thanh toán', 1), else_=0)).label('unpaid_count'),
-            func.sum(case((HoaDon.trangthai == 'Đã thanh toán', HoaDon.tongtien), else_=0)).label('total_revenue')
+            func.sum(case((HoaDon.trangthai == 'Đã thanh toán', HoaDon.payable_amount), else_=0)).label('total_revenue')
         ).one_or_none()
         
         stats = {
@@ -181,6 +194,7 @@ def get_all_invoices():
                 "malh": inv.malh,
                 "khachhang_hoten": customer_name,
                 "tongtien": str(inv.tongtien),
+                **loyalty.payment_summary(inv),
                 "trangthai": inv.trangthai,
                 "ngaytao": date_field.isoformat() if date_field else None
             })
@@ -218,6 +232,8 @@ def get_invoice_detail(invoice_id):
 
         response_data = {
             "mahd": invoice.mahd,
+            "makh": invoice.makh,
+            **loyalty.payment_summary(invoice),
             "malh": invoice.malh,
             "khachhang_hoten": invoice.khachhang.hoten if invoice.khachhang else "N/A",
             "tongtien": str(invoice.tongtien),

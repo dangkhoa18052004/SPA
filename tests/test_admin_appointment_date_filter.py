@@ -66,8 +66,8 @@ def seed_admin_appointments(app):
             trangthai=AppointmentStatus.CANCELLED,
         )
 
-        # 5. Lịch lúc 23:30 cuối ngày 2026-10-05 (kiểm tra ranh giới cuối ngày)
-        test_custom_date = date(2026, 10, 5)
+        # Keep the boundary appointment separate from today/tomorrow on any date.
+        test_custom_date = today + timedelta(days=3)
         apt_late_night = LichHen(
             makh=customer.makh,
             manv=staff.manv,
@@ -90,6 +90,7 @@ def seed_admin_appointments(app):
             "today": today.isoformat(),
             "yesterday": yesterday.isoformat(),
             "tomorrow": tomorrow.isoformat(),
+            "late_night_date": test_custom_date.isoformat(),
             "apt_today_1_id": apt_today_1.malh,
             "apt_today_2_id": apt_today_2.malh,
             "apt_yesterday_id": apt_yesterday.malh,
@@ -202,8 +203,8 @@ def test_5_custom_single_day(client, admin_auth_headers, seed_admin_appointments
 # 6. Custom khoảng: 2026-10-01 -> 2026-10-05
 # =========================================================================
 def test_6_custom_date_range(client, admin_auth_headers, seed_admin_appointments):
-    start = "2026-10-01"
-    end = "2026-10-05"
+    start = seed_admin_appointments['yesterday']
+    end = seed_admin_appointments['late_night_date']
 
     res = client.get(f"/api/admin/appointments?start_date={start}&end_date={end}", headers=admin_auth_headers)
     assert res.status_code == 200
@@ -221,7 +222,7 @@ def test_6_custom_date_range(client, admin_auth_headers, seed_admin_appointments
 # 7. Lịch lúc 23:30 ngày 2026-10-05 xuất hiện khi end_date=2026-10-05
 # =========================================================================
 def test_7_appointment_at_end_of_day_included(client, admin_auth_headers, seed_admin_appointments):
-    target_date = "2026-10-05"
+    target_date = seed_admin_appointments['late_night_date']
 
     res = client.get(f"/api/admin/appointments?start_date={target_date}&end_date={target_date}", headers=admin_auth_headers)
     assert res.status_code == 200

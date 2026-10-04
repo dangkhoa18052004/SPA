@@ -9,13 +9,15 @@ transaction → worker gửi Resend sau commit. Hóa đơn/thanh toán không k�
 Kích hoạt venv, cấu hình `.env`, rồi chạy từ thư mục dự án:
 
 ```powershell
-python run_dev.py
+python run.py
 ```
 
-Launcher chạy `python run.py` và
+`python run.py` tự gọi launcher, chạy `python run.py --web-only` và
 `python -m flask --app wsgi:app notification-worker --interval 15` thành hai process
 riêng. Worker không được khởi động trong `create_app()` hoặc Flask reloader.
 Ctrl+C dừng cả web và worker; một process thoát thì launcher dừng process còn lại.
+Không cần mở terminal hoặc gõ lệnh gửi mail riêng sau mỗi lần hoàn thành lịch hẹn.
+`python run_dev.py` vẫn là launcher tương đương, có thêm tùy chọn giới hạn lịch thử.
 Không chạy launcher thứ hai nếu web đã chiếm cổng. Nếu đã chạy web riêng:
 
 ```powershell

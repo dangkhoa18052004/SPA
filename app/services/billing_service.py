@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy.orm import joinedload, selectinload
 from ..models import HoaDon, GoiDichVuPurchase, ChiTietHoaDon
+from . import loyalty_service as loyalty
 
 LOCAL_TZ = timezone(timedelta(hours=7))
 
@@ -39,10 +40,10 @@ def serialize_service(invoice):
             cash_received = metadata.get('cash_received') if isinstance(metadata, dict) else None
             if cash_received is not None:
                 received = Decimal(str(cash_received))
-                cash_received = str(received) if received.is_finite() and received >= invoice.tongtien else None
+                cash_received = str(received) if received.is_finite() and received >= loyalty.payable(invoice) else None
         except (ValueError, TypeError, InvalidOperation):
             cash_received = None  # Historical notes may be free text or unrelated JSON.
-    return dict(transaction_type='service', display_type_label='Dịch vụ riêng lẻ',
+    return dict(transaction_type='service', display_type_label='Dịch vụ riêng lẻ', **loyalty.payment_summary(invoice),
                 id=invoice.mahd, code=f'HD{invoice.mahd:06d}',
                 customer_name=invoice.khachhang.hoten if invoice.khachhang else 'N/A',
                 customer_phone=invoice.khachhang.sdt if invoice.khachhang else None,
@@ -54,7 +55,7 @@ def serialize_service(invoice):
                 staff_name=invoice.nhanvien.hoten if invoice.nhanvien else None,
                 source_label=invoice.nhanvien.hoten if invoice.nhanvien else 'Không có thông tin',
                 cash_received=cash_received,
-                change=str(Decimal(cash_received) - invoice.tongtien) if cash_received is not None else None,
+                change=str(Decimal(cash_received) - loyalty.payable(invoice)) if cash_received is not None else None,
                 payment_reference=f'HD{invoice.mahd}', can_pay=invoice.trangthai == 'Chưa thanh toán',
                 detail_url=f'/api/admin/billing/transactions/service/{invoice.mahd}',
                 items=[dict(name=item.dichvu.tendv if item.dichvu else 'Dịch vụ không xác định',
@@ -65,18 +66,18 @@ def serialize_service(invoice):
 def serialize_package(purchase):
     snapshot = purchase.snapshot_json or {}
     staff = purchase.confirmer or purchase.creator
-    return dict(transaction_type='package', display_type_label='Gói dịch vụ', id=purchase.id,
+    return dict(transaction_type='package', display_type_label='Gói dịch vụ', id=purchase.id, **loyalty.payment_summary(purchase),
                 code=f'PG{purchase.id:06d}', customer_name=purchase.customer.hoten if purchase.customer else 'N/A',
                 customer_phone=purchase.customer.sdt if purchase.customer else None,
                 appointment_id=None, package_name=snapshot.get('tengoi', 'Gói dịch vụ'),
                 total_amount=str(purchase.amount),
                 status={'paid': 'Đã thanh toán', 'pending': 'Chưa thanh toán',
                         'failed': 'Thất bại', 'cancelled': 'Đã hủy'}.get(purchase.status, purchase.status),
-                payment_method={'cash': 'Tiền mặt', 'vietqr': 'VietQR'}.get(purchase.payment_method, purchase.payment_method),
+                payment_method={'cash': 'Tiền mặt', 'vietqr': 'VietQR', 'points': 'Điểm thưởng'}.get(purchase.payment_method, purchase.payment_method),
                 created_at=timestamp(purchase.created_at, local=True), paid_at=timestamp(purchase.paid_at, local=True),
                 staff_name=staff.hoten if staff else None, source_label=staff.hoten if staff else 'Khách mua online',
                 cash_received=str(purchase.cash_received) if purchase.cash_received is not None else None,
-                change=str(purchase.cash_received - purchase.amount) if purchase.cash_received is not None else None,
+                change=str(purchase.cash_received - loyalty.payable(purchase)) if purchase.cash_received is not None else None,
                 payment_reference=f'PKG{purchase.id}', validity_months=snapshot.get('validity_months'),
                 can_pay=purchase.status == 'pending',
                 detail_url=f'/api/admin/billing/transactions/package/{purchase.id}',
@@ -113,5 +114,5 @@ def transactions(filters):
     rows.sort(key=lambda row: (row['created_at'] or '', row['transaction_type'], row['id']), reverse=True)
     paid = [row for row in rows if row['status'] == 'Đã thanh toán']
     stats = dict(total=len(rows), paid=len(paid), unpaid=sum(row['status'] == 'Chưa thanh toán' for row in rows),
-                 revenue=str(sum((Decimal(row['total_amount']) for row in paid), Decimal('0'))))
+                 revenue=str(sum((Decimal(row['payable_amount']) for row in paid), Decimal('0'))))
     return rows, stats

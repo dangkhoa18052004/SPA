@@ -195,10 +195,12 @@ YOUR_BASE_DOMAIN=http://127.0.0.1:5000
 5. Chạy migrate database
 flask db upgrade
 6. Chạy ứng dụng
-python run_dev.py
+python run.py
 
 Lệnh này chạy Flask web và notification-worker thành hai process riêng. Ctrl+C dừng cả hai.
-`python run.py` vẫn chỉ chạy web; email post-care/review cần worker đang chạy.
+`python run.py` tự khởi động tiến trình gửi email cùng website. Sau khi hoàn thành
+lịch hẹn, email dặn dò được xử lý tự động trong chu kỳ kế tiếp (khoảng 15 giây).
+`python run_dev.py` vẫn dùng được nếu cần tùy chỉnh chu kỳ hoặc giới hạn lịch thử.
 Xem [hướng dẫn notification worker](docs/NOTIFICATION_WORKER.md) để cấu hình Render,
 kiểm tra job và thử email thật mà không xử lý các lịch hẹn khác.
 

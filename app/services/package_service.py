@@ -10,6 +10,7 @@ from ..extensions import db
 from ..models import (GoiDichVu, GoiDichVuItem, GoiDichVuPurchase, TheLieuTrinh,
                       TheLieuTrinhItem, LieuTrinhUsage, DichVu)
 from .appointment_service import AppointmentValidationError
+from . import loyalty_service as loyalty
 
 
 def local_now():
@@ -160,18 +161,25 @@ def confirm_purchase(purchase_id, amount, external_id=None, method=None, staff_i
         return purchase, activate_package_purchase(purchase), False
     if purchase.status != 'pending':
         raise AppointmentValidationError('Giao dịch đã bị hủy hoặc thất bại')
-    if money(amount) != Decimal(purchase.amount):
+    if loyalty.money(amount) != loyalty.payable(purchase):
         raise AppointmentValidationError('Số tiền thanh toán không khớp giá gói')
-    if method and purchase.payment_method != method:
+    if method and method != 'points' and purchase.payment_method != method:
         raise AppointmentValidationError('Phương thức thanh toán không khớp giao dịch')
+    if method == 'points' and (loyalty.payable(purchase) != 0 or not (purchase.loyalty_discount or purchase.reward_discount)):
+        raise AppointmentValidationError('Thanh toán bằng điểm yêu cầu số tiền còn lại bằng 0')
+    if method == 'points':
+        purchase.payment_method = 'points'
+    elif loyalty.payable(purchase) == 0:
+        raise AppointmentValidationError('Vui lòng chọn Thanh toán bằng điểm')
     if cash_received is not None:
         received = money(cash_received)
-        if received < purchase.amount:
+        if received < loyalty.payable(purchase):
             raise AppointmentValidationError('Số tiền khách đưa chưa đủ')
         purchase.cash_received = received
     purchase.confirmed_by_staff = staff_id
     purchase.status, purchase.paid_at = 'paid', local_now()
     purchase.external_transaction_id = external_id
+    loyalty.finalize_payment(purchase)
     return purchase, activate_package_purchase(purchase), True
 
 
@@ -201,7 +209,8 @@ def is_treatment_item_usable(item, treatment, appointment_date=None):
     day = appointment_date or local_now().date()
     if isinstance(day, datetime):
         day = day.date()
-    if item.mathe != treatment.mathe or treatment.status == 'cancelled' or not item.service.active:
+    if (item.source_type not in ('package', 'gift') or item.mathe != treatment.mathe
+            or treatment.status == 'cancelled' or not item.service.active):
         return False
     if item.valid_from and day < item.valid_from.date():
         return False
@@ -255,13 +264,15 @@ def gift_service(record_id, data, staff):
     return record, item
 
 
-def reserve_usages(appointment, usages):
+def reserve_usages(appointment, usages, require_item_id=False):
     if not isinstance(usages, list):
         raise AppointmentValidationError('package_usages phải là danh sách')
     seen = set()
     for row in sorted(usages, key=lambda r: str(r.get('mathe', '')) if isinstance(r, dict) else ''):
         if not isinstance(row, dict) or row.get('quantity') != 1 or isinstance(row.get('quantity'), bool):
             raise AppointmentValidationError('Mỗi dịch vụ trong một lịch hẹn dùng đúng 1 buổi')
+        if require_item_id and row.get('the_item_id') is None:
+            raise AppointmentValidationError('Vui lòng chọn chính xác lượt dịch vụ bằng the_item_id')
         record_id, service_id = positive_int(row.get('mathe')), positive_int(row.get('madv'))
         if service_id in seen or service_id not in {d.madv for d in appointment.chitiet}:
             raise AppointmentValidationError('Dịch vụ liệu trình không thuộc lịch hẹn hoặc bị lặp')
@@ -345,7 +356,7 @@ def serialize_treatment(record, history=False):
 
 
 def paid_package_revenue(start=None, end=None):
-    query = db.session.query(func.coalesce(func.sum(GoiDichVuPurchase.amount), 0)).filter(
+    query = db.session.query(func.coalesce(func.sum(GoiDichVuPurchase.payable_amount), 0)).filter(
         GoiDichVuPurchase.status == 'paid')
     if start:
         query = query.filter(GoiDichVuPurchase.paid_at >= start)

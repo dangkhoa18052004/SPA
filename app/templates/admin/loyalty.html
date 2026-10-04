@@ -1,0 +1,42 @@
+{% extends "admin/layout.html" %}
+{% block title %}Điểm thưởng - Bin Spa{% endblock %}
+{% block page_title %}Điểm thưởng{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css') }}">{% endblock %}
+{% block content %}
+<section id="adminLoyalty" class="loyalty-page">
+    <p id="loyaltyMessage" role="status" aria-live="polite"></p>
+    <nav class="loyalty-tabs" aria-label="Quản lý điểm thưởng">
+        <button class="btn btn-primary" data-tab="overview">Tổng quan</button>
+        <button class="btn btn-secondary" data-tab="config">Quy tắc</button>
+        <button class="btn btn-secondary" data-tab="customers">Khách hàng</button>
+        <button class="btn btn-secondary" data-tab="transactions">Lịch sử điểm</button>
+        <button class="btn btn-secondary" data-tab="rewards">Quà đổi thưởng</button>
+        <button class="btn btn-secondary" data-tab="redemptions">Lịch sử đổi quà</button>
+    </nav>
+    <div id="loyaltyContent" aria-live="polite">Đang tải...</div>
+    <dialog id="loyaltyAdjust" class="loyalty-dialog">
+        <h3>Điều chỉnh điểm</h3><p id="adjustCustomer"></p>
+        <form id="adjustForm">
+            <label>Thao tác<select name="direction"><option value="1">Cộng điểm</option><option value="-1">Trừ điểm</option></select></label>
+            <label>Số điểm<input name="points" type="number" min="1" step="1" required></label>
+            <label>Lý do<textarea name="reason" maxlength="2000" required></textarea></label>
+            <button class="btn btn-primary" type="submit">Lưu điều chỉnh</button>
+            <button class="btn btn-secondary" type="button" data-close>Đóng</button>
+        </form>
+    </dialog>
+    <dialog id="loyaltyRewardEditor" class="loyalty-dialog">
+        <h3>Quà đổi thưởng</h3><form id="rewardForm">
+            <label>Tên quà<input name="name" maxlength="200" required></label>
+            <label>Mô tả<textarea name="description"></textarea></label>
+            <label>Loại quà<select name="reward_type"><option value="voucher_amount">Voucher giảm tiền</option><option value="physical_gift">Quà tại cửa hàng</option></select></label>
+            <label>Điểm cần đổi<input name="points_cost" type="number" min="1" step="1" required></label>
+            <label>Giá trị voucher (VNĐ)<input name="reward_value" type="number" min="0" step="1" value="0" required></label>
+            <label>Số lượng (để trống nếu không giới hạn)<input name="stock" type="number" min="0" step="1"></label>
+            <label>Hiệu lực (ngày, để trống nếu không hết hạn)<input name="validity_days" type="number" min="1" step="1"></label>
+            <label><input name="active" type="checkbox" checked> Đang cho đổi</label>
+            <button type="submit" class="btn btn-primary">Lưu quà</button><button type="button" class="btn btn-secondary" data-close>Đóng</button>
+        </form>
+    </dialog>
+</section>
+{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/admin/loyalty.js') }}"></script>{% endblock %}

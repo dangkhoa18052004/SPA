@@ -7,9 +7,10 @@ from ..models import HoaDon, ThanhToan
 from datetime import datetime
 from urllib.parse import urlencode, quote
 from .payment_webhook_service import begin_event, duplicate_response, finish_event
+from . import loyalty_service as loyalty
 
 def generate_vietqr_info(invoice):
-    return generate_vietqr_payment_info(invoice.tongtien, f'HD{invoice.mahd}')
+    return generate_vietqr_payment_info(loyalty.payable(invoice), f'HD{invoice.mahd}')
 
 
 def vietqr_available():
@@ -29,6 +30,8 @@ def generate_vietqr_payment_info(amount, description):
         raise RuntimeError("Thiếu cấu hình tài khoản VietQR")
     
     amount = int(Decimal(str(amount)))
+    if amount <= 0:
+        raise ValueError('Không tạo VietQR 0đ; vui lòng thanh toán bằng điểm')
     
     # Mã hóa URL cho tên chủ tài khoản và nội dung
     query = urlencode({'amount': amount, 'addInfo': description, 'accountName': account_name})
@@ -89,13 +92,14 @@ def process_sepay_webhook(data, authorization_header=None):
             db.session.commit()
             return {'status':'failed', 'message':'Không phải giao dịch tiền vào'}
         try:
-            _, record, created = confirm_purchase(int(package_match.group(1)),
-                data.get('transferAmount') or data.get('amountIn') or data.get('amount') or 0,
-                external_id=f'sepay:{event.external_transaction_id}', method='vietqr')
-        except AppointmentValidationError as error:
+            with db.session.begin_nested():
+                _, record, created = confirm_purchase(int(package_match.group(1)),
+                    data.get('transferAmount') or data.get('amountIn') or data.get('amount') or 0,
+                    external_id=f'sepay:{event.external_transaction_id}', method='vietqr')
+        except (AppointmentValidationError, loyalty.LoyaltyError) as error:
             finish_event(event, 'rejected')
             db.session.commit()
-            return {'status':'failed', 'message':error.message}
+            return {'status':'failed', 'message':str(error)}
         finish_event(event, 'processed')
         db.session.commit()
         return {'status':'success' if created else 'duplicate', 'mathe':record.mathe}
@@ -108,7 +112,7 @@ def process_sepay_webhook(data, authorization_header=None):
     invoice_id = int(match.group(1))
     
     # Thử tìm theo mã hóa đơn mahd, nếu không có thử tìm theo mã lịch hẹn malh
-    invoice = HoaDon.query.get(invoice_id)
+    invoice = HoaDon.query.filter_by(mahd=invoice_id).with_for_update().populate_existing().first()
         
     if not invoice:
         finish_event(event, "ignored")
@@ -127,7 +131,12 @@ def process_sepay_webhook(data, authorization_header=None):
         ))
     except (InvalidOperation, TypeError):
         transfer_amount = Decimal("0")
-    invoice_amount = Decimal(invoice.tongtien)
+    invoice_amount = loyalty.payable(invoice)
+
+    if str(data.get('transferType', 'in')).lower() != 'in' or invoice_amount == 0:
+        finish_event(event, 'rejected', invoice.mahd)
+        db.session.commit()
+        return {'status': 'failed', 'message': 'Giao dịch không phải tiền vào hoặc hóa đơn cần thanh toán bằng điểm'}
 
     if not transfer_amount.is_finite() or transfer_amount <= 0:
         finish_event(event, "rejected", invoice.mahd)
@@ -147,12 +156,13 @@ def process_sepay_webhook(data, authorization_header=None):
         return {"status": "duplicate", "message": "Hóa đơn đã thanh toán trước đó"}
     new_payment = ThanhToan(
         mahd=invoice.mahd,
-        sotien=transfer_amount,
+        sotien=invoice_amount,
         phuongthuc="VietQR (SePay)",
         ngaythanhtoan=datetime.utcnow()
     )
     invoice.trangthai = 'Đã thanh toán'
     db.session.add(new_payment)
+    loyalty.finalize_payment(invoice)
     finish_event(event, "processed", invoice.mahd)
     db.session.commit()
 

@@ -6,6 +6,7 @@ Doanh thu chuẩn xác dựa trên ThanhToan (sotien + ngaythanhtoan).
 
 from datetime import datetime, date, time, timedelta
 from calendar import monthrange
+from decimal import Decimal
 from sqlalchemy import func, and_, or_, extract
 
 from ..extensions import db
@@ -83,7 +84,7 @@ def revenue_timeseries(from_date=None, to_date=None, group_by="day"):
         end_year, end_month = to_d.year, to_d.month
         while (cur_year < end_year) or (cur_year == end_year and cur_month <= end_month):
             key = f"{cur_year:04d}-{cur_month:02d}"
-            data_map[key] = 0.0
+            data_map[key] = Decimal('0')
             trans_map[key] = 0
             if cur_month == 12:
                 cur_year += 1
@@ -95,14 +96,14 @@ def revenue_timeseries(from_date=None, to_date=None, group_by="day"):
             if p.ngaythanhtoan:
                 key = p.ngaythanhtoan.strftime("%Y-%m")
                 if key in data_map:
-                    data_map[key] += float(p.sotien)
+                    data_map[key] += Decimal(p.sotien)
                     trans_map[key] += 1
     else:
         # group_by == 'day'
         cur_d = from_d
         while cur_d <= to_d:
             key = cur_d.strftime("%Y-%m-%d")
-            data_map[key] = 0.0
+            data_map[key] = Decimal('0')
             trans_map[key] = 0
             cur_d += timedelta(days=1)
 
@@ -110,17 +111,17 @@ def revenue_timeseries(from_date=None, to_date=None, group_by="day"):
             if p.ngaythanhtoan:
                 key = p.ngaythanhtoan.strftime("%Y-%m-%d")
                 if key in data_map:
-                    data_map[key] += float(p.sotien)
+                    data_map[key] += Decimal(p.sotien)
                     trans_map[key] += 1
 
     labels = list(data_map.keys())
-    revenue_data = [round(data_map[k], 2) for k in labels]
+    revenue_data = [float(round(data_map[k], 2)) for k in labels]
     records = [
-        {"date": k, "revenue": round(data_map[k], 2), "transactions_count": trans_map[k]}
+        {"date": k, "revenue": float(round(data_map[k], 2)), "transactions_count": trans_map[k]}
         for k in labels
     ]
 
-    total_revenue = sum(revenue_data)
+    total_revenue = sum(data_map.values(), Decimal('0'))
     total_transactions = sum(trans_map.values())
 
     return {
@@ -128,7 +129,7 @@ def revenue_timeseries(from_date=None, to_date=None, group_by="day"):
         "from_date": from_d.isoformat(),
         "to_date": to_d.isoformat(),
         "group_by": group_by,
-        "total_revenue": round(total_revenue, 2),
+        "total_revenue": float(round(total_revenue, 2)),
         "total_transactions": total_transactions,
         "chart_data": {
             "labels": labels,

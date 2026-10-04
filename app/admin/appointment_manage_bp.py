@@ -15,6 +15,7 @@ from ..models import (
     ChiTietLichHen,
     ChucVu,
     AppointmentStatus,
+    TheLieuTrinh,
 )
 from ..decorators import roles_required
 from ..services import appointment_service
@@ -153,11 +154,34 @@ def check_appointment_availability():
 # APPOINTMENT CRUD (ADMIN & DESK)
 # =========================================================================
 
+@appointment_manage_bp.route('/appointments/customers/<int:makh>/treatments', methods=['GET'])
+@roles_required('admin', 'manager', 'letan')
+def booking_treatments(makh):
+    """Read-only entitlements for booking; grants no treatment management rights."""
+    if not g.current_user.trangthai:
+        return jsonify(success=False, msg='Tài khoản đã ngừng hoạt động'), 403
+    if not db.session.get(KhachHang, makh):
+        return jsonify(success=False, msg='Không tìm thấy khách hàng'), 404
+    from ..services.package_service import serialize_treatment
+    treatment_fields = ('mathe', 'tengoi', 'status', 'expires_at')
+    item_fields = ('id', 'madv', 'tendv', 'source_type', 'total_sessions', 'consumed',
+                   'reserved', 'available_sessions', 'usable', 'valid_from', 'expires_at',
+                   'effective_expires_at', 'gifted_by_name', 'gift_note')
+    treatments = []
+    for record in TheLieuTrinh.query.filter_by(makh=makh).order_by(TheLieuTrinh.mathe.desc()).all():
+        serialized = serialize_treatment(record)
+        treatments.append({**{key: serialized[key] for key in treatment_fields},
+            'items': [{key: item[key] for key in item_fields} for item in serialized['items']]})
+    return jsonify(success=True, treatments=treatments)
+
+
 @appointment_manage_bp.route("/appointments", methods=["POST"])
 @roles_required("admin", "manager", "letan")
 def create_appointment():
     """Admin / Lễ tân tạo lịch hẹn mới cho khách hàng."""
     try:
+        if not g.current_user.trangthai:
+            return jsonify(success=False, msg='Tài khoản đã ngừng hoạt động'), 403
         data = request.get_json() or {}
         makh = data.get("makh")
         madv_list = data.get("madv_list", [])
@@ -175,6 +199,8 @@ def create_appointment():
             manv=manv,
             note=ghichu,
             source="admin",
+            package_usages=data.get('package_usages', []),
+            created_by_staff=g.current_user.manv,
         )
 
         return jsonify({
@@ -441,13 +467,20 @@ def get_appointment_detail(malh):
             return jsonify({"msg": "Bạn không có quyền xem lịch hẹn này"}), 403
 
         services = []
+        usages = {usage.madv: usage for usage in LieuTrinhUsage.query.filter_by(malh=malh)
+                  .filter(LieuTrinhUsage.state.in_(('reserved', 'consumed'))).all()}
         for detail in apt.chitiet:
             if detail.dichvu:
+                usage = usages.get(detail.madv)
+                record = db.session.get(TheLieuTrinh, usage.mathe) if usage else None
                 services.append({
                     "madv": detail.madv,
                     "tendv": detail.dichvu.tendv,
                     "gia": str(detail.dichvu.gia),
                     "thoiluong": detail.dichvu.thoiluong,
+                    'coverage': dict(mathe=usage.mathe, the_item_id=usage.the_item_id,
+                        source_type=usage.item.source_type, state=usage.state,
+                        tengoi=record.purchase.snapshot_json['tengoi']) if usage else None,
                 })
 
         invoice_map, coverage_map = appointment_billing_maps([apt])
@@ -469,6 +502,9 @@ def get_appointment_detail(malh):
             "trangthai": apt.trangthai,
             "trangthai_vi": AppointmentStatus.to_vietnamese(apt.trangthai),
             "ghichu": apt.ghichu or "",
+            'booking_source': apt.booking_source,
+            'created_by_staff': apt.created_by_staff,
+            'created_by_staff_name': apt.booking_creator.hoten if apt.booking_creator else None,
         }
 
         return jsonify({"success": True, "appointment": result}), 200

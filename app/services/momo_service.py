@@ -9,6 +9,7 @@ from flask import current_app
 from ..models import HoaDon, ThanhToan
 from ..extensions import db
 from .payment_webhook_service import begin_event, duplicate_response, finish_event
+from . import loyalty_service as loyalty
 
 def create_momo_payment_link(invoice):
     """
@@ -32,7 +33,9 @@ def create_momo_payment_link(invoice):
     requestId = f"{orderId}_REQ"
     
     orderInfo = f"Thanh toan HD{invoice.mahd}"
-    amount = str(int(invoice.tongtien))
+    amount = str(int(loyalty.payable(invoice)))
+    if loyalty.payable(invoice) == 0:
+        raise ValueError('Vui lòng chọn Thanh toán bằng điểm')
     requestType = "captureWallet"
     extraData = ""
 
@@ -166,7 +169,7 @@ def process_momo_webhook(data):
     try:
         match = re.fullmatch(r"Thanh toan HD(\d+)", str(order_info or "").strip())
         mahd = int(match.group(1)) if match else None
-        invoice = HoaDon.query.get(mahd)
+        invoice = HoaDon.query.filter_by(mahd=mahd).with_for_update().populate_existing().first()
     except Exception:
         invoice = None
 
@@ -184,7 +187,7 @@ def process_momo_webhook(data):
         paid_amount = Decimal(str(data.get('amount') or "0"))
     except (InvalidOperation, TypeError):
         paid_amount = Decimal("0")
-    if paid_amount <= 0 or paid_amount < Decimal(invoice.tongtien):
+    if not paid_amount.is_finite() or paid_amount <= 0 or loyalty.payable(invoice) == 0 or paid_amount < loyalty.payable(invoice):
         finish_event(event, "rejected", invoice.mahd)
         db.session.commit()
         return {"status": "failed", "message": "Số tiền thanh toán không hợp lệ hoặc không đủ"}
@@ -196,12 +199,13 @@ def process_momo_webhook(data):
         return {"status": "duplicate", "message": "Hóa đơn đã thanh toán trước đó"}
     new_payment = ThanhToan(
         mahd=invoice.mahd,
-        sotien=paid_amount,
+        sotien=loyalty.payable(invoice),
         phuongthuc='Momo QR',
         ghichu=f"Momo TransId: {data.get('transId')}"
     )
     invoice.trangthai = 'Đã thanh toán'
     db.session.add(new_payment)
+    loyalty.finalize_payment(invoice)
     finish_event(event, "processed", invoice.mahd)
     db.session.commit()
     current_app.logger.info(

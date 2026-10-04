@@ -392,11 +392,18 @@ def find_available_staff(start_dt, madv_list):
     return best_staff, available_candidates
 
 
-def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, source='web', package_usages=None):
+def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, source='web', package_usages=None,
+                       created_by_staff=None):
     """
     Tạo lịch hẹn mới (Atomic transaction).
     Dùng chung cho Customer Booking API, Admin Booking API, và AI Assistant.
     """
+    booking_source = 'customer' if source == 'web' else source
+    if booking_source not in ('customer', 'admin', 'ai'):
+        raise AppointmentValidationError('Nguồn đặt lịch không hợp lệ')
+    if booking_source != 'admin':
+        created_by_staff = None
+
     # 1. Parse & validate start_dt
     if isinstance(start_dt, str):
         try:
@@ -479,6 +486,8 @@ def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, s
             manv=assigned_manv,
             trangthai=AppointmentStatus.CONFIRMED,
             ghichu=note.strip() if note and isinstance(note, str) else None,
+            booking_source=booking_source,
+            created_by_staff=created_by_staff,
         )
         db.session.add(new_appointment)
         db.session.flush()
@@ -493,7 +502,8 @@ def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, s
         db.session.flush()
         from .package_service import reserve_usages
         from .notification_service import sync_appointment_jobs
-        reserve_usages(new_appointment, [] if package_usages is None else package_usages)
+        reserve_usages(new_appointment, [] if package_usages is None else package_usages,
+                       require_item_id=booking_source == 'admin')
         sync_appointment_jobs(new_appointment)
         db.session.commit()
     except AppointmentValidationError:
@@ -542,6 +552,8 @@ def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, s
             "total_duration": total_duration,
             "end_time": end_time_dt.strftime('%H:%M'),
             "ghichu": new_appointment.ghichu,
+            "booking_source": new_appointment.booking_source,
+            "created_by_staff": new_appointment.created_by_staff,
             "services": [s['tendv'] for s in appointment_data['services']]
         }
     }

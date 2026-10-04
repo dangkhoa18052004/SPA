@@ -57,7 +57,7 @@ function renderInvoicesTable() {
         <td><strong>${esc(row.code)}</strong></td><td>${esc(row.display_type_label)}</td>
         <td>${esc(row.customer_name)}<br><small>${esc(row.customer_phone)}</small></td>
         <td>${esc(row.transaction_type === 'package' ? row.package_name : row.appointment_id ? 'Lịch hẹn #' + row.appointment_id : 'Dịch vụ riêng')}</td>
-        <td><strong>${money(row.total_amount)}</strong></td>
+        <td><strong>${money(row.payable_amount ?? row.total_amount)}</strong></td>
         <td><span class="badge badge-${row.status === 'Đã thanh toán' ? 'success' : 'danger'}">${esc(row.status)}</span></td>
         <td>${date(row.created_at)}</td>
         <td><button class="btn btn-info btn-sm" onclick="viewInvoiceDetail(${row.id}, '${row.transaction_type}')">Xem</button>
@@ -94,13 +94,14 @@ async function payBillingTransaction(kind, id) {
         const {purchase} = await billingApi(`/api/admin/package-sales/${id}`);
         if (purchase.status === 'paid') { showSuccess('Phiếu đã được thanh toán.'); await loadInvoices(); return; }
         if (purchase.status !== 'pending') throw new Error('Phiếu này không còn chờ thanh toán');
-        if (purchase.payment_method !== 'cash') { await PackageCare.showPayment(purchase); return; }
+        if (purchase.payment_method !== 'cash' || Number(purchase.payable_amount ?? purchase.amount)===0) { await PackageCare.showPayment(purchase); return; }
         const dialog = byId('billingCashDialog');
-        byId('billingCashSummary').textContent = `${purchase.receipt_code} · ${purchase.customer_name} · ${BillingReceipt.money(purchase.amount)}`;
+        const payable = purchase.payable_amount ?? purchase.amount;
+        byId('billingCashSummary').textContent = `${purchase.receipt_code} · ${purchase.customer_name} · ${BillingReceipt.money(payable)}`;
         const input = byId('billingCashReceived');
-        input.min = purchase.amount;
-        input.value = purchase.amount;
-        const change = () => { byId('billingCashChange').textContent = 'Tiền thối: ' + BillingReceipt.money(Math.max(0, Number(input.value) - Number(purchase.amount))); };
+        input.min = payable;
+        input.value = payable;
+        const change = () => { byId('billingCashChange').textContent = 'Tiền thối: ' + BillingReceipt.money(Math.max(0, Number(input.value) - Number(payable))); };
         input.oninput = change;
         change();
         byId('billingCashForm').onsubmit = async event => {
@@ -116,7 +117,9 @@ async function payBillingTransaction(kind, id) {
             } catch (error) { showError(error.message); }
             finally { button.disabled = false; }
         };
+        dialog.querySelector('.loyalty-payment')?.remove();
         dialog.showModal();
+        if(window.LoyaltyPayment) await LoyaltyPayment.mount(dialog,`/api/admin/packages/purchases/${id}`,purchase.makh,async()=>{dialog.close();await payBillingTransaction(kind,id);});
     } catch (error) { showError(error.message); }
 }
 document.addEventListener('DOMContentLoaded', () => {

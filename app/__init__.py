@@ -51,6 +51,10 @@ def create_app(config_overrides=None):
     from .routes.package_bp import package_bp
     from .services.notification_service import register_commands
     app.register_blueprint(package_bp)
+    from .routes.loyalty_bp import loyalty_bp
+    from .admin.loyalty_manage_bp import admin_loyalty_bp
+    app.register_blueprint(loyalty_bp)
+    app.register_blueprint(admin_loyalty_bp)
     register_commands(app)
 
     # Đăng ký blueprints admin

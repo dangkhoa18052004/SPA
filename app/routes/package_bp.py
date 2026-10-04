@@ -4,6 +4,7 @@ from ..extensions import db
 from ..decorators import customer_required, roles_required
 from ..models import GoiDichVu, GoiDichVuPurchase, TheLieuTrinh, KhachHang, DichVu
 from ..services import package_service as service
+from ..services import loyalty_service as loyalty
 from ..services.appointment_service import AppointmentValidationError
 from ..services.vietqr_service import generate_vietqr_payment_info, vietqr_available
 from ..services.upload_service import read_validated_image, InvalidUploadError
@@ -13,6 +14,12 @@ from functools import wraps
 from flask_jwt_extended.exceptions import NoAuthorizationError
 
 package_bp = Blueprint('packages', __name__)
+
+
+@package_bp.errorhandler(loyalty.LoyaltyError)
+def loyalty_validation(error):
+    db.session.rollback()
+    return jsonify(success=False, message=str(error)), 400
 
 
 @package_bp.errorhandler(NoAuthorizationError)
@@ -129,6 +136,7 @@ def package_detail(package_id):
 def serialize_purchase(purchase):
     record = TheLieuTrinh.query.filter_by(purchase_id=purchase.id).first()
     result = dict(id=purchase.id, magoi=purchase.magoi, tengoi=purchase.snapshot_json['tengoi'],
+        makh=purchase.makh, **loyalty.payment_summary(purchase),
         amount=str(purchase.amount), status=purchase.status, payment_method=purchase.payment_method,
         created_at=purchase.created_at.isoformat(), mathe=record.mathe if record else None)
     result.update(payment_reference=f'PKG{purchase.id}', receipt_code=f'PG{purchase.id:06d}',
@@ -137,11 +145,11 @@ def serialize_purchase(purchase):
         created_by_staff=purchase.created_by_staff, confirmed_by_staff=purchase.confirmed_by_staff,
         staff_name=(purchase.confirmer or purchase.creator).hoten if (purchase.confirmer or purchase.creator) else None,
         cash_received=str(purchase.cash_received) if purchase.cash_received is not None else None,
-        change=str(purchase.cash_received-purchase.amount) if purchase.cash_received is not None else None,
+        change=str(purchase.cash_received-loyalty.payable(purchase)) if purchase.cash_received is not None else None,
         items=purchase.snapshot_json['items'], validity_months=purchase.snapshot_json['validity_months'])
     result['vietqr_available'] = vietqr_available()
-    if purchase.status == 'pending' and purchase.payment_method == 'vietqr' and vietqr_available():
-        result['payment'] = generate_vietqr_payment_info(purchase.amount, f'PKG{purchase.id}')
+    if purchase.status == 'pending' and purchase.payment_method == 'vietqr' and vietqr_available() and loyalty.payable(purchase) > 0:
+        result['payment'] = generate_vietqr_payment_info(loyalty.payable(purchase), f'PKG{purchase.id}')
     return result
 
 
@@ -153,6 +161,10 @@ def purchase_package(package_id):
         return jsonify(success=False, message='VietQR tạm thời chưa khả dụng; vui lòng thanh toán tại quầy'), 503
     try:
         purchase = service.create_purchase(package_id, g.current_user.makh, data.get('payment_method', 'vietqr'))
+        if data.get('redemption_id') is not None:
+            loyalty.apply_reward(purchase, loyalty.integer(data['redemption_id'], 1))
+        if data.get('points'):
+            loyalty.reserve_points(purchase, data['points'])
         result = serialize_purchase(purchase)
         db.session.commit()
     except RuntimeError:
@@ -239,6 +251,11 @@ def update_package(package_id):
 @treatment_staff_required
 def admin_treatments():
     query = TheLieuTrinh.query.join(KhachHang)
+    if 'makh' in request.args:
+        raw_makh = request.args['makh']
+        if not raw_makh.isdecimal() or int(raw_makh) <= 0:
+            raise AppointmentValidationError('Mã khách hàng không hợp lệ')
+        query = query.filter(TheLieuTrinh.makh == int(raw_makh))
     term = request.args.get('search', '').strip()
     if term:
         condition = KhachHang.hoten.ilike(f'%{term}%') | KhachHang.sdt.ilike(f'%{term}%')
@@ -300,7 +317,7 @@ def confirm_cash(purchase_id):
     if not current or current.payment_method != 'cash':
         raise AppointmentValidationError('Chỉ xác nhận tiền mặt cho giao dịch tiền mặt')
     purchase, record, _ = service.confirm_purchase(purchase_id,
-        current.amount if 'cash_received' in data else data.get('amount'), method='cash',
+        loyalty.payable(current) if 'cash_received' in data else data.get('amount'), method='cash',
         staff_id=g.current_user.manv, cash_received=data.get('cash_received', data.get('amount')))
     db.session.commit()
     return jsonify(success=True, mathe=record.mathe, purchase=serialize_purchase(purchase))
@@ -329,6 +346,10 @@ def counter_sales():
             raise AppointmentValidationError('Khách hàng không tồn tại hoặc đã ngừng hoạt động')
         purchase = service.create_purchase(data.get('magoi'), customer.makh, data.get('payment_method'))
         purchase.created_by_staff = g.current_user.manv
+        if data.get('redemption_id') is not None:
+            loyalty.apply_reward(purchase, loyalty.integer(data['redemption_id'], 1))
+        if data.get('points'):
+            loyalty.reserve_points(purchase, data['points'])
         try:
             result = serialize_purchase(purchase)
         except RuntimeError:

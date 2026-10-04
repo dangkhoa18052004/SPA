@@ -1,0 +1,15 @@
+#booking-service-method { border: 0; padding: 0; min-width: 0; }
+#booking-service-method legend { font-size: 1rem; font-weight: 600; }
+.booking-method-options { display: flex; flex-wrap: wrap; gap: 12px; }
+#booking-service-method .booking-method-options label { display: flex; align-items: center; gap: 6px; }
+.booking-treatment-card { border: 1px solid var(--border-color, #d1d5db); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.booking-treatment-card summary { cursor: pointer; font-weight: 600; }
+#booking-treatment-list .booking-treatment-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-top: 1px solid var(--border-color, #d1d5db); overflow-wrap: anywhere; }
+.booking-treatment-item input { flex-shrink: 0; margin-top: 5px; }
+.booking-treatment-item span { display: block; }
+.booking-treatment-item small { display: block; margin-top: 4px; }
+.booking-treatment-item:has(input:disabled) { opacity: .65; }
+.booking-source-badge { display: inline-block !important; border-radius: 5px; padding: 2px 7px; background: #e0f2fe; color: #075985; font-size: .85rem; }
+.booking-source-badge.gift { background: #fef3c7; color: #92400e; }
+.detail-services li { flex-wrap: wrap; gap: 6px; }
+@media (max-width: 600px) { .booking-method-options { flex-direction: column; } }
