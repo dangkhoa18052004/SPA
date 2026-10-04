@@ -127,3 +127,22 @@ def test_reward_stock_cannot_be_oversold(concurrent_app):
     with app.app_context():
         assert LoyaltyRewardRedemption.query.count()==1
         assert sorted(w.available_points for w in LoyaltyWallet.query.all())==[100,300]
+
+
+def test_redemption_filters_match_effective_status_on_each_backend(concurrent_app):
+    # JSON snapshot lookups compile differently per dialect (JSON_EXTRACT vs ->>).
+    from datetime import datetime, timedelta
+    with concurrent_app.app_context():
+        makh=concurrent_app.config['RACE_CUSTOMERS'][0]
+        voucher=loyalty.save_reward(dict(name='Voucher 100%_off',reward_type='voucher_amount',points_cost=50,reward_value=50000))
+        gift=loyalty.save_reward(dict(name='Quà tặng',reward_type='physical_gift',points_cost=50,reward_value=0))
+        live=loyalty.redeem_reward(makh,voucher.id,'live');expired=loyalty.redeem_reward(makh,voucher.id,'expired')
+        loyalty.redeem_reward(makh,gift.id,'gift')
+        expired.expires_at=datetime.utcnow()-timedelta(minutes=1);db.session.commit()
+        base=LoyaltyRewardRedemption.query.filter_by(makh=makh)
+        ids=lambda **kw:sorted(r.id for r in loyalty.filter_redemptions(base,**kw).all())
+        assert ids(group='usable')==[live.id]
+        assert ids(group='closed')==[expired.id]
+        assert len(ids(group='pickup'))==1 and len(ids(reward_type='physical_gift'))==1
+        assert len(ids(search='100%_'))==2 and ids(search='quà')==ids(group='pickup')
+        assert ids(search=live.code[-5:].lower())==[live.id]

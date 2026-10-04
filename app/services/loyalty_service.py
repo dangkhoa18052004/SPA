@@ -453,8 +453,43 @@ def serialize_transaction(row):
     return {key: getattr(row, key) for key in ('id', 'makh', 'type', 'points_delta', 'source_type', 'source_id', 'reference_code', 'description', 'created_by_staff')} | {'created_at': row.created_at.isoformat()+'Z'}
 
 
-def serialize_redemption(row):
-    status = 'expired' if row.status == 'available' and row.expires_at and row.expires_at < datetime.utcnow() else row.status
+REDEMPTION_GROUPS = ('all', 'usable', 'pickup', 'applied', 'done', 'closed')
+REWARD_TYPES = ('voucher_amount', 'physical_gift')
+
+
+def redemption_status(row, now=None):
+    # Expiry is derived, never written on read: filters below use the same rule.
+    now = now or datetime.utcnow()
+    return 'expired' if row.status == 'available' and row.expires_at and row.expires_at < now else row.status
+
+
+def like_pattern(text):
+    # Paired with escape='!' so user text never acts as a wildcard.
+    return '%' + text.replace('!', '!!').replace('%', '!%').replace('_', '!_') + '%'
+
+
+def filter_redemptions(query, group='all', reward_type=None, search=None, now=None):
+    model = LoyaltyRewardRedemption
+    now = now or datetime.utcnow()
+    kind = model.reward_snapshot_json['reward_type'].as_string()
+    live = db.and_(model.status == 'available', db.or_(model.expires_at.is_(None), model.expires_at >= now))
+    conditions = dict(all=[], usable=[live, kind == 'voucher_amount'], pickup=[live, kind == 'physical_gift'],
+        applied=[model.status == 'reserved'], done=[model.status.in_(['used', 'fulfilled'])],
+        closed=[db.or_(model.status.in_(['expired', 'cancelled']), db.and_(model.status == 'available', model.expires_at < now))])
+    if group not in conditions:
+        raise LoyaltyError('Nhóm trạng thái không hợp lệ')
+    query = query.filter(*conditions[group])
+    if reward_type:
+        query = query.filter(kind == reward_type)
+    if search:
+        pattern = like_pattern(search)
+        query = query.filter(db.or_(model.code.ilike(pattern, escape='!'),
+            model.reward_snapshot_json['name'].as_string().ilike(pattern, escape='!')))
+    return query
+
+
+def serialize_redemption(row, now=None):
+    status = redemption_status(row, now)
     return dict(id=row.id, makh=row.makh, reward_id=row.reward_id, points_spent=row.points_spent,
         reward=row.reward_snapshot_json, status=status, code=row.code,
         expires_at=row.expires_at.isoformat()+'Z' if row.expires_at else None,

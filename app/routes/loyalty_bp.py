@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy.exc import IntegrityError
 from ..extensions import db
@@ -32,6 +33,20 @@ def paginate(query, serializer):
         per_page=size, total=result.total, pages=result.pages)
 
 
+def text_arg(name, limit=100):
+    value = request.args.get(name, '').strip()
+    if len(value) > limit:
+        raise service.LoyaltyError('Từ khóa tìm kiếm quá dài')
+    return value
+
+
+def choice_arg(name, choices):
+    value = request.args.get(name, '').strip()
+    if value and value not in choices:
+        raise service.LoyaltyError('Bộ lọc không hợp lệ')
+    return value
+
+
 @loyalty_bp.errorhandler(service.LoyaltyError)
 def validation(error):
     db.session.rollback()
@@ -62,13 +77,28 @@ def transactions():
 @loyalty_bp.route('/api/loyalty/rewards')
 @customer_required
 def rewards():
-    return jsonify(success=True, **paginate(LoyaltyReward.query.filter_by(active=True).order_by(LoyaltyReward.id), service.serialize_reward))
+    query = LoyaltyReward.query.filter_by(active=True)
+    search = text_arg('search')
+    if search:
+        query = query.filter(LoyaltyReward.name.ilike(service.like_pattern(search), escape='!'))
+    reward_type = choice_arg('reward_type', service.REWARD_TYPES)
+    if reward_type:
+        query = query.filter(LoyaltyReward.reward_type == reward_type)
+    if choice_arg('affordable_only', ('0', '1')) == '1':
+        query = query.filter(LoyaltyReward.points_cost <= service.get_balance(g.current_user.makh)['available_points'])
+    return jsonify(success=True, **paginate(query.order_by(LoyaltyReward.id), service.serialize_reward))
 
 
 @loyalty_bp.route('/api/loyalty/my-rewards')
 @customer_required
 def my_rewards():
-    return jsonify(success=True, **paginate(LoyaltyRewardRedemption.query.filter_by(makh=g.current_user.makh).order_by(LoyaltyRewardRedemption.id.desc()), service.serialize_redemption))
+    # Ownership comes only from the token; one `now` keeps filter, total and labels consistent.
+    now = datetime.utcnow()
+    query = service.filter_redemptions(LoyaltyRewardRedemption.query.filter_by(makh=g.current_user.makh),
+        choice_arg('status', service.REDEMPTION_GROUPS) or 'all', choice_arg('reward_type', service.REWARD_TYPES),
+        text_arg('search'), now)
+    return jsonify(success=True, **paginate(query.order_by(LoyaltyRewardRedemption.id.desc()),
+        lambda row: service.serialize_redemption(row, now)))
 
 
 @loyalty_bp.route('/api/loyalty/rewards/<int:reward_id>/redeem', methods=['POST'])

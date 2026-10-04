@@ -10,3 +10,44 @@
 .loyalty-dialog::backdrop{background:#0006}.loyalty-page button,.loyalty-payment button{margin:4px}
 .loyalty-page [role=status]{color:#795c27}.loyalty-history{list-style:none;padding:0}.loyalty-history li{padding:14px 0;border-bottom:1px solid #eee}
 .loyalty-payment [hidden]{display:none!important}.loyalty-page .btn:disabled{opacity:.5;cursor:not-allowed}
+/* Customer Điểm thưởng (profile). Scoped to #loyalty-section / reward dialog so admin pages are unchanged. */
+#loyalty-section .loyalty-wallet{grid-template-columns:repeat(3,minmax(0,1fr))}
+#loyalty-section .loyalty-wallet .loyalty-card span{display:block;font-size:14px;color:#6b6257}
+#loyalty-section .loyalty-tabs{gap:8px;border-bottom:1px solid #ede4d5;padding-bottom:12px}
+#loyalty-section .loyalty-tabs [aria-selected=true]{box-shadow:0 0 0 2px #fff,0 0 0 4px #c9a961}
+#loyalty-section .loyalty-grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));align-items:start}
+#loyalty-section .loyalty-grid .loyalty-card{display:flex;flex-direction:column;gap:6px;min-width:0}
+#loyalty-section .loyalty-grid h3{margin:4px 0;font-size:18px;overflow-wrap:anywhere}
+#loyalty-section .loyalty-grid p{margin:0}
+#loyalty-section .loyalty-reward [data-redeem]{margin:8px 0 0;align-self:stretch}
+.loyalty-badge{display:inline-block;align-self:flex-start;padding:2px 10px;border-radius:999px;background:#efe3c8;color:#5d4518;font-size:13px;font-weight:600}
+.loyalty-status{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600;background:#eee;color:#444}
+.loyalty-status--available{background:#e3f4e6;color:#1f6b33}.loyalty-status--reserved{background:#fff1d6;color:#7a4b00}
+.loyalty-status--used,.loyalty-status--fulfilled{background:#e6eef8;color:#244a7a}.loyalty-status--expired,.loyalty-status--cancelled{background:#f4e4e4;color:#8a2c2c}
+.loyalty-offer-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.loyalty-offer.is-new{border-color:#c9a961;box-shadow:0 0 0 3px #c9a96155}
+.loyalty-offer:focus{outline:2px solid #795c27;outline-offset:2px}
+.loyalty-facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:8px 0;font-size:14px}
+.loyalty-facts dt{color:#6b6257}.loyalty-facts dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.loyalty-muted{color:#6b6257;font-size:14px}.loyalty-warn{color:#8a5a00;font-weight:600}.loyalty-error{color:#a12a2a}
+.loyalty-code code{font-size:15px;background:#fff;border:1px dashed #c9a961;padding:2px 6px;border-radius:4px;overflow-wrap:anywhere}
+#loyalty-section .btn-sm{padding:4px 10px;font-size:13px}
+.loyalty-toolbar{display:flex;flex-wrap:wrap;gap:0 12px;align-items:flex-end;margin-bottom:8px}
+.loyalty-toolbar label{flex:1 1 180px;margin:6px 0!important}.loyalty-toolbar .loyalty-check{flex:0 0 auto;display:flex!important;gap:6px;align-items:center;padding-bottom:10px}
+.loyalty-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.loyalty-chip{padding:6px 14px;border:1px solid #d5cdbf;border-radius:999px;background:#fff;color:#403a32;cursor:pointer;margin:0!important}
+.loyalty-chip[aria-pressed=true]{background:#795c27;border-color:#795c27;color:#fff}
+.loyalty-chip:focus-visible,#loyalty-section .btn:focus-visible{outline:2px solid #795c27;outline-offset:2px}
+.loyalty-state{padding:24px;text-align:center;color:#6b6257;background:#faf6ed;border-radius:10px}
+.loyalty-notice{padding:12px 16px;margin-bottom:12px;border:1px solid #e9c97a;background:#fff8e6;border-radius:10px}.loyalty-notice p{margin:0 0 6px}
+.loyalty-reward-dialog h4{margin:8px 0}.loyalty-reward-dialog .loyalty-actions{justify-content:flex-end;margin:16px 0 0}
+@media (max-width:600px){
+  #loyalty-section.loyalty-page{padding:14px}
+  #loyalty-section .loyalty-wallet{gap:8px}
+  #loyalty-section .loyalty-wallet .loyalty-card{padding:10px}
+  #loyalty-section .loyalty-wallet .loyalty-card span{font-size:12px}
+  #loyalty-section .loyalty-wallet .loyalty-card strong{font-size:20px;margin:6px 0 0}
+  #loyalty-section .loyalty-tabs .btn{flex:1 1 auto;padding:8px 10px}
+  #loyalty-section .loyalty-grid{grid-template-columns:1fr}
+  .loyalty-reward-dialog{padding:18px}.loyalty-reward-dialog .loyalty-actions .btn{flex:1}
+}

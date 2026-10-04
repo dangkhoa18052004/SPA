@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/profile.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/reviews.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css', v='2.0') }}">
 {% endblock %}
 
 {% block content %}
@@ -72,9 +72,13 @@
         <div class="profile-content">
             <div class="profile-section loyalty-page" id="loyalty-section">
                 <h2 class="section-title">Điểm thưởng</h2><p id="customerLoyaltyMessage" role="status" aria-live="polite"></p>
-                <div id="loyaltyBalance" class="loyalty-cards">Đang tải...</div>
-                <nav class="loyalty-actions"><button class="btn btn-primary" data-loyalty-view="history">Lịch sử điểm</button><button class="btn btn-outline" data-loyalty-view="rewards">Đổi thưởng</button><button class="btn btn-outline" data-loyalty-view="mine">Ưu đãi của tôi</button></nav>
-                <div id="customerLoyaltyContent" aria-live="polite"></div>
+                <div id="loyaltyBalance" class="loyalty-cards loyalty-wallet">Đang tải...</div>
+                <div class="loyalty-tabs" role="tablist" aria-label="Điểm thưởng">
+                    <button type="button" role="tab" class="btn btn-primary" id="loyaltyTab-history" aria-controls="customerLoyaltyContent" data-loyalty-view="history">Lịch sử điểm</button>
+                    <button type="button" role="tab" class="btn btn-outline" id="loyaltyTab-rewards" aria-controls="customerLoyaltyContent" data-loyalty-view="rewards">Đổi thưởng</button>
+                    <button type="button" role="tab" class="btn btn-outline" id="loyaltyTab-mine" aria-controls="customerLoyaltyContent" data-loyalty-view="mine">Ưu đãi của tôi</button>
+                </div>
+                <div id="customerLoyaltyContent" role="tabpanel"></div>
             </div>
             <div class="profile-section" id="reviews-section"><h2 class="section-title">Đánh giá của tôi</h2><div id="myReviews">Đang tải...</div></div>
             <div class="profile-section package-section" id="treatments-section">
@@ -215,5 +219,5 @@
 <script src="{{ url_for('static', filename='js/reviews.js') }}"></script>
 <script src="{{ url_for('static', filename='js/customers/profile.js', v='1.2') }}"></script>
 <script src="{{ url_for('static', filename='js/packages.js') }}"></script>
-<script src="{{ url_for('static', filename='js/customers/loyalty.js') }}"></script>
+<script src="{{ url_for('static', filename='js/customers/loyalty.js', v='2.0') }}"></script>
 {% endblock %}

@@ -7,8 +7,8 @@
         const headers = admin ? window.getAuthHeaders(true) : {'Content-Type':'application/json'};
         const fetcher = admin ? fetch : window.CustomerAuth.fetch.bind(window.CustomerAuth);
         const response = await fetcher(url, {method, headers, cache:'no-store', ...(body ? {body:JSON.stringify(body)} : {})});
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.msg || data.message || 'Không thể cập nhật điểm');
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw Object.assign(new Error(data.msg || data.message || 'Không thể cập nhật điểm'), {status: response.status});
         return data;
     }
     function summary(data) {
@@ -23,10 +23,12 @@
         host.className = 'loyalty-payment';
         host.innerHTML = '<p>Đang tải điểm thưởng...</p>';
         root.prepend(host);
+        // Customers see only spendable points; staff keep the reserved balance for reconciliation.
+        const admin = base.startsWith('/api/admin/');
         try {
             const state = await api(base+'/loyalty');
             if (!host.isConnected) return;
-            host.innerHTML = `<h4>ĐIỂM THƯỞNG</h4><p>Khả dụng: ${esc(state.wallet.available_points)} điểm · Đang giữ: ${esc(state.wallet.reserved_points)} điểm</p>`+
+            host.innerHTML = `<h4>ĐIỂM THƯỞNG</h4><p>Khả dụng: ${esc(state.wallet.available_points)} điểm${admin ? ` · Đang giữ: ${esc(state.wallet.reserved_points)} điểm` : ''}</p>`+
                 summary(state)+
                 (state.redeem_enabled ? `<label><input type="checkbox" data-enable ${state.points_used ? 'checked' : ''}> Sử dụng điểm</label><div data-point-controls ${state.points_used ? '' : 'hidden'}><label>Số điểm <input data-points type="number" min="1" step="1" value="${esc(state.points_used || '')}"></label><button type="button" class="btn btn-secondary" data-max>Dùng tối đa (${esc(state.max_points_allowed)})</button><button type="button" class="btn btn-secondary" data-preview>Xem quy đổi</button><button type="button" class="btn btn-primary" data-apply>Áp dụng điểm</button></div>` : '<p>Quy tắc hiện tại không cho dùng điểm cho thanh toán này.</p>')+
                 (state.points_used ? '<button type="button" class="btn btn-secondary" data-remove>Bỏ sử dụng điểm</button>' : '')+
@@ -55,7 +57,7 @@
             }
             const remove = host.querySelector('[data-remove]');
             if (remove) remove.onclick=run(async()=>{await api(base+'/loyalty','DELETE');await changed();});
-            const endpoint = base.startsWith('/api/admin/') ? `/api/admin/loyalty/customers/${makh}/vouchers?per_page=100` : '/api/loyalty/my-rewards?per_page=100';
+            const endpoint = admin ? `/api/admin/loyalty/customers/${makh}/vouchers?per_page=100` : '/api/loyalty/my-rewards?status=usable&per_page=100';
             const vouchers = (await api(endpoint)).items.filter(v=>v.status==='available' && v.reward.reward_type==='voucher_amount');
             if (!host.isConnected) return;
             const section = host.querySelector('[data-vouchers]');
