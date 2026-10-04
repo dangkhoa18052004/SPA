@@ -64,9 +64,15 @@ def save_package(data, package=None):
         seen.add(service_id)
         retail += price * sessions
         items.append((service, sessions, price))
-    active = data.get('active', True)
+    active = data.get('active', package.active if package is not None else True)
     if not isinstance(active, bool):
         raise AppointmentValidationError('Active phải là boolean')
+    sale_flags = {}
+    for field in ('customer_sale_enabled', 'staff_sale_enabled'):
+        value = data.get(field, getattr(package, field) if package is not None else True)
+        if not isinstance(value, bool):
+            raise AppointmentValidationError(f'{field} phải là boolean')
+        sale_flags[field] = value
     # Dan do BỔ SUNG danh rieng cho lieu trinh/goi (optional, max 10000 ky tu)
     post_care = data.get('post_care_instructions')
     if post_care is not None:
@@ -77,6 +83,8 @@ def save_package(data, package=None):
     package = package or GoiDichVu()
     package.tengoi, package.mota = name, str(data.get('mota') or '')
     package.giagoi, package.validity_months, package.active = amount, months, active
+    package.customer_sale_enabled = sale_flags['customer_sale_enabled']
+    package.staff_sale_enabled = sale_flags['staff_sale_enabled']
     if post_care is not None:
         package.post_care_instructions = post_care
     # Purchase snapshots make editing a sold package safe; records never depend on these rows.
@@ -101,6 +109,7 @@ def serialize_package(package):
     retail = sum(i.regular_unit_price_snapshot * i.total_sessions for i in package.items)
     return dict(magoi=package.magoi, tengoi=package.tengoi, mota=package.mota,
         giagoi=str(package.giagoi), validity_months=package.validity_months, active=package.active,
+        customer_sale_enabled=package.customer_sale_enabled, staff_sale_enabled=package.staff_sale_enabled,
         # post_care_instructions: lay tu GoiDichVu hien tai (khong phai snapshot) de dam bao
         # huong dan cham soc luon la ban moi nhat, an toan nhat.
         post_care_instructions=package.post_care_instructions or '',
@@ -110,10 +119,17 @@ def serialize_package(package):
             package_unit_value=str(i.package_unit_value)) for i in package.items])
 
 
-def create_purchase(package_id, customer_id, method):
+def create_purchase(package_id, customer_id, method, *, sale_channel='customer'):
+    # Routes choose the channel; never pass through a value supplied by the client.
+    if sale_channel not in ('customer', 'staff'):
+        raise AppointmentValidationError('Kênh bán gói không hợp lệ')
     package = GoiDichVu.query.filter_by(magoi=package_id, active=True).with_for_update().first()
     if not package:
         raise AppointmentValidationError('Gói không tồn tại hoặc đã ngừng bán')
+    if sale_channel == 'customer' and not package.customer_sale_enabled:
+        raise AppointmentValidationError('Gói này hiện không mở bán trực tuyến. Vui lòng liên hệ Bin Spa.')
+    if sale_channel == 'staff' and not package.staff_sale_enabled:
+        raise AppointmentValidationError('Gói này hiện không mở bán tại quầy.')
     if method not in ('vietqr', 'cash'):
         raise AppointmentValidationError('Chỉ hỗ trợ VietQR hoặc thanh toán tại quầy')
     snapshot = serialize_package(package)

@@ -60,7 +60,7 @@
 .package-mobile-cards { display: none; }
 .package-mobile-card { padding: 15px; border: 1px solid var(--package-border); border-radius: 11px; background: #fff; }
 .package-mobile-card + .package-mobile-card { margin-top: 12px; }
-.package-mobile-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
+.package-mobile-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
 .package-mobile-card dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; margin: 0 0 14px; }
 .package-mobile-card dt { color: var(--package-muted); }
 .package-mobile-card dd { margin: 0; text-align: right; }
@@ -90,6 +90,7 @@
 .package-check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--package-primary); }
 .package-check strong, .package-check small { display: block; }
 .package-check small { margin-top: 3px; color: var(--package-muted); }
+.package-form-card > .package-check + .package-check { margin-top: 14px; }
 .package-item-labels, .package-item { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(76px, .55fr) minmax(110px, .8fr) minmax(115px, .9fr) 38px; align-items: center; gap: 10px; }
 .package-item-labels { padding: 0 0 8px; color: var(--package-muted); font-size: .78rem; font-weight: 700; }
 .package-item { padding: 11px 0; border-top: 1px solid #edf0ee; }

@@ -5,7 +5,7 @@
 {% block page_title %}{{ 'Chỉnh sửa' if is_edit else 'Tạo' }} gói dịch vụ{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.0">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.1">
 {% endblock %}
 
 {% block content %}
@@ -82,8 +82,10 @@
                 </section>
 
                 <section class="package-form-card">
-                    <div class="package-section-heading"><span>E</span><div><h3>Trạng thái</h3><p>Kiểm soát khả năng bán gói trên hệ thống.</p></div></div>
-                    <label class="package-check"><input name="active" type="checkbox" checked><span><strong>Đang bán</strong><small>Tắt lựa chọn này để tạm ngừng bán gói.</small></span></label>
+                    <div class="package-section-heading"><span>E</span><div><h3>Trạng thái bán</h3><p>Chọn riêng từng kênh được phép bán gói mới.</p></div></div>
+                    <label class="package-check"><input name="customer_sale_enabled" type="checkbox" checked><span><strong>Cho phép bán trên website</strong><small>Khách hàng có thể xem và tự mua gói trên website.</small></span></label>
+                    <label class="package-check"><input name="staff_sale_enabled" type="checkbox" checked><span><strong>Cho phép nhân viên bán tại quầy</strong><small>Nhân viên được phép tạo phiếu bán gói cho khách hàng.</small></span></label>
+                    <label class="package-check"><input name="active" type="checkbox" checked><span><strong>Gói đang hoạt động</strong><small>Tắt để lưu trữ và ngừng bán mới ở cả hai kênh. Liệu trình đã mua vẫn được sử dụng.</small></span></label>
                 </section>
             </div>
 
@@ -108,5 +110,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/admin/packages.js') }}?v=1.0"></script>
+<script src="{{ url_for('static', filename='js/admin/packages.js') }}?v=1.1"></script>
 {% endblock %}

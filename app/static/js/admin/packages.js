@@ -61,6 +61,21 @@
         return value == null ? 'Không giới hạn' : `${value} tháng`;
     }
 
+    function saleStatus(pkg) {
+        if (!pkg.active) return 'inactive';
+        if (pkg.customer_sale_enabled && pkg.staff_sale_enabled) return 'both';
+        if (pkg.staff_sale_enabled) return 'staff';
+        if (pkg.customer_sale_enabled) return 'customer';
+        return 'stopped';
+    }
+
+    function saleBadge(pkg) {
+        const state = saleStatus(pkg);
+        const labels = { both: '🌐 Web + 🏪 Tại quầy', staff: '🏪 Chỉ bán tại quầy',
+            customer: '🌐 Chỉ bán online', stopped: '⛔ Ngừng bán', inactive: '⛔ Ngừng hoạt động' };
+        return `<span class="package-status ${state === 'inactive' || state === 'stopped' ? 'inactive' : 'active'}">${labels[state]}</span>`;
+    }
+
     function serviceSummary(items) {
         return (items || []).map((item) => `${escapeHtml(item.tendv)} <strong>× ${item.total_sessions} buổi</strong>`).join('<br>');
     }
@@ -139,7 +154,7 @@
         const term = document.getElementById('packageSearch').value.trim().toLocaleLowerCase('vi');
         const status = document.getElementById('packageStatusFilter').value;
         return packages.filter((pkg) => {
-            const matchesStatus = status === 'all' || (status === 'active' ? pkg.active : !pkg.active);
+            const matchesStatus = status === 'all' || saleStatus(pkg) === status;
             const haystack = [pkg.tengoi, ...(pkg.items || []).map((item) => item.tendv)].join(' ').toLocaleLowerCase('vi');
             return matchesStatus && (!term || haystack.includes(term));
         });
@@ -159,11 +174,11 @@
             <td class="package-service-list">${serviceSummary(pkg.items)}</td>
             <td class="package-price">${money(pkg.giagoi)}</td>
             <td>${packageValidity(pkg.validity_months)}</td>
-            <td><span class="package-status ${pkg.active ? 'active' : 'inactive'}">${pkg.active ? 'Đang bán' : 'Ngừng bán'}</span></td>
+            <td>${saleBadge(pkg)}</td>
             <td><div class="package-actions"><a class="package-action-link" href="/admin/packages/${pkg.magoi}"><i class="fas fa-eye"></i> Xem</a><a class="package-action-link" href="/admin/packages/${pkg.magoi}/edit"><i class="fas fa-edit"></i> Sửa</a></div></td>
         </tr>`).join('');
         cards.innerHTML = data.map((pkg) => `<article class="package-mobile-card">
-            <div class="package-mobile-card-head"><div class="package-name-cell"><img class="package-thumb" src="${escapeHtml(pkg.image_url || fallbackImage)}" alt=""><div><strong>${escapeHtml(pkg.tengoi)}</strong><small>#${pkg.magoi}</small></div></div><span class="package-status ${pkg.active ? 'active' : 'inactive'}">${pkg.active ? 'Đang bán' : 'Ngừng bán'}</span></div>
+            <div class="package-mobile-card-head"><div class="package-name-cell"><img class="package-thumb" src="${escapeHtml(pkg.image_url || fallbackImage)}" alt=""><div><strong>${escapeHtml(pkg.tengoi)}</strong><small>#${pkg.magoi}</small></div></div>${saleBadge(pkg)}</div>
             <dl><dt>Dịch vụ</dt><dd>${serviceSummary(pkg.items)}</dd><dt>Giá gói</dt><dd class="package-price">${money(pkg.giagoi)}</dd><dt>Hiệu lực</dt><dd>${packageValidity(pkg.validity_months)}</dd></dl>
             <div class="package-actions"><a class="package-action-link" href="/admin/packages/${pkg.magoi}">Xem chi tiết</a><a class="package-action-link" href="/admin/packages/${pkg.magoi}/edit">Chỉnh sửa</a></div>
         </article>`).join('');
@@ -286,6 +301,8 @@
             form.elements.validity_months.value = pkg.validity_months || 6;
             form.elements.unlimited.checked = pkg.validity_months == null;
             form.elements.active.checked = Boolean(pkg.active);
+            form.elements.customer_sale_enabled.checked = Boolean(pkg.customer_sale_enabled);
+            form.elements.staff_sale_enabled.checked = Boolean(pkg.staff_sale_enabled);
             // Load post_care_instructions neu co
             const postCareEl = document.getElementById('packagePostCare');
             if (postCareEl) postCareEl.value = pkg.post_care_instructions || '';
@@ -369,6 +386,8 @@
                 mota: form.elements.mota.value.trim(),
                 validity_months: form.elements.unlimited.checked ? null : Number(form.elements.validity_months.value),
                 active: form.elements.active.checked,
+                customer_sale_enabled: form.elements.customer_sale_enabled.checked,
+                staff_sale_enabled: form.elements.staff_sale_enabled.checked,
                 post_care_instructions: postCareEl ? postCareEl.value.trim() : '',
                 items
             };
@@ -397,7 +416,7 @@
             const postCareSection = pkg.post_care_instructions
                 ? `<section class="package-detail-card"><h3>&#128204; D&#7863;n d&#242; li&#7879;u tr&#236;nh</h3><p style="white-space:pre-wrap;">${escapeHtml(pkg.post_care_instructions)}</p></section>`
                 : '';
-            shell.innerHTML = `<section class="package-detail-card package-detail-hero"><img class="package-detail-image" src="${escapeHtml(pkg.image_url || fallbackImage)}" alt="${escapeHtml(pkg.tengoi)}"><div><p class="package-eyebrow">G&oacute;i d&#7883;ch v&#7909; #${pkg.magoi}</p><h2>${escapeHtml(pkg.tengoi)}</h2><div class="package-detail-meta"><span class="package-price">${money(pkg.giagoi)}</span><span>${packageValidity(pkg.validity_months)}</span><span class="package-status ${pkg.active ? 'active' : 'inactive'}">${pkg.active ? '&#272;ang b&aacute;n' : 'Ng&#432;ng b&aacute;n'}</span></div></div><div class="package-actions"><a class="btn btn-secondary" href="/admin/packages">Quay l&#7841;i</a><a class="btn btn-primary" href="/admin/packages/${pkg.magoi}/edit"><i class="fas fa-edit"></i> Ch&#7881;nh s&#7917;a</a></div></section><section class="package-detail-card"><h3>M&ocirc; t&#7843;</h3><p>${escapeHtml(pkg.mota || 'Ch&#432;a c&oacute; m&ocirc; t&#7843;.')}</p></section>${postCareSection}<section class="package-detail-card"><h3>D&#7883;ch v&#7909; trong g&oacute;i</h3><div class="package-detail-services">${(pkg.items || []).map((item) => `<div class="package-detail-service"><strong>${escapeHtml(item.tendv)}</strong><span>${item.total_sessions} bu&#7893;i &times; ${money(item.regular_unit_price_snapshot)}</span><span>${money(Number(item.regular_unit_price_snapshot) * item.total_sessions)}</span></div>`).join('') || '<p>Ch&#432;a c&oacute; d&#7883;ch v&#7909;.</p>'}</div></section><section class="package-detail-card"><h3>T&#7893;ng quan gi&aacute;</h3><div class="package-detail-meta"><span>Gi&aacute; l&#7867;: <strong>${money(pkg.regular_total)}</strong></span><span>Gi&aacute; g&oacute;i: <strong>${money(pkg.giagoi)}</strong></span><span>Ti&#7871;t ki&#7879;m: <strong>${money(Math.max(0, Number(pkg.savings)))}</strong></span></div></section>`;
+            shell.innerHTML = `<section class="package-detail-card package-detail-hero"><img class="package-detail-image" src="${escapeHtml(pkg.image_url || fallbackImage)}" alt="${escapeHtml(pkg.tengoi)}"><div><p class="package-eyebrow">G&oacute;i d&#7883;ch v&#7909; #${pkg.magoi}</p><h2>${escapeHtml(pkg.tengoi)}</h2><div class="package-detail-meta"><span class="package-price">${money(pkg.giagoi)}</span><span>${packageValidity(pkg.validity_months)}</span>${saleBadge(pkg)}</div></div><div class="package-actions"><a class="btn btn-secondary" href="/admin/packages">Quay l&#7841;i</a><a class="btn btn-primary" href="/admin/packages/${pkg.magoi}/edit"><i class="fas fa-edit"></i> Ch&#7881;nh s&#7917;a</a></div></section><section class="package-detail-card"><h3>M&ocirc; t&#7843;</h3><p>${escapeHtml(pkg.mota || 'Ch&#432;a c&oacute; m&ocirc; t&#7843;.')}</p></section>${postCareSection}<section class="package-detail-card"><h3>D&#7883;ch v&#7909; trong g&oacute;i</h3><div class="package-detail-services">${(pkg.items || []).map((item) => `<div class="package-detail-service"><strong>${escapeHtml(item.tendv)}</strong><span>${item.total_sessions} bu&#7893;i &times; ${money(item.regular_unit_price_snapshot)}</span><span>${money(Number(item.regular_unit_price_snapshot) * item.total_sessions)}</span></div>`).join('') || '<p>Ch&#432;a c&oacute; d&#7883;ch v&#7909;.</p>'}</div></section><section class="package-detail-card"><h3>T&#7893;ng quan gi&aacute;</h3><div class="package-detail-meta"><span>Gi&aacute; l&#7867;: <strong>${money(pkg.regular_total)}</strong></span><span>Gi&aacute; g&oacute;i: <strong>${money(pkg.giagoi)}</strong></span><span>Ti&#7871;t ki&#7879;m: <strong>${money(Math.max(0, Number(pkg.savings)))}</strong></span></div></section>`;
         } catch (error) {
             shell.innerHTML = `<div class="package-detail-card package-empty">${escapeHtml(error.message)}<br><br><a class="btn btn-secondary" href="/admin/packages">Quay l&#7841;i danh s&aacute;ch</a></div>`;
         }

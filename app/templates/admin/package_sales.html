@@ -1,7 +1,7 @@
 {% extends "admin/layout.html" %}
 {% block title %}Bán gói dịch vụ - Bin Spa{% endblock %}
 {% block page_title %}Bán gói dịch vụ / Phiếu bán gói{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.0"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin/invoice-receipt.css') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.1"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin/invoice-receipt.css') }}">{% endblock %}
 {% block content %}
 <section class="package-section" data-package-page="sales">
     <nav class="package-tabs" aria-label="Khu vực quản lý gói">
@@ -15,6 +15,7 @@
         <div class="package-fields">
             <label>Tìm khách theo tên / số điện thoại<input id="saleCustomerSearch" type="search" autocomplete="off"></label>
             <label>Khách hàng<select id="saleCustomer" required></select></label>
+            <label>Tìm gói theo tên / mã gói<input id="salePackageSearch" type="search" autocomplete="off"></label>
             <label>Gói dịch vụ<select id="salePackage" required></select></label>
             <label>Phương thức<select id="saleMethod"><option value="cash">Tiền mặt</option><option value="vietqr">VietQR</option></select></label>
         </div>
@@ -44,4 +45,4 @@
     </dialog>
 </section>
 {% endblock %}
-{% block extra_js %}<script src="{{ url_for('static', filename='js/packages.js') }}"></script><script src="{{ url_for('static', filename='js/admin/package-sales.js') }}"></script>{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/packages.js') }}?v=1.1"></script><script src="{{ url_for('static', filename='js/admin/package-sales.js') }}?v=1.1"></script>{% endblock %}

@@ -358,6 +358,8 @@ class GoiDichVu(db.Model):
     validity_months = db.Column(db.Integer, nullable=True)
     anhgoi = db.Column(db.LargeBinary)
     active = db.Column(db.Boolean, nullable=False, default=True)
+    customer_sale_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+    staff_sale_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
     # Dặn dò BỔ SUNG dành riêng cho khách đang dùng liệu trình/gói này.
     # Khác DichVu.post_care_instructions (dặn dò sau dịch vụ vừa thực hiện).
     post_care_instructions = db.Column(db.Text, nullable=True)

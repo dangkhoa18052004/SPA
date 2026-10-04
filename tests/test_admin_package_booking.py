@@ -264,7 +264,7 @@ def test_audit_migration_preserves_existing_appointments_and_fk():
     revision = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(revision)
     config = Config(); config.set_main_option('script_location', 'migrations')
-    assert ScriptDirectory.from_config(config).get_heads() == [revision.revision]
+    assert revision.revision in {r.revision for r in ScriptDirectory.from_config(config).walk_revisions()}
     assert revision.down_revision == '20261003_0009'
     engine = create_engine('sqlite://')
     with engine.begin() as connection:

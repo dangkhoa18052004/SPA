@@ -94,7 +94,7 @@ def validation(error):
 @package_bp.route('/packages')
 @package_bp.route('/packages/<int:package_id>')
 def package_page(package_id=None):
-    if package_id and not GoiDichVu.query.filter_by(magoi=package_id, active=True).first():
+    if package_id and not GoiDichVu.query.filter_by(magoi=package_id, active=True, customer_sale_enabled=True).first():
         return 'Không tìm thấy gói dịch vụ', 404
     return render_template('customer/packages.html', package_id=package_id)
 
@@ -122,12 +122,12 @@ def admin_package_edit_page(package_id):
 @package_bp.route('/api/packages')
 def packages():
     return jsonify(success=True, packages=[service.serialize_package(p) for p in
-        GoiDichVu.query.filter_by(active=True).order_by(GoiDichVu.magoi).all()])
+        GoiDichVu.query.filter_by(active=True, customer_sale_enabled=True).order_by(GoiDichVu.magoi).all()])
 
 
 @package_bp.route('/api/packages/<int:package_id>')
 def package_detail(package_id):
-    package = GoiDichVu.query.filter_by(magoi=package_id, active=True).first()
+    package = GoiDichVu.query.filter_by(magoi=package_id, active=True, customer_sale_enabled=True).first()
     if not package:
         return jsonify(success=False, message='Không tìm thấy gói'), 404
     return jsonify(success=True, package=service.serialize_package(package))
@@ -160,7 +160,8 @@ def purchase_package(package_id):
     if data.get('payment_method', 'vietqr') == 'vietqr' and not vietqr_available():
         return jsonify(success=False, message='VietQR tạm thời chưa khả dụng; vui lòng thanh toán tại quầy'), 503
     try:
-        purchase = service.create_purchase(package_id, g.current_user.makh, data.get('payment_method', 'vietqr'))
+        purchase = service.create_purchase(package_id, g.current_user.makh,
+            data.get('payment_method', 'vietqr'), sale_channel='customer')
         if data.get('redemption_id') is not None:
             loyalty.apply_reward(purchase, loyalty.integer(data['redemption_id'], 1))
         if data.get('points'):
@@ -334,6 +335,21 @@ def sale_customers():
         for c in query.order_by(KhachHang.hoten).limit(30).all()])
 
 
+@package_bp.route('/api/admin/package-sales/packages')
+@package_sales_required
+def counter_sale_packages():
+    query = GoiDichVu.query.filter_by(active=True, staff_sale_enabled=True)
+    term = request.args.get('search', '').strip()
+    if term:
+        condition = GoiDichVu.tengoi.ilike(f'%{term}%')
+        code = term.removeprefix('#')
+        if code.isdecimal():
+            condition = or_(condition, GoiDichVu.magoi == int(code))
+        query = query.filter(condition)
+    return jsonify(success=True, packages=[service.serialize_package(p)
+        for p in query.order_by(GoiDichVu.magoi).all()])
+
+
 @package_bp.route('/api/admin/package-sales', methods=['GET', 'POST'])
 @package_sales_required
 def counter_sales():
@@ -344,7 +360,8 @@ def counter_sales():
         customer = db.session.get(KhachHang, data.get('makh'))
         if not customer or customer.trangthai != 'active':
             raise AppointmentValidationError('Khách hàng không tồn tại hoặc đã ngừng hoạt động')
-        purchase = service.create_purchase(data.get('magoi'), customer.makh, data.get('payment_method'))
+        purchase = service.create_purchase(data.get('magoi'), customer.makh,
+            data.get('payment_method'), sale_channel='staff')
         purchase.created_by_staff = g.current_user.manv
         if data.get('redemption_id') is not None:
             loyalty.apply_reward(purchase, loyalty.integer(data['redemption_id'], 1))

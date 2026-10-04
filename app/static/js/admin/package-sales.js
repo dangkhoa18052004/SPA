@@ -10,7 +10,16 @@
         const version=++searchVersion;
         try{const r=await api('/api/admin/package-sales/customers?search='+encodeURIComponent(el('saleCustomerSearch').value));if(version!==searchVersion)return;el('saleCustomer').innerHTML='<option value="">Chọn khách hàng</option>'+r.customers.map(c=>`<option value="${c.makh}">${esc(c.hoten)} · ${esc(c.sdt)}</option>`).join('');}catch(e){note(e.message);}
     }
-    function preview(){const p=packages.find(p=>p.magoi===Number(el('salePackage').value));el('salePackagePreview').innerHTML=p?packageHtml(p)+'</article>':'';}
+    function renderPackageOptions(){
+        const selected=el('salePackage').value;
+        const term=el('salePackageSearch').value.trim().toLocaleLowerCase('vi');
+        const code=term.replace(/^#/, '');
+        const visible=packages.filter(p=>!term||p.tengoi.toLocaleLowerCase('vi').includes(term)||String(p.magoi)===code);
+        el('salePackage').innerHTML='<option value="">Chọn gói dịch vụ</option>'+visible.map(p=>`<option value="${p.magoi}">#${p.magoi} · ${esc(p.tengoi)} · ${price(p.giagoi)}${p.customer_sale_enabled?'':' · Chỉ bán tại quầy'}</option>`).join('');
+        el('salePackage').value=visible.some(p=>String(p.magoi)===selected)?selected:'';
+        preview();
+    }
+    function preview(){const p=packages.find(p=>p.magoi===Number(el('salePackage').value));const badge=p&&!p.customer_sale_enabled?'<span class="package-badge">🏪 Chỉ bán tại quầy</span>':'';el('salePackagePreview').innerHTML=p?packageHtml(p,badge)+'</article>':'';}
     async function cash(p){
         if(Number(p.payable_amount ?? p.amount)===0){await showPayment(p);return;}
         currentCash=p;el('cashSalePanel').classList.remove('package-hidden');
@@ -30,12 +39,13 @@
     document.addEventListener('DOMContentLoaded',async()=>{
         el('createPackageSale').disabled=true;
         el('salePackage').onchange=preview;el('cashReceived').oninput=change;
+        el('salePackageSearch').oninput=renderPackageOptions;
         let timer;el('saleCustomerSearch').oninput=()=>{clearTimeout(timer);timer=setTimeout(customers,250);};
         let historyTimer;el('saleHistorySearch').oninput=()=>{clearTimeout(historyTimer);historyTimer=setTimeout(history,250);};el('saleHistoryStatus').onchange=history;
         el('saleForm').onsubmit=async e=>{e.preventDefault();const button=el('createPackageSale');button.disabled=true;try{const p=(await api('/api/admin/package-sales','POST',{makh:Number(el('saleCustomer').value),magoi:Number(el('salePackage').value),payment_method:el('saleMethod').value})).purchase;p.payment_method==='cash'?cash(p):await showPayment(p);await history();note('Đã tạo phiếu. Liệu trình chỉ kích hoạt sau thanh toán.');}catch(e){note(e.message);}finally{button.disabled=false;}};
         el('confirmPackageCash').onclick=async()=>{if(!currentCash)return;const button=el('confirmPackageCash');button.disabled=true;try{const r=await api(`/api/admin/packages/purchases/${currentCash.id}/confirm-payment`,'POST',{cash_received:el('cashReceived').value});el('cashSalePanel').classList.add('package-hidden');currentCash=null;note('Thanh toán thành công. Liệu trình đã được kích hoạt.');await history();await receipt(r.purchase.id);}catch(e){note(e.message);change();}};
         el('closeSaleReceipt').onclick=()=>el('saleReceiptDialog').close();el('printSaleReceipt').onclick=()=>window.print();
         document.addEventListener('package:paid',()=>{note('Thanh toán thành công. Liệu trình đã được kích hoạt.');history();});
-        try{const [r,options]=await Promise.all([api('/api/packages'),api('/api/packages/payment-options')]);packages=r.packages;el('salePackage').innerHTML='<option value="">Chọn gói dịch vụ</option>'+packages.map(p=>`<option value="${p.magoi}">${esc(p.tengoi)} · ${price(p.giagoi)}</option>`).join('');if(!options.vietqr_available){const option=el('saleMethod').querySelector('[value=vietqr]');option.disabled=true;option.textContent='VietQR tạm thời chưa khả dụng';}await customers();await history();el('createPackageSale').disabled=packages.length===0;}catch(e){note(e.message);}
+        try{const [r,options]=await Promise.all([api('/api/admin/package-sales/packages'),api('/api/packages/payment-options')]);packages=r.packages;renderPackageOptions();if(!options.vietqr_available){const option=el('saleMethod').querySelector('[value=vietqr]');option.disabled=true;option.textContent='VietQR tạm thời chưa khả dụng';}await customers();await history();el('createPackageSale').disabled=packages.length===0;}catch(e){note(e.message);}
     });
 })();

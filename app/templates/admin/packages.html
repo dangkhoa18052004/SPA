@@ -4,7 +4,7 @@
 {% block page_title %}Gói dịch vụ và liệu trình{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.0">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.1">
 {% endblock %}
 
 {% block content %}
@@ -45,8 +45,11 @@
                 <span>Trạng thái</span>
                 <select id="packageStatusFilter">
                     <option value="all">Tất cả</option>
-                    <option value="active">Đang bán</option>
-                    <option value="inactive">Ngừng bán</option>
+                    <option value="both">Web + Tại quầy</option>
+                    <option value="staff">Chỉ bán tại quầy</option>
+                    <option value="customer">Chỉ bán online</option>
+                    <option value="stopped">Ngừng bán</option>
+                    <option value="inactive">Ngừng hoạt động</option>
                 </select>
             </label>
         </div>
@@ -116,5 +119,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/admin/packages.js') }}?v=1.0"></script>
+<script src="{{ url_for('static', filename='js/admin/packages.js') }}?v=1.1"></script>
 {% endblock %}

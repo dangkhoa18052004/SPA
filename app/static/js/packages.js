@@ -28,7 +28,7 @@
     function message(text) { const el=document.getElementById('packageMessage'); if(el) el.textContent=text; }
     const validity = months => months == null ? 'Vô thời hạn' : `${months} tháng từ khi kích hoạt`;
     const cover = p => `<img class="package-cover" src="${esc(p.image_url || '/static/images/default-package.svg')}" alt="${esc(p.tengoi)}" loading="lazy" onerror="this.onerror=null;this.src='/static/images/default-package.svg'">`;
-    const packageHtml = p => `<article class="package-panel package-card">${cover(p)}<div class="package-card-body"><span class="package-badge">${Number(p.savings)>0?'Tiết kiệm '+price(p.savings):validity(p.validity_months)}</span><h3>${esc(p.tengoi)}</h3><p class="package-description">${esc(p.mota)}</p><ul class="package-service-list">${p.items.map(i=>`<li><span>${esc(i.tendv)}</span><strong>${i.total_sessions} buổi</strong><small>${price(i.regular_unit_price_snapshot)}/buổi</small></li>`).join('')}</ul><p class="package-retail">Giá lẻ tổng: ${price(p.regular_total)}</p><p class="package-price">${price(p.giagoi)}</p>${Number(p.savings)>0?`<p class="package-saving">Tiết kiệm: ${price(p.savings)}</p>`:''}<p class="package-validity">${validity(p.validity_months)}</p></div>`;
+    const packageHtml = (p, saleBadge = '') => `<article class="package-panel package-card">${cover(p)}<div class="package-card-body">${saleBadge}<span class="package-badge">${Number(p.savings)>0?'Tiết kiệm '+price(p.savings):validity(p.validity_months)}</span><h3>${esc(p.tengoi)}</h3><p class="package-description">${esc(p.mota)}</p><ul class="package-service-list">${p.items.map(i=>`<li><span>${esc(i.tendv)}</span><strong>${i.total_sessions} buổi</strong><small>${price(i.regular_unit_price_snapshot)}/buổi</small></li>`).join('')}</ul><p class="package-retail">Giá lẻ tổng: ${price(p.regular_total)}</p><p class="package-price">${price(p.giagoi)}</p>${Number(p.savings)>0?`<p class="package-saving">Tiết kiệm: ${price(p.savings)}</p>`:''}<p class="package-validity">${validity(p.validity_months)}</p></div>`;
     let pollTimer, pollCount=0;
     async function showPayment(purchase) {
         const panel=document.getElementById('packagePayment');
@@ -87,7 +87,7 @@
         try {
             const options=await api('/api/packages/payment-options');
             const result=await api(id?`/api/packages/${id}`:'/api/packages');
-            const packages=result.packages || [result.package];
+            const packages=(result.packages || [result.package]).filter(p=>p.active && p.customer_sale_enabled);
             document.getElementById('packageList').innerHTML=packages.length?packages.map(p=>packageHtml(p)+
                 `<div class="package-card-actions">${!id?`<a class="btn btn-secondary" href="/packages/${p.magoi}">Xem chi tiết</a>`:''}<label>Thanh toán<select id="packageMethod-${p.magoi}"><option value="vietqr" ${options.vietqr_available?'':'disabled'}>${options.vietqr_available?'VietQR':'VietQR tạm thời chưa khả dụng'}</option><option value="cash" ${options.vietqr_available?'':'selected'}>Tại quầy</option></select></label><button type="button" class="btn btn-primary" data-buy="${p.magoi}">Mua gói</button></div></article>`).join(''):'Chưa có gói dịch vụ đang bán.';
             document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{b.disabled=true;buy(Number(b.dataset.buy)).finally(()=>b.disabled=false);});
