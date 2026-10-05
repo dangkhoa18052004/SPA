@@ -84,3 +84,41 @@
 }
 
 .package-pay-method { margin: 0; font-size: 14px; color: #3D5A45; display: flex; align-items: center; gap: 6px; }
+
+/* Hộp yêu cầu đăng nhập khi mua gói (cùng kiểu với trang đặt lịch) */
+.package-login-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 16px;
+}
+.package-login-modal[hidden] { display: none; }
+.package-login-modal .modal-content {
+    position: relative;
+    background: #fff;
+    padding: 50px 40px;
+    border-radius: 15px;
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+}
+.package-login-modal h2 { color: #333; margin-bottom: 15px; }
+.package-login-modal p { color: #666; margin-bottom: 30px; }
+.package-login-actions { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+.package-login-actions .btn { min-height: 44px; }
+.package-login-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: #f4f0e8;
+    font-size: 22px;
+    cursor: pointer;
+}

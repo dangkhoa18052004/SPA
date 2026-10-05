@@ -1,18 +1,33 @@
 {% extends "customer/layout.html" %}
 {% block title %}Gói dịch vụ - Bin Spa{% endblock %}
 {% block body_class %}is-subpage{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}?v=1.1">{% endblock %}
 {% block content %}
-<section class="package-section customer-packages" data-package-page="customer" data-package-id="{{ package_id or '' }}">
+<section class="package-section customer-packages" data-package-page="customer" data-package-id="{{ package_id or '' }}"
+         data-logged-in="{{ '1' if session.get('user_id') and session.get('user_type') == 'customer' else '0' }}"
+         data-login-url="{{ url_for('customer.login_page') }}">
     <h1>Gói dịch vụ</h1>
     <p>Mua gói để sử dụng dịch vụ theo liệu trình. Hồ sơ của bạn được kích hoạt sau khi thanh toán được xác nhận.</p>
     <p><a href="/profile#treatments">Liệu trình của tôi</a></p>
     <p id="packageMessage" class="package-message" role="status"></p>
     <div id="packageList" class="{% if package_id %}package-detail{% else %}package-grid{% endif %}">Đang tải gói dịch vụ...</div>
+    <!-- Khách chưa đăng nhập bấm "Mua gói": giống trang đặt lịch, yêu cầu đăng nhập rồi quay lại đúng gói -->
+    <div class="login-required-modal package-login-modal" id="packageLoginModal" hidden role="dialog" aria-modal="true" aria-labelledby="packageLoginTitle">
+        <div class="modal-content">
+            <i class="fas fa-lock" style="font-size: 64px; color: #C9A961; margin-bottom: 20px;" aria-hidden="true"></i>
+            <h2 id="packageLoginTitle">Vui lòng đăng nhập</h2>
+            <p>Bạn cần đăng nhập để mua gói dịch vụ</p>
+            <div class="package-login-actions">
+                <a href="#" class="btn btn-primary" data-login-link><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Đăng nhập</a>
+                <a href="/auth/register" class="btn btn-outline"><i class="fas fa-user-plus" aria-hidden="true"></i> Đăng ký</a>
+            </div>
+            <button type="button" class="package-login-close" data-login-close aria-label="Đóng">×</button>
+        </div>
+    </div>
     <dialog id="packagePaymentDialog" class="package-dialog" aria-label="Thanh toán gói dịch vụ">
         <button type="button" id="closePackagePayment" class="package-dialog-close" aria-label="Đóng">×</button>
         <div id="packagePayment" class="package-payment" aria-live="polite"></div>
     </dialog>
 </section>
 {% endblock %}
-{% block extra_js %}<script src="{{ url_for('static', filename='js/packages.js') }}?v=1.2"></script>{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/packages.js') }}?v=1.3"></script>{% endblock %}

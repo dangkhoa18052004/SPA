@@ -74,12 +74,36 @@
         },5000);
         if(window.LoyaltyPayment) await LoyaltyPayment.mount(panel.querySelector('[data-package-loyalty]'),base,purchase.makh,reload);
     }
+    function customerLoggedIn() {
+        const page=document.querySelector('[data-package-page="customer"]');
+        const token=window.CustomerAuth?window.CustomerAuth.getAccessToken():localStorage.getItem('access_token');
+        return page?.dataset.loggedIn==='1' && !!token;
+    }
+    // Giống trang đặt lịch: yêu cầu đăng nhập, sau đó quay lại trang gói và tiếp tục mua đúng gói đã chọn.
+    function requireLogin(id) {
+        const page=document.querySelector('[data-package-page="customer"]');
+        const modal=document.getElementById('packageLoginModal');
+        if(!modal){location.href='/auth/login';return;}
+        const back=new URL(location.href);back.searchParams.set('buy',id);
+        modal.querySelector('[data-login-link]').href=`${page.dataset.loginUrl||'/auth/login'}?redirect=${encodeURIComponent(back.pathname+back.search)}`;
+        modal.hidden=false;
+        modal.querySelector('[data-login-link]').focus();
+        const close=()=>{modal.hidden=true;document.removeEventListener('keydown',onKey);};
+        const onKey=e=>{if(e.key==='Escape')close();};
+        document.addEventListener('keydown',onKey);
+        modal.querySelector('[data-login-close]').onclick=close;
+        modal.onclick=e=>{if(e.target===modal)close();};
+    }
     async function buy(id) {
+        if(!customerLoggedIn()) return requireLogin(id);
         try {
             // Khách mua online chỉ thanh toán VietQR (bán tiền mặt do nhân viên tạo tại quầy).
             const result=await api(`/api/packages/${id}/purchase`,'POST',{payment_method:'vietqr'});
             await showPayment(result.purchase);
-        } catch(e){message(e.message);}
+        } catch(e){
+            if(/đăng nhập|token|401/i.test(e.message)) return requireLogin(id);
+            message(e.message);
+        }
     }
     async function loadCustomerPackages() {
         const page=document.querySelector('[data-package-page="customer"]');
@@ -91,6 +115,12 @@
             document.getElementById('packageList').innerHTML=packages.length?packages.map(p=>packageHtml(p)+
                 `<div class="package-card-actions">${!id?`<a class="btn btn-secondary" href="/packages/${p.magoi}">Xem chi tiết</a>`:''}<p class="package-pay-method"><i class="fas fa-qrcode" aria-hidden="true"></i> Thanh toán chuyển khoản VietQR</p>${options.vietqr_available?`<button type="button" class="btn btn-primary" data-buy="${p.magoi}">Mua gói</button>`:'<button type="button" class="btn btn-primary" disabled title="VietQR đang tạm ngưng">Tạm ngưng bán online</button>'}</div></article>`).join(''):'Chưa có gói dịch vụ đang bán.';
             document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{b.disabled=true;buy(Number(b.dataset.buy)).finally(()=>b.disabled=false);});
+            // Vừa đăng nhập xong từ hộp "Vui lòng đăng nhập": tiếp tục mua gói đã chọn.
+            const resume=Number(new URLSearchParams(location.search).get('buy'));
+            if(resume>0 && customerLoggedIn() && packages.some(p=>p.magoi===resume)){
+                history.replaceState(null,'',location.pathname);
+                await buy(resume);
+            }
             const pending=new URLSearchParams(location.search).get('purchase');
             if(pending) await showPayment((await api(`/api/packages/purchases/${Number(pending)}`)).purchase);
         } catch(e){message(e.message);}

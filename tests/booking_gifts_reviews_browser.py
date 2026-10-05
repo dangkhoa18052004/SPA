@@ -97,7 +97,7 @@ def main():
         b.evaluate(q('a[href*="appointments/create?service="]')+'.click()')
         b.wait('!!document.getElementById("loginModal")')
         b.evaluate('document.querySelector("#loginModal a.btn-primary").click()')
-        b.wait('!!document.getElementById("loginForm")')
+        b.wait('document.readyState==="complete" && !!document.getElementById("loginForm")')
         assert b.evaluate('new URLSearchParams(location.search).get("redirect")')==f"/appointments/create?service={data['service']}"
         b.evaluate('document.querySelector("[name=taikhoan]").value="customer_test";document.querySelector("[name=matkhau]").value="password";document.getElementById("loginForm").requestSubmit()')
         b.wait('!!document.getElementById("appointmentForm")');wait_selected(data['service'])
