@@ -898,7 +898,7 @@ function renderAppointmentsTable() {
                 <td data-label="Khách hàng" class="cell-customer">${escapeHtml(customerName)}</td>
                 <td data-label="Dịch vụ">${escapeHtml(serviceName)}</td>
                 <td data-label="Nhân viên">${escapeHtml(staffName)}</td>
-                <td data-label="Trạng thái" class="cell-status"><span class="badge badge-${getStatusClass(apt.trangthai)}">${getAppointmentStatusText(apt.trangthai)}</span></td>
+                <td data-label="Trạng thái" class="cell-status"><span class="badge badge-${getStatusClass(apt.trangthai)}">${getAppointmentStatusText(apt.trangthai)}</span>${apt.prepaid ? ' <span class="badge badge-success" title="Khách đã thanh toán VietQR khi đặt lịch">Đã trả trước</span>' : ''}</td>
                 <td class="d-none">${appointmentPaymentBadge(apt)}</td>
                 <td class="d-none">${escapeHtml(apt.ghichu || '')}</td>
                 <td class="action-buttons" data-label="Thao tác">

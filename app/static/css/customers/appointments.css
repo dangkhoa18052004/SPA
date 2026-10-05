@@ -843,3 +843,30 @@
 
     .appointment-form-section .form-actions > span:empty { display: none; }
 }
+
+/* Hình thức thanh toán khi đặt lịch */
+.payment-choice {
+    margin: 20px 0 0;
+    padding: 14px;
+    border: 1px solid #e8dfcc;
+    border-radius: 12px;
+}
+
+.payment-choice legend { padding: 0 6px; font-weight: 600; }
+
+.payment-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    min-height: 44px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.payment-option:has(input:checked) { background: #fbf6ea; outline: 1.5px solid #C9A961; }
+.payment-option input { margin-top: 4px; width: 18px; height: 18px; accent-color: #C9A961; }
+.payment-option span { display: flex; flex-direction: column; gap: 2px; }
+.payment-option small { color: #7a7266; }
+.payment-option.is-disabled { opacity: 0.55; cursor: not-allowed; }
+.payment-choice-note { margin: 6px 0 0; font-size: 13px; color: #7a7266; }

@@ -170,10 +170,8 @@ try:
         print(f'PASS responsive {width}px',flush=True)
     # Exercise real purchase API from customer UI (cash and VietQR), without paying.
     browser.navigate(f'/packages/{package_id}');browser.wait("document.querySelector('[data-buy]')")
-    browser.evaluate(f"document.querySelector('#packageMethod-{package_id}').value='cash';document.querySelector('[data-buy]').click();")
-    browser.wait("document.querySelector('#packagePayment').textContent.includes('PKG')")
-    assert browser.evaluate("document.querySelector('#packagePayment').textContent.includes('Vui lòng đến quầy')")
-    browser.navigate(f'/packages/{package_id}');browser.wait("document.querySelector('[data-buy]')")
+    # Khách mua online chỉ có VietQR (không còn lựa chọn "Tại quầy").
+    assert browser.evaluate(f"!document.querySelector('#packageMethod-{package_id}') && document.querySelector('.package-pay-method').textContent.includes('VietQR')")
     browser.evaluate("document.querySelector('[data-buy]').click();")
     browser.wait("document.querySelector('#packagePayment img')")
     assert browser.evaluate("document.querySelector('#packagePayment').textContent.includes('Chuyển đúng')")

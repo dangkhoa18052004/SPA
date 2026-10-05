@@ -37,6 +37,10 @@ def app():
         "MAX_CONTENT_LENGTH": 1024 * 1024,
         # Test không bao giờ gọi Gemini thật: mặc định tắt AI, test AI tự bật và mock.
         "GEMINI_API_KEY": "",
+        # Các test gói cũ dùng khách mua "tại quầy"; thực tế khách online chỉ mua VietQR.
+        "PACKAGE_CUSTOMER_CASH_ENABLED": True,
+        # Không gọi SePay thật trong test; test đồng bộ tự bật và mock.
+        "SEPAY_POLL_ENABLED": False,
     })
 
     with application.app_context():

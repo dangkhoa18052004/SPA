@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, current_app, g
 from ..extensions import db
 from ..models import HoaDon, LichHen, ChiTietHoaDon, ThanhToan
 from ..decorators import roles_required
-from ..services import momo_service
+from ..services import momo_service, sepay_sync_service
 from sqlalchemy.exc import IntegrityError
 from decimal import Decimal, InvalidOperation
 import json
@@ -211,6 +211,8 @@ def get_all_invoices():
 def get_invoice_detail(invoice_id):
     """Lấy chi tiết một hóa đơn."""
     try:
+        if (db.session.get(HoaDon, invoice_id) or HoaDon()).trangthai == 'Chưa thanh toán' and sepay_sync_service.maybe_sync():
+            db.session.expire_all()
         invoice = HoaDon.query.get(invoice_id)
         if not invoice:
             return jsonify({"msg": "Không tìm thấy hóa đơn"}), 404
@@ -273,6 +275,8 @@ def billing_transactions():
 @roles_required('letan', 'manager', 'admin')
 def billing_transaction_detail(kind, record_id):
     from ..services import billing_service as billing
+    if sepay_sync_service.maybe_sync():
+        db.session.expire_all()
     if kind == 'service':
         record = billing.service_query().filter_by(mahd=record_id).first()
         serializer = billing.serialize_service

@@ -105,7 +105,10 @@ def main():
         b.wait('document.getElementById("customerLoyaltyMessage").textContent.includes("thành công")')
         screenshot('customer-rewards.png');errors()
         navigate(f'/packages/{pid}');b.wait('!!document.querySelector("[data-buy]")')
-        b.evaluate(f'document.getElementById("packageMethod-{pid}").value="cash"');click('[data-buy]')
+        # Giao dịch "tại quầy" kiểu cũ (giao diện khách nay chỉ còn VietQR) để giữ kiểm tra thu tiền mặt có điểm/voucher.
+        app.config['PACKAGE_CUSTOMER_CASH_ENABLED'] = True
+        legacy = b.evaluate(f"fetch('/api/packages/{pid}/purchase',{{method:'POST',headers:{{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('access_token')}},body:JSON.stringify({{payment_method:'cash'}})}}).then(r=>r.json()).then(j=>j.purchase.id)")
+        navigate(f'/packages/{pid}?purchase={legacy}')
         b.wait('[...document.querySelectorAll("[data-voucher] option")].some(o=>o.textContent.includes("Voucher gói 100.000") && o.textContent.includes("Mua gói"))')
         b.wait('!!document.querySelector("[data-enable]")');click('[data-enable]')
         b.evaluate('document.querySelector("[data-points]").value="200"');click('[data-apply]')

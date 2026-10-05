@@ -540,3 +540,6 @@
     font-size: 13px;
     color: #8a6d1d;
 }
+
+.appointment-payment { margin: 6px 0 0; font-size: 14px; color: #8a6d1d; }
+.appointment-payment.is-paid { color: #2f6b45; font-weight: 600; }

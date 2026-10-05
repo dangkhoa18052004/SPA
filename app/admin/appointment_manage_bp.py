@@ -812,9 +812,11 @@ def appointment_billing_data(appointment, invoice, covered):
     if completed:
         payment_status = invoice.trangthai if invoice else (
             'Đã thanh toán bằng gói' if fully_covered else 'Chưa thanh toán')
+    prepaid = invoice is not None and invoice.trangthai == 'Đã thanh toán' and not completed
     return {
         'invoice': serialize_appointment_invoice(invoice),
         'payment_status': payment_status,
+        'prepaid': prepaid,
         'package_covered': fully_covered,
         'billable_service_ids': sorted(service_ids - covered),
         'permissions': {
@@ -822,7 +824,7 @@ def appointment_billing_data(appointment, invoice, covered):
             'canConfirm': own_appointment and status == AppointmentStatus.PENDING,
             'canComplete': own_appointment and status in (AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS),
             'canCancel': billing_role and status in AppointmentStatus.ACTIVE_STATUSES,
-            'canChangeServices': own_appointment and status in AppointmentStatus.ACTIVE_STATUSES,
+            'canChangeServices': own_appointment and status in AppointmentStatus.ACTIVE_STATUSES and not prepaid,
             'canCheckIn': own_appointment and appointment_service.can_check_in(appointment),
             'canCreateInvoice': billing_role and completed and invoice is None and bool(service_ids - covered),
             'canPayInvoice': billing_role and completed and invoice is not None and invoice.trangthai == 'Chưa thanh toán',

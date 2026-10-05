@@ -76,7 +76,11 @@ def process_sepay_webhook(data, authorization_header=None):
     """
     if not verify_sepay_authorization(authorization_header):
         raise PermissionError("SePay Authorization không hợp lệ")
+    return process_sepay_transaction(data)
 
+
+def process_sepay_transaction(data):
+    """Ghi nhận một giao dịch SePay (từ webhook hoặc đồng bộ định kỳ). Idempotent theo mã giao dịch."""
     event, is_duplicate = begin_event("sepay", _sepay_transaction_id(data), data)
     if is_duplicate:
         return duplicate_response(event)
@@ -119,6 +123,13 @@ def process_sepay_webhook(data, authorization_header=None):
         db.session.commit()
         return {"status": "ignored", "message": f"Hóa đơn #{invoice_id} không tồn tại"}
         
+    if invoice.trangthai == 'Đã hủy':
+        # Lịch đã hủy trước khi tiền về: không tự kích hoạt; spa đối soát và hoàn tiền thủ công.
+        finish_event(event, "rejected", invoice.mahd)
+        db.session.commit()
+        current_app.logger.warning("SePay payment for cancelled invoice %s needs manual refund", invoice.mahd)
+        return {"status": "failed", "message": f"Hóa đơn #{invoice.mahd} đã hủy, cần hoàn tiền thủ công"}
+
     if invoice.trangthai == 'Đã thanh toán':
         finish_event(event, "ignored", invoice.mahd)
         db.session.commit()

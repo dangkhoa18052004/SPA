@@ -6,7 +6,7 @@
 
 {% block extra_css %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/customers/appointments.css', v='1.1') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/customers/appointments.css', v='1.2') }}">
 {% endblock %}
 
 {% block content %}
@@ -167,6 +167,19 @@
                                 </label>
                             </div>
 
+                            <fieldset class="payment-choice" id="paymentChoice">
+                                <legend>Hình thức thanh toán</legend>
+                                <label class="payment-option">
+                                    <input type="radio" name="paymentOption" value="at_spa" checked>
+                                    <span><strong>Thanh toán tại spa</strong><small>Nhân viên tạo hóa đơn sau khi bạn dùng dịch vụ.</small></span>
+                                </label>
+                                <label class="payment-option" id="prepayOption">
+                                    <input type="radio" name="paymentOption" value="prepay">
+                                    <span><strong>Thanh toán ngay bằng VietQR</strong><small>Quét mã chuyển khoản ngay sau khi đặt; đến spa không cần thanh toán lại.</small></span>
+                                </label>
+                                <p class="payment-choice-note" id="paymentChoiceNote" hidden></p>
+                            </fieldset>
+
                             <div class="confirm-recap" id="confirmRecap" aria-live="polite"></div>
 
                             <div class="form-actions">
@@ -223,7 +236,7 @@
 
 {% block extra_js %}
     {% if session.get('user_id') and session.get('user_type') == 'customer' %}
-    <script src="{{ url_for('static', filename='js/customers/appointments.js', v='1.3') }}"></script>
-    <script src="{{ url_for('static', filename='js/packages.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/appointments.js', v='1.4') }}"></script>
+    <script src="{{ url_for('static', filename='js/packages.js', v='1.2') }}"></script>
     {% endif %}
 {% endblock %}

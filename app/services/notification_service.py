@@ -373,6 +373,12 @@ def register_commands(app):
         from .appointment_service import auto_cancel_no_shows
         click.echo(f'auto-cancelled: {auto_cancel_no_shows(grace_minutes=grace_minutes)}')
 
+    @app.cli.command('sepay-sync')
+    def sepay_sync_command():
+        'Đối soát (one-shot) giao dịch tiền vào gần đây từ SePay vào hóa đơn/gói đang chờ.'
+        from .sepay_sync_service import sync as sepay_sync
+        click.echo(f'processed: {sepay_sync()}')
+
     @app.cli.command('notification-worker')
     @click.option('--interval', default=30, type=click.IntRange(5, 300),
                   help='So giay giua moi lan xu ly jobs (mac dinh: 30)')
@@ -428,6 +434,15 @@ def register_commands(app):
             except Exception as exc:
                 db.session.rollback()
                 current_app.logger.error(f'[notification-worker] Loi tu huy lich: {exc}', exc_info=True)
+            try:
+                # Đối soát tiền vào SePay khi webhook không tới (máy chủ nội bộ); chống trùng theo mã giao dịch.
+                from .sepay_sync_service import sync as sepay_sync
+                synced = sepay_sync()
+                if synced:
+                    click.echo(f'[notification-worker] sepay-sync processed={synced}')
+            except Exception as exc:
+                db.session.rollback()
+                current_app.logger.error(f'[notification-worker] Loi dong bo SePay: {exc}', exc_info=True)
             try:
                 result = process_jobs(batch_size=batch_size) if appointment_id is None else process_jobs(
                     batch_size=batch_size, appointment_id=appointment_id)

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, g, render_template
+from flask import current_app, Blueprint, request, jsonify, g, render_template
 
 from ..extensions import db
 from ..decorators import customer_required, roles_required
@@ -7,6 +7,7 @@ from ..services import package_service as service
 from ..services import loyalty_service as loyalty
 from ..services.appointment_service import AppointmentValidationError
 from ..services.vietqr_service import generate_vietqr_payment_info, vietqr_available
+from ..services import sepay_sync_service
 from ..services.upload_service import read_validated_image, InvalidUploadError
 from sqlalchemy import or_
 import json
@@ -157,8 +158,11 @@ def serialize_purchase(purchase):
 @customer_required
 def purchase_package(package_id):
     data = request.get_json(silent=True) or {}
+    # Khách mua online chỉ thanh toán VietQR; bán tại quầy do nhân viên tạo ở trang Bán gói.
+    if data.get('payment_method', 'vietqr') != 'vietqr' and not current_app.config.get('PACKAGE_CUSTOMER_CASH_ENABLED'):
+        return jsonify(success=False, message='Mua gói online chỉ hỗ trợ thanh toán VietQR. Muốn trả tiền mặt, vui lòng mua tại quầy.'), 400
     if data.get('payment_method', 'vietqr') == 'vietqr' and not vietqr_available():
-        return jsonify(success=False, message='VietQR tạm thời chưa khả dụng; vui lòng thanh toán tại quầy'), 503
+        return jsonify(success=False, message='VietQR tạm thời chưa khả dụng, vui lòng thử lại sau hoặc mua tại quầy'), 503
     try:
         purchase = service.create_purchase(package_id, g.current_user.makh,
             data.get('payment_method', 'vietqr'), sale_channel='customer')
@@ -188,6 +192,9 @@ def purchase_status(purchase_id):
     purchase = GoiDichVuPurchase.query.filter_by(id=purchase_id, makh=g.current_user.makh).first()
     if not purchase:
         return jsonify(success=False, message='Không tìm thấy giao dịch'), 404
+    if purchase.status == 'pending' and purchase.payment_method == 'vietqr' and sepay_sync_service.maybe_sync():
+        db.session.expire_all()
+        purchase = db.session.get(GoiDichVuPurchase, purchase_id)
     return jsonify(success=True, purchase=serialize_purchase(purchase))
 
 
@@ -395,6 +402,9 @@ def counter_sale_detail(purchase_id):
     purchase = db.session.get(GoiDichVuPurchase, purchase_id)
     if not purchase:
         return jsonify(success=False, message='Không tìm thấy phiếu'), 404
+    if purchase.status == 'pending' and purchase.payment_method == 'vietqr' and sepay_sync_service.maybe_sync():
+        db.session.expire_all()
+        purchase = db.session.get(GoiDichVuPurchase, purchase_id)
     return jsonify(success=True, purchase=serialize_purchase(purchase))
 
 

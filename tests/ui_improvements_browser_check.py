@@ -50,7 +50,7 @@ def fake_gemini(payload):
     if 'functionResponse' in last:
         return reply([{'text': 'Mình đã tạo **bản nháp**, bạn bấm Xác nhận đặt lịch nhé.'}])
     return reply([{'functionCall': {'name': 'create_booking_draft_tool',
-                                    'args': {'madv_list': [facial_id], 'ngaygio': f'{booking_day.isoformat()}T14:00'}}}])
+                                    'args': {'madv_list': [facial_id], 'ngaygio': f'{booking_day.isoformat()}T16:30'}}}])
 
 
 ai_service.call_gemini = fake_gemini
@@ -188,7 +188,9 @@ class Browser:
         (artifacts / name).write_bytes(base64.b64decode(data))
 
     def layout_ok(self, width, label):
-        state = self.evaluate("({w:innerWidth,sw:document.documentElement.scrollWidth,errors:window.__uiErrors})")
+        state = self.evaluate("({w:innerWidth,sw:document.documentElement.scrollWidth,errors:window.__uiErrors,"
+                              "wide:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+1)"
+                              ".slice(0,6).map(e=>e.tagName+'.'+e.className+'#'+e.id+' '+Math.round(e.getBoundingClientRect().right))})")
         assert state['w'] == width, (label, width, state)
         assert state['sw'] <= state['w'] + 1, (label, width, state)
         assert not state['errors'], (label, state['errors'])
@@ -278,9 +280,34 @@ try:
     with app.app_context():
         assert LichHen.query.count() == before + 1, 'booking submit did not create appointment'
 
+    # Đặt lịch chọn "Thanh toán ngay bằng VietQR" → hộp QR hóa đơn mở ngay sau khi đặt.
+    browser.navigate('/appointments/create')
+    browser.wait("document.querySelector('[data-service-id]')", 'services (prepay)')
+    browser.evaluate(f"toggleServiceSelection({facial_id});goToStep(2);document.querySelector('#appointmentDate').value='{booking_day.isoformat()}';loadTimeSlots();")
+    browser.wait("document.querySelector('#appointmentTime option[value=\"15:00\"]:not([disabled])')", 'prepay slots')
+    browser.evaluate("const t=document.querySelector('#appointmentTime');t.value='15:00';t.dispatchEvent(new Event('change'));goToStep(3);")
+    browser.wait("!document.querySelector('#prepayOption input').disabled", 'prepay enabled')
+    browser.click('#prepayOption input')
+    browser.wait("document.querySelector('#confirmRecap').textContent.includes('VietQR')", 'recap shows VietQR')
+    browser.click('#step3 button[type="submit"]')
+    browser.wait("document.getElementById('customerLoyaltyPayment')?.open", 'prepay QR dialog')
+    with app.app_context():
+        prepaid = HoaDon.query.order_by(HoaDon.mahd.desc()).first()
+        assert prepaid.malh and prepaid.trangthai == 'Chưa thanh toán' and prepaid.tongtien == 500000
+    browser.screenshot('390-prepay-dialog.png')
+    browser.evaluate("document.getElementById('customerLoyaltyPayment').close()")
+    for attempt in range(3):  # hộp QR tải voucher/điểm xong mới chuyển trang
+        try:
+            browser.wait("location.pathname==='/profile'", 'redirect after prepay dialog')
+            break
+        except AssertionError:
+            if attempt == 2:
+                raise
+    print('PASS prepay booking opens VietQR invoice dialog', flush=True)
+
     # Khách đổi dịch vụ trước giờ hẹn từ hồ sơ (lịch vừa đặt ở trên).
     with app.app_context():
-        booked = LichHen.query.order_by(LichHen.malh.desc()).first().malh
+        booked = LichHen.query.filter(~LichHen.malh.in_(db.session.query(HoaDon.malh).filter(HoaDon.malh.isnot(None))))             .order_by(LichHen.malh.desc()).first().malh
     browser.navigate('/profile#appointments')
     browser.wait(f"document.querySelector('[onclick=\"openChangeServices({booked})\"]')", 'customer change button')
     browser.click(f'[onclick="openChangeServices({booked})"]')

@@ -394,7 +394,7 @@ def find_available_staff(start_dt, madv_list):
 
 
 def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, source='web', package_usages=None,
-                       created_by_staff=None):
+                       created_by_staff=None, prepay=False):
     """
     Tạo lịch hẹn mới (Atomic transaction).
     Dùng chung cho Customer Booking API, Admin Booking API, và AI Assistant.
@@ -506,6 +506,11 @@ def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, s
         reserve_usages(new_appointment, [] if package_usages is None else package_usages,
                        require_item_id=booking_source == 'admin')
         sync_appointment_jobs(new_appointment)
+        prepaid_invoice = None
+        if prepay:
+            # Khách chọn thanh toán ngay: hóa đơn chờ thanh toán tạo cùng transaction với lịch hẹn.
+            from .prepay_service import create_prepaid_invoice
+            prepaid_invoice = create_prepaid_invoice(new_appointment)
         db.session.commit()
     except AppointmentValidationError:
         db.session.rollback()
@@ -555,7 +560,9 @@ def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, s
             "ghichu": new_appointment.ghichu,
             "booking_source": new_appointment.booking_source,
             "created_by_staff": new_appointment.created_by_staff,
-            "services": [s['tendv'] for s in appointment_data['services']]
+            "services": [s['tendv'] for s in appointment_data['services']],
+            "payment_option": 'prepay' if prepay else 'at_spa',
+            "invoice_id": prepaid_invoice.mahd if prepaid_invoice else None,
         }
     }
 
@@ -583,8 +590,8 @@ def _lock_appointment(appointment_id):
     return apt
 
 
-SYSTEM_NOTE_KINDS = ('Đổi dịch vụ', 'Check-in', 'Tự động hủy')
-_SYSTEM_NOTE_RE = re.compile(r'\[(Đổi dịch vụ|Check-in|Tự động hủy)\s+(\d{2}:\d{2} \d{2}/\d{2}/\d{4})([^\]]*)\]')
+SYSTEM_NOTE_KINDS = ('Đổi dịch vụ', 'Check-in', 'Tự động hủy', 'Cần hoàn tiền')
+_SYSTEM_NOTE_RE = re.compile(r'\[(Đổi dịch vụ|Check-in|Tự động hủy|Cần hoàn tiền)\s+(\d{2}:\d{2} \d{2}/\d{2}/\d{4})([^\]]*)\]')
 
 
 def set_system_note(apt, kind, text):
@@ -645,6 +652,8 @@ def change_appointment_services(appointment_id, madv_list, user_id=None, role='c
     if set(new_ids) == set(old_ids) and not package_usages:
         raise AppointmentValidationError("Danh sách dịch vụ không thay đổi")
 
+    from . import prepay_service
+    prepay_service.ensure_changeable(apt)
     duration = sum(s.thoiluong for s in services if s.thoiluong and s.thoiluong > 0) or 60
     if apt.manv:
         is_avail, conflicts, reason = check_staff_availability(apt.manv, apt.ngaygio, duration, exclude_malh=apt.malh)
@@ -681,6 +690,8 @@ def change_appointment_services(appointment_id, madv_list, user_id=None, role='c
                     not isinstance(row, dict) or row.get('madv') in covered for row in package_usages):
                 raise AppointmentValidationError("Dịch vụ này đã dùng buổi gói trong lịch hẹn")
             reserve_usages(apt, package_usages, require_item_id=role != 'customer')
+        db.session.expire(apt, ['chitiet'])
+        prepay_service.sync_after_service_change(apt)
         set_system_note(apt, 'Đổi dịch vụ', f"{vn_now():%H:%M %d/%m/%Y}"
                         f"{' bởi ' + actor_name if actor_name else ''}: {', '.join(names[m] for m in new_ids)}")
         sync_appointment_jobs(apt)
@@ -774,6 +785,9 @@ def auto_cancel_no_shows(now=None, grace_minutes=None, limit=200):
             apt.trangthai = AppointmentStatus.CANCELLED
             transition_usages(apt.malh, 'released')
             sync_appointment_jobs(apt)
+            from . import prepay_service
+            if prepay_service.on_appointment_cancelled(apt) == 'refund':
+                set_system_note(apt, 'Cần hoàn tiền', f"{now:%H:%M %d/%m/%Y}: khách đã thanh toán trước")
             set_system_note(apt, 'Tự động hủy', f"{now:%H:%M %d/%m/%Y}: khách không đến sau {grace_minutes} phút")
             # Chỉ báo email cho lịch vừa lỡ; lịch tồn đọng lâu ngày chỉ hủy, tránh gửi thư cho lịch đã cũ.
             max_age = current_app.config.get('NO_SHOW_EMAIL_MAX_AGE_HOURS', NO_SHOW_EMAIL_MAX_AGE_HOURS)
@@ -825,8 +839,12 @@ def cancel_appointment(appointment_id, user_id=None, role='customer', reason=Non
         apt.trangthai = AppointmentStatus.CANCELLED
         from .package_service import transition_usages
         from .notification_service import sync_appointment_jobs
+        from . import prepay_service
         transition_usages(apt.malh, 'released')
         sync_appointment_jobs(apt)
+        prepaid = prepay_service.on_appointment_cancelled(apt)
+        if prepaid == 'refund':
+            set_system_note(apt, 'Cần hoàn tiền', f"{vn_now():%H:%M %d/%m/%Y}: khách đã thanh toán trước")
         if reason:
             cancel_str = f"[Lý do hủy: {reason.strip()}]"
             apt.ghichu = f"{apt.ghichu}\n{cancel_str}" if apt.ghichu else cancel_str
@@ -839,7 +857,9 @@ def cancel_appointment(appointment_id, user_id=None, role='customer', reason=Non
 
     return {
         "success": True,
-        "message": "Hủy lịch hẹn thành công",
+        "message": "Hủy lịch hẹn thành công" + (
+            ". Bạn đã thanh toán trước, Bin Spa sẽ liên hệ để hoàn tiền." if prepaid == 'refund' else ""),
+        "refund_required": prepaid == 'refund',
         "malh": apt.malh,
         "trangthai": apt.trangthai,
         "trangthai_vi": AppointmentStatus.to_vietnamese(apt.trangthai)
@@ -888,6 +908,9 @@ def update_appointment_status(appointment_id, new_status, user_id=None, role='st
             commission_service.record_for_appointment(apt)
         elif norm_status == AppointmentStatus.CANCELLED:
             transition_usages(apt.malh, 'released')
+            from . import prepay_service
+            if prepay_service.on_appointment_cancelled(apt) == 'refund':
+                set_system_note(apt, 'Cần hoàn tiền', f"{vn_now():%H:%M %d/%m/%Y}: khách đã thanh toán trước")
         if previous_status == AppointmentStatus.COMPLETED and norm_status != AppointmentStatus.COMPLETED:
             commission_service.void_for_appointment(apt.malh)
         sync_appointment_jobs(apt)

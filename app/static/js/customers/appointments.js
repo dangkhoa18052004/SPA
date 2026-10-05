@@ -40,8 +40,40 @@ let servicesPerPage = 8;
 let filteredServices = [];
 
 // ==================== INIT ====================
+let vietqrAvailable = false;
+
+async function setupPaymentChoice() {
+    try {
+        const response = await fetch('/api/packages/payment-options');
+        vietqrAvailable = !!(await response.json()).vietqr_available;
+    } catch (e) { vietqrAvailable = false; }
+    document.querySelectorAll('input[name="paymentOption"]').forEach(r => r.addEventListener('change', updateSummary));
+    updatePaymentChoice(null);
+}
+
+// Hiện/ẩn "Thanh toán ngay" theo số tiền còn phải trả và tình trạng VietQR.
+function updatePaymentChoice(totalDue) {
+    const option = document.getElementById('prepayOption');
+    const note = document.getElementById('paymentChoiceNote');
+    if (!option) return;
+    const input = option.querySelector('input');
+    let reason = '';
+    if (!vietqrAvailable) reason = 'Thanh toán VietQR tạm thời chưa khả dụng.';
+    else if (totalDue === 0) reason = 'Các dịch vụ đã dùng buổi gói/quà, không cần thanh toán.';
+    input.disabled = !!reason;
+    option.classList.toggle('is-disabled', !!reason);
+    if (reason && input.checked) document.querySelector('input[name="paymentOption"][value="at_spa"]').checked = true;
+    note.hidden = !reason;
+    note.textContent = reason;
+}
+
+function selectedPaymentOption() {
+    return document.querySelector('input[name="paymentOption"]:checked')?.value || 'at_spa';
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     setupDateTimeLimits();
+    setupPaymentChoice();
     setupAutoAssignToggle();
     await loadAllServices();
     await applyBookingContext();
@@ -687,8 +719,9 @@ function updateSummary() {
             const time = document.getElementById('appointmentTime')?.value;
             recap.innerHTML = selectedServicesData.length ? `
                 <p><strong>${selectedServicesData.length} dịch vụ</strong>${usedSessions ? ` · dùng ${usedSessions} buổi gói/quà` : ''}${date && time ? ` · ${formatViDate(date)} ${time}` : ''}</p>
-                <p>Còn phải trả: <strong>${formattedTotal}</strong></p>` : '';
+                <p>Còn phải trả: <strong>${formattedTotal}</strong>${total > 0 ? ` · ${selectedPaymentOption() === 'prepay' ? 'thanh toán ngay bằng VietQR' : 'thanh toán tại spa'}` : ''}</p>` : '';
         }
+        updatePaymentChoice(selectedServicesData.length ? total : null);
     }
 
     if (typeof window.changeLang === 'function') {
@@ -760,7 +793,8 @@ document.getElementById('appointmentForm')?.addEventListener('submit', async fun
                 package_usages: window.PackageCare?.getUsages() || [],
                 ngaygio: datetime,
                 manv: manv,
-                ghichu: ''
+                ghichu: '',
+                payment_option: selectedPaymentOption()
             })
         });
 
@@ -778,6 +812,26 @@ document.getElementById('appointmentForm')?.addEventListener('submit', async fun
         }
 
         if (data.success) {
+            const invoiceId = data.appointment?.invoice_id;
+            if (invoiceId && window.LoyaltyPayment?.openCustomerInvoice) {
+                // Thanh toán ngay: mở hộp VietQR của hóa đơn; đóng hộp (đã trả hoặc để sau) thì về Lịch hẹn của tôi.
+                Toast.success('Đặt lịch thành công! Quét mã VietQR để thanh toán ngay.', 'Thành công!', 4000);
+                try {
+                    await window.LoyaltyPayment.openCustomerInvoice(invoiceId);
+                    // Hộp có thể được dựng lại khi áp voucher/điểm: chờ tới khi không còn hộp nào rồi chuyển trang.
+                    const watcher = setInterval(() => {
+                        if (!document.getElementById('customerLoyaltyPayment')) {
+                            clearInterval(watcher);
+                            window.location.href = '/profile#appointments';
+                        }
+                    }, 400);
+                    return;
+                } catch (error) {
+                    Toast.warning('Chưa mở được mã thanh toán. Bạn có thể thanh toán ở mục Hóa đơn của tôi.');
+                }
+                setTimeout(() => { window.location.href = '/profile#appointments'; }, 1500);
+                return;
+            }
             Toast.success('Đặt lịch hẹn thành công! Chúng tôi đã gửi email xác nhận đến bạn.', 'Thành công!', 5000);
 
             setTimeout(() => {

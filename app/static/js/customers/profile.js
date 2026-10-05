@@ -400,6 +400,9 @@ function displayAppointments(appointments) {
                     <p><i class="fas fa-calendar"></i> ${formatDate(apt.ngaygio)}</p>
                     <p><i class="fas fa-user"></i> ${apt.nhanvien || 'Chưa phân công'}</p>
                     ${apt.ghichu ? `<p><i class="fas fa-sticky-note" aria-hidden="true"></i> ${escapeProfileHtml(apt.ghichu)}</p>` : ''}
+                    ${apt.invoice && apt.trangthai !== 'cancelled' ? `<p class="appointment-payment ${apt.invoice.trangthai === 'Đã thanh toán' ? 'is-paid' : ''}">
+                        <i class="fas fa-${apt.invoice.trangthai === 'Đã thanh toán' ? 'circle-check' : 'clock'}" aria-hidden="true"></i>
+                        ${apt.invoice.trangthai === 'Đã thanh toán' ? 'Đã thanh toán trước' : 'Chờ thanh toán'} · ${formatCurrency(apt.invoice.payable_amount)}</p>` : ''}
                     ${apt.last_service_change_at || apt.checked_in_at ? `<p class="appointment-events">
                         ${apt.last_service_change_at ? `<span><i class="fas fa-exchange-alt" aria-hidden="true"></i> Đã đổi dịch vụ lúc ${escapeProfileHtml(apt.last_service_change_at)}</span>` : ''}
                         ${apt.checked_in_at ? `<span><i class="fas fa-user-check" aria-hidden="true"></i> Check-in lúc ${escapeProfileHtml(apt.checked_in_at)}</span>` : ''}
@@ -409,6 +412,10 @@ function displayAppointments(appointments) {
                     ${apt.can_change_services ? `
                         <button type="button" class="btn btn-primary" style="padding: 8px 15px; font-size: 14px;" onclick="openChangeServices(${apt.malh})">
                             <i class="fas fa-exchange-alt" aria-hidden="true"></i> Đổi dịch vụ
+                        </button>` : ''}
+                    ${apt.invoice && apt.invoice.trangthai === 'Chưa thanh toán' && ['pending', 'confirmed'].includes(apt.trangthai) ? `
+                        <button type="button" class="btn btn-primary" style="padding: 8px 15px; font-size: 14px;" onclick="payPrepaidInvoice(${apt.invoice.mahd})">
+                            <i class="fas fa-qrcode" aria-hidden="true"></i> Thanh toán ngay
                         </button>` : ''}
                     ${apt.can_cancel ? `
                         <button type="button" class="btn btn-outline" style="padding: 8px 15px; font-size: 14px;" onclick="cancelAppointment(${apt.malh})">
@@ -502,6 +509,18 @@ async function openChangeServices(malh) {
     }
 }
 window.openChangeServices = openChangeServices;
+
+// Thanh toán hóa đơn trả trước; khi hộp đóng (đã trả hoặc để sau) thì tải lại danh sách lịch.
+async function payPrepaidInvoice(mahd) {
+    await window.LoyaltyPayment.openCustomerInvoice(mahd);
+    const watcher = setInterval(() => {
+        if (!document.getElementById('customerLoyaltyPayment')) {
+            clearInterval(watcher);
+            loadUserAppointments();
+        }
+    }, 400);
+}
+window.payPrepaidInvoice = payPrepaidInvoice;
 
 // ==================== LOAD INVOICES ====================
 async function loadUserInvoices() {

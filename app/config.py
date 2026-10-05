@@ -96,6 +96,9 @@ class Config:
     VIETQR_ACCOUNT_NO = os.getenv("VIETQR_ACCOUNT_NO")
     VIETQR_ACCOUNT_NAME = os.getenv("VIETQR_ACCOUNT_NAME")
     SEPAY_API_KEY = os.getenv("SEPAY_API_KEY")
+    # Tự hỏi SePay giao dịch mới (khi webhook không tới được máy chủ). Token mặc định = SEPAY_API_KEY.
+    SEPAY_API_TOKEN = os.getenv("SEPAY_API_TOKEN", "")
+    SEPAY_POLL_ENABLED = os.getenv("SEPAY_POLL_ENABLED", "true").lower() in ("1", "true", "yes")
 
     # config Upload
     UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'uploads')

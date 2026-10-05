@@ -16,7 +16,7 @@ from ..models import (
     LieuTrinhUsage,
     AppointmentStatus,
 )
-from ..services import appointment_service
+from ..services import appointment_service, prepay_service
 from ..services.appointment_service import (
     AppointmentServiceError,
     AppointmentNotFoundError,
@@ -71,6 +71,14 @@ def create_appointment():
     if not dichvu_ids or not ngaygio_str:
         return jsonify({"success": False, "message": "Thiếu thông tin dịch vụ hoặc thời gian hẹn"}), 400
 
+    payment_option = data.get("payment_option") or "at_spa"
+    if payment_option not in ("at_spa", "prepay"):
+        return jsonify({"success": False, "message": "Hình thức thanh toán không hợp lệ"}), 400
+    if payment_option == "prepay":
+        from ..services.vietqr_service import vietqr_available
+        if not vietqr_available():
+            return jsonify({"success": False, "message": "Thanh toán VietQR tạm thời chưa khả dụng, vui lòng chọn thanh toán tại spa"}), 503
+
     try:
         result = appointment_service.create_appointment(
             customer_id=makh,
@@ -80,6 +88,7 @@ def create_appointment():
             note=ghichu,
             source="web",
             package_usages=data.get('package_usages', []),
+            prepay=payment_option == "prepay",
         )
         return jsonify(result), 201
 
@@ -158,6 +167,7 @@ def get_my_appointments():
             covered = {u.madv for u in LieuTrinhUsage.query.filter(
                 LieuTrinhUsage.malh == apt.malh, LieuTrinhUsage.state.in_(('reserved', 'consumed'))).all()}
             editable = appointment_service.customer_can_modify(apt)
+            invoice = prepay_service.summary(apt)
             result.append({
                 "malh": apt.malh,
                 "ngaygio": apt.ngaygio.isoformat(),
@@ -166,7 +176,8 @@ def get_my_appointments():
                                   thoiluong=d.dichvu.thoiluong, package=d.madv in covered)
                              for d in apt.chitiet if d.dichvu],
                 "can_cancel": editable,
-                "can_change_services": editable,
+                "can_change_services": editable and not (invoice and invoice['trangthai'] == prepay_service.PAID),
+                "invoice": invoice,
                 "nhanvien": staff_name,
                 "trangthai": apt.trangthai,
                 "trangthai_vi": AppointmentStatus.to_vietnamese(apt.trangthai),

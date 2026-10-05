@@ -1,3 +1,4 @@
+from ..services import sepay_sync_service
 from flask import Blueprint, request, jsonify, current_app, g
 from ..extensions import db
 from ..models import HoaDon, ThanhToan
@@ -28,6 +29,9 @@ def get_my_invoice_details(invoice_id):
     try:
         invoice = HoaDon.query.filter_by(mahd=invoice_id, makh=customer.makh).first()
         if not invoice: return jsonify({"msg": "Không tìm thấy hóa đơn hoặc bạn không có quyền xem"}), 404
+        if invoice.trangthai == 'Chưa thanh toán' and sepay_sync_service.maybe_sync():
+            db.session.expire_all()
+            invoice = HoaDon.query.filter_by(mahd=invoice_id, makh=customer.makh).first()
         details = [{"tendv": item.dichvu.tendv, "soluong": item.soluong, "dongia": str(item.dongia), "thanhtien": str(item.thanhtien)} for item in invoice.chitiet]
         return jsonify({"mahd": invoice.mahd, "ngaylap": invoice.ngaylap.isoformat(), "tongtien": str(invoice.tongtien), **loyalty.payment_summary(invoice), "trangthai": invoice.trangthai, "chitiet": details}), 200
     except Exception as e:
@@ -105,6 +109,7 @@ def generate_customer_payment_qr(invoice_id):
     invoice = HoaDon.query.filter_by(mahd=invoice_id, makh=customer.makh).first()
     if not invoice: return jsonify({"msg": "Không tìm thấy hóa đơn hoặc bạn không có quyền"}), 404
     if invoice.trangthai == 'Đã thanh toán': return jsonify({"msg": "Hóa đơn đã thanh toán"}), 400
+    if invoice.trangthai != 'Chưa thanh toán': return jsonify({"msg": "Hóa đơn đã hủy, không thể thanh toán"}), 400
     if loyalty.payable(invoice) == 0: return jsonify(msg='Vui lòng chọn Thanh toán bằng điểm'), 400
     
     try:
