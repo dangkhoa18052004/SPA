@@ -548,3 +548,75 @@ dialog.billing-receipt-dialog {
     background: var(--bg-hover);
     border-top: 1px solid var(--border-color);
 }
+
+.confirm-toast-input {
+    display: grid;
+    gap: 6px;
+    margin-top: var(--spacing-md);
+    font-size: var(--font-sm);
+    font-weight: var(--font-semibold);
+    white-space: normal;
+}
+
+.confirm-toast-input textarea {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-weight: var(--font-normal);
+    resize: vertical;
+}
+
+.confirm-toast-actions .btn {
+    min-height: 44px;
+}
+
+/* Hộp đổi dịch vụ (dùng chung khung với hộp xác nhận) */
+#change-services-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-sm);
+}
+
+#change-services-modal .change-services-content {
+    max-width: 560px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#change-services-modal .confirm-toast-body {
+    overflow-y: auto;
+    white-space: normal;
+    padding: var(--spacing-lg);
+}
+
+.change-services-list {
+    list-style: none;
+    margin: var(--spacing-sm) 0 0;
+    padding: 0;
+}
+
+.change-services-list li {
+    padding: var(--spacing-xs) 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.change-services-list label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    min-height: 44px;
+    cursor: pointer;
+}
+
+.change-services-list small { color: var(--text-secondary); }
+.change-services-list em { color: var(--success-text); font-style: normal; font-weight: var(--font-semibold); }
+.change-services-list select { margin-top: 4px; }

@@ -330,3 +330,124 @@
     white-space: nowrap;
     width: 1%; 
 }
+/* ========== LỊCH HẸN: DẠNG THẺ TRÊN TABLET/MOBILE ==========
+   Mỗi lịch là một thẻ: giờ + trạng thái ở đầu, khách/dịch vụ/nhân viên,
+   hành động tiếp theo đứng đầu hàng nút; không phải kéo bảng ngang. */
+@media (max-width: 1100px) {
+    .data-table-container:has(#appointments-table) {
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    #appointments-table {
+        min-width: 0;
+    }
+
+    #appointments-table thead {
+        display: none;
+    }
+
+    #appointments-table,
+    #appointments-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    #appointments-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 4px 12px;
+        margin-bottom: var(--spacing-sm);
+        padding: var(--spacing-md);
+        background: var(--bg-card);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
+    }
+
+    #appointments-table tbody td {
+        display: block;
+        padding: 0;
+        border: none;
+        white-space: normal !important;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    #appointments-table tbody td.d-none {
+        display: none !important;
+    }
+
+    #appointments-table tbody td[colspan] {
+        grid-column: 1 / -1;
+        text-align: center;
+    }
+
+    #appointments-table td.cell-time {
+        font-weight: var(--font-semibold);
+        grid-column: 1;
+    }
+
+    #appointments-table td.cell-status {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: end;
+    }
+
+    #appointments-table td[data-label]:not(.cell-time):not(.cell-status):not(.action-buttons) {
+        grid-column: 1 / -1;
+        font-size: var(--font-sm);
+    }
+
+    #appointments-table td[data-label]:not(.cell-time):not(.cell-status):not(.action-buttons)::before {
+        content: attr(data-label) ": ";
+        color: var(--text-secondary);
+    }
+
+    #appointments-table td.action-buttons {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+        width: auto;
+        margin-top: var(--spacing-xs);
+    }
+
+    #appointments-table td.action-buttons .btn {
+        min-height: 44px;
+        flex: 1 1 auto;
+    }
+
+    #appointments-table td.action-buttons .btn-secondary {
+        flex: 0 0 auto;
+    }
+}
+
+/* Desktop: bảng lịch hẹn xuống dòng ở cột chữ để cột thao tác luôn trong khung nhìn */
+@media (min-width: 1101px) {
+    #appointments-table {
+        min-width: 0;
+        table-layout: auto;
+    }
+
+    #appointments-table td {
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+    }
+
+    #appointments-table td.cell-time,
+    #appointments-table td.cell-status {
+        white-space: nowrap !important;
+    }
+
+    #appointments-table td.action-buttons {
+        display: table-cell;
+        width: 1%;
+        min-width: 290px;
+    }
+
+    #appointments-table td.action-buttons .btn {
+        margin: 2px;
+    }
+}

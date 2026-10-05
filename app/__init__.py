@@ -55,6 +55,8 @@ def create_app(config_overrides=None):
     from .admin.loyalty_manage_bp import admin_loyalty_bp
     app.register_blueprint(loyalty_bp)
     app.register_blueprint(admin_loyalty_bp)
+    from .routes.ai_bp import ai_bp
+    app.register_blueprint(ai_bp)
     register_commands(app)
 
     # Đăng ký blueprints admin

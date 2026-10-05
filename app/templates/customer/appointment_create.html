@@ -6,7 +6,7 @@
 
 {% block extra_css %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/customers/appointments.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/customers/appointments.css', v='1.1') }}">
 {% endblock %}
 
 {% block content %}
@@ -90,9 +90,19 @@
                                 <p style="color: #999;">Chưa chọn dịch vụ nào</p>
                             </div>
 
-                            <button type="button" class="btn btn-primary" onclick="goToStep(2)">
-                                Tiếp theo <i class="fas fa-arrow-right"></i>
-                            </button>
+                            <!-- Nguồn thanh toán: chọn dùng buổi gói/quà ngay sau khi chọn dịch vụ, trước ngày giờ và xác nhận -->
+                            <div class="booking-source-block">
+                                <h3 class="booking-source-title"><i class="fas fa-ticket-alt" aria-hidden="true"></i> Dùng buổi trong gói / quà tặng</h3>
+                                <p class="booking-source-hint">Nếu bạn có liệu trình còn buổi cho dịch vụ đã chọn, lựa chọn sẽ hiện ở đây. Dịch vụ không dùng buổi sẽ thanh toán bình thường.</p>
+                                <div class="package-section package-hidden" id="bookingTreatments" aria-label="Sử dụng liệu trình"></div>
+                            </div>
+
+                            <div class="form-actions">
+                                <span></span>
+                                <button type="button" class="btn btn-primary" onclick="goToStep(2)">
+                                    Tiếp theo <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Step 2: Select Date & Time -->
@@ -110,38 +120,17 @@
                                        id="appointmentDate" 
                                        name="appointmentDate" 
                                        required
-                                       onchange="loadAvailableStaff()">
+                                       onchange="loadTimeSlots()">
                             </div>
 
                             <div class="form-group">
                                 <label for="appointmentTime">
                                     <i class="fas fa-clock"></i> Chọn giờ
                                 </label>
-                                <select id="appointmentTime" name="appointmentTime" required onchange="loadAvailableStaff()">
-                                    <option value="">-- Chọn giờ --</option>
-                                    <option value="07:30">07:30</option>
-                                    <option value="08:00">08:00</option>
-                                    <option value="08:00">08:00</option>
-                                    <option value="08:30">08:30</option>
-                                    <option value="09:00">09:00</option>
-                                    <option value="09:30">09:30</option>
-                                    <option value="10:00">10:00</option>
-                                    <option value="10:30">10:30</option>
-                                    <option value="11:00">11:00</option>
-                                    <option value="11:30">11:30</option>
-                                    <option value="13:00">13:00</option>
-                                    <option value="13:30">13:30</option>
-                                    <option value="14:00">14:00</option>
-                                    <option value="14:30">14:30</option>
-                                    <option value="15:00">15:00</option>
-                                    <option value="15:30">15:30</option>
-                                    <option value="16:00">16:00</option>
-                                    <option value="16:30">16:30</option>
-                                    <option value="17:00">17:00</option>
-                                    <option value="17:30">17:30</option>
-                                    <option value="18:00">18:00</option>
-                                    <option value="18:30">18:30</option>
+                                <select id="appointmentTime" name="appointmentTime" required onchange="loadAvailableStaff()" aria-describedby="slotStatus">
+                                    <option value="">-- Chọn ngày trước --</option>
                                 </select>
+                                <div id="slotStatus" class="slot-status" role="status" aria-live="polite"></div>
                             </div>
 
                             <div class="form-actions">
@@ -177,6 +166,8 @@
                                     <span>Để spa tự động sắp xếp nhân viên phù hợp</span>
                                 </label>
                             </div>
+
+                            <div class="confirm-recap" id="confirmRecap" aria-live="polite"></div>
 
                             <div class="form-actions">
                                 <button type="button" class="btn btn-outline" onclick="goToStep(2)">
@@ -216,11 +207,9 @@
                     </div>
 
                     <div class="summary-total">
-                        <span>Tổng cộng:</span>
+                        <span>Còn phải trả:</span>
                         <span id="summaryTotal">0đ</span>
                     </div>
-
-                    <div class="package-section package-hidden" id="bookingTreatments" aria-label="Sử dụng liệu trình"></div>
                     <div class="summary-note">
                         <i class="fas fa-info-circle"></i>
                         <p>Vui lòng đến trước 10 phút để làm thủ tục. Spa sẽ xác nhận lịch hẹn của bạn trong thời gian sớm nhất.</p>
@@ -234,7 +223,7 @@
 
 {% block extra_js %}
     {% if session.get('user_id') and session.get('user_type') == 'customer' %}
-    <script src="{{ url_for('static', filename='js/customers/appointments.js', v='1.2') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/appointments.js', v='1.3') }}"></script>
     <script src="{{ url_for('static', filename='js/packages.js') }}"></script>
     {% endif %}
 {% endblock %}

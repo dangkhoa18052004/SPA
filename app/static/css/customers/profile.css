@@ -238,6 +238,12 @@
         border: 1px solid rgba(59, 130, 246, 0.2);
     }
     
+    .status-in-progress, [data-status="Đang thực hiện"] {
+        background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);
+        color: #6D28D9;
+        border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+
     .status-completed, [data-status="Hoàn thành"] {
         background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
         color: #047857;
@@ -444,4 +450,93 @@
     font-size: 18px;
     font-weight: 700;
     color: #C9A961;
+}
+
+/* Nhóm Tài khoản: chỉnh sửa thông tin và đổi mật khẩu */
+.account-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.account-actions .btn {
+    min-height: 44px;
+}
+
+.profile-menu a:focus-visible {
+    outline: 2px solid #C9A961;
+    outline-offset: 2px;
+}
+
+/* Mobile: tab hiện hành nổi bật + dấu hiệu có thể kéo ngang (cùng breakpoint với responsive.css) */
+@media (max-width: 900px) {
+    .profile-sidebar {
+        position: relative;
+    }
+
+    .profile-menu a {
+        min-height: 44px;
+    }
+
+    .profile-menu a.active {
+        background: #C9A961;
+        color: #fff;
+        border-color: #C9A961;
+    }
+
+    .profile-menu a.active i {
+        color: #fff;
+    }
+
+    .profile-sidebar::after {
+        content: "";
+        position: absolute;
+        right: 0;
+        bottom: 8px;
+        width: 32px;
+        height: 48px;
+        pointer-events: none;
+        background: linear-gradient(to right, rgba(255, 255, 255, 0), #fff);
+    }
+}
+
+/* Đổi dịch vụ của lịch hẹn */
+.change-services-list {
+    list-style: none;
+    margin: 12px 0;
+    padding: 0;
+    max-height: 55vh;
+    overflow-y: auto;
+}
+
+.change-services-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.change-services-list label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    min-height: 44px;
+    cursor: pointer;
+}
+
+.change-services-list label small { color: #888; }
+.change-services-list label em { color: #2f6b45; font-style: normal; font-weight: 600; }
+
+.change-services-list select {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 6px;
+}
+
+.change-services-message { color: #b42318; min-height: 1em; }
+
+.appointment-hint {
+    margin: 0;
+    font-size: 13px;
+    color: #8a6d1d;
 }

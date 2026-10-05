@@ -1,9 +1,10 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, g
 from ..extensions import db
 from ..models import DichVu
 from ..decorators import roles_required 
 import base64
 from ..services.upload_service import read_validated_image, InvalidUploadError
+from ..services import commission_service
 
 service_manage_bp = Blueprint("service_manage", __name__)
 
@@ -13,6 +14,7 @@ def get_services_admin():
     """Lấy danh sách dịch vụ cho admin (có thể thấy tất cả, kể cả inactive)"""
     try:
         services = DichVu.query.all()
+        can_see_commission = getattr(getattr(g, 'current_user', None), 'role', None) in ('admin', 'manager')
         result = [{
             "madv": s.madv,
             "tendv": s.tendv,
@@ -21,7 +23,11 @@ def get_services_admin():
             "mota": s.mota,
             "post_care_instructions": s.post_care_instructions or "",
             "active": s.active,
-            "anhdichvu": base64.b64encode(s.anhdichvu).decode('utf-8') if s.anhdichvu else None
+            "anhdichvu": base64.b64encode(s.anhdichvu).decode('utf-8') if s.anhdichvu else None,
+            **({
+                "commission_percent": str(s.commission_percent) if s.commission_percent is not None else None,
+                "commission_fixed": str(s.commission_fixed) if s.commission_fixed is not None else None,
+            } if can_see_commission else {}),
         } for s in services]
         return jsonify(result), 200
     except Exception as e:
@@ -42,6 +48,11 @@ def create_service():
 
         if len(post_care_instructions) > 10000:
             return jsonify({"msg": "Hướng dẫn chăm sóc sau dịch vụ tối đa 10.000 ký tự"}), 400
+        try:
+            commission_percent, commission_fixed = commission_service.parse_policy(
+                request.form.get("commission_percent"), request.form.get("commission_fixed"))
+        except ValueError as e:
+            return jsonify({"msg": str(e)}), 400
 
         if not tendv or gia is None:
             return jsonify({"msg": "Thiếu tên dịch vụ hoặc giá"}), 400
@@ -52,6 +63,8 @@ def create_service():
             thoiluong=thoiluong, 
             mota=mota, 
             post_care_instructions=post_care_instructions or None,
+            commission_percent=commission_percent,
+            commission_fixed=commission_fixed,
             active=True
         )
 
@@ -93,6 +106,14 @@ def update_service(madv):
             if len(post_care_instructions) > 10000:
                 return jsonify({"msg": "Hướng dẫn chăm sóc sau dịch vụ tối đa 10.000 ký tự"}), 400
             service.post_care_instructions = post_care_instructions or None
+
+        if 'commission_percent' in request.form or 'commission_fixed' in request.form:
+            try:
+                service.commission_percent, service.commission_fixed = commission_service.parse_policy(
+                    request.form.get("commission_percent", service.commission_percent),
+                    request.form.get("commission_fixed", service.commission_fixed))
+            except ValueError as e:
+                return jsonify({"msg": str(e)}), 400
 
         if 'active' in request.form:
             active_value = request.form.get("active")

@@ -234,6 +234,37 @@ def sync_appointment_jobs(appointment, now=None):
             'review')
 
 
+NO_SHOW_JOB = 'appointment_no_show'
+
+
+def enqueue_no_show_cancelled(appointment, released_sessions=0, grace_minutes=30, now=None):
+    """Email báo lịch bị tự hủy vì khách không đến. Cùng transaction với việc hủy; worker gửi và retry."""
+    customer = appointment.khachhang
+    if not customer or not (customer.email or '').strip():
+        current_app.logger.info(f'Appointment #{appointment.malh} tự hủy nhưng khách không có email.')
+        return None
+    name = escape(customer.hoten or 'Quý khách')
+    services = ''.join(f'<li>{escape(d.dichvu.tendv)}</li>' for d in appointment.chitiet if d.dichvu)
+    base = current_app.config.get('PUBLIC_SITE_URL', 'https://binspa.id.vn').rstrip('/')
+    sessions_html = (f'<p>{released_sessions} buổi liệu trình đã giữ cho lịch này đã được <strong>hoàn trả</strong> '
+                     'vào gói của bạn.</p>') if released_sessions else ''
+    body = (
+        f'<p>Xin chào <strong>{name}</strong>,</p>'
+        f'<p>Lịch hẹn <strong>#{appointment.malh}</strong> lúc '
+        f'<strong>{appointment.ngaygio:%H:%M %d/%m/%Y}</strong> đã được hệ thống <strong>tự động hủy</strong> '
+        f'vì Bin Spa chưa ghi nhận bạn đến sau {grace_minutes} phút kể từ giờ hẹn.</p>'
+        f'<ul style="color:#555;">{services}</ul>'
+        + sessions_html +
+        '<p>Vui lòng đặt lịch mới khi bạn thuận tiện:</p>'
+        f'<p><a href="{escape(base)}/appointments/create" style="background:#C9A961;color:#fff;padding:10px 18px;'
+        'border-radius:6px;text-decoration:none;display:inline-block;">Đặt lịch mới</a></p>'
+        '<p style="color:#666;font-size:13px;">Nếu bạn đã đến spa nhưng vẫn nhận email này, vui lòng liên hệ '
+        'Bin Spa để được hỗ trợ.<br>Trân trọng,<br><strong>Đội ngũ Bin Spa</strong></p>'
+    )
+    return enqueue(appointment, NO_SHOW_JOB, now or datetime.utcnow(),
+                   f'Bin Spa - Lịch hẹn #{appointment.malh} đã bị hủy', body, 'noshow')
+
+
 # ---------------------------------------------------------------------------
 # Job processor
 # ---------------------------------------------------------------------------
@@ -271,11 +302,14 @@ def process_jobs(batch_size=50, now=None, appointment_id=None):
             db.session.commit()
             continue
         apt = db.session.get(LichHen, job.malh) if job.malh else None
-        valid = apt and (
-            apt.trangthai == AppointmentStatus.CONFIRMED
-            if job.type.startswith('appointment_reminder')
-            else apt.trangthai == AppointmentStatus.COMPLETED
-        )
+        if not apt:
+            valid = False
+        elif job.type.startswith('appointment_reminder'):
+            valid = apt.trangthai == AppointmentStatus.CONFIRMED
+        elif job.type == NO_SHOW_JOB:
+            valid = apt.trangthai == AppointmentStatus.CANCELLED
+        else:
+            valid = apt.trangthai == AppointmentStatus.COMPLETED
         if not valid or (job.type.startswith('appointment_reminder') and apt.ngaygio - timedelta(hours=7) <= now):
             job.status = 'cancelled'
             result['cancelled'] += 1
@@ -332,6 +366,13 @@ def register_commands(app):
         'Process due care jobs (one-shot). Use notification-worker for continuous processing.'
         click.echo(process_jobs(batch_size))
 
+    @app.cli.command('auto-cancel-no-shows')
+    @click.option('--grace-minutes', default=None, type=click.IntRange(1, 1440))
+    def auto_cancel_no_shows_command(grace_minutes):
+        'Tự hủy (one-shot) lịch khách không đến; notification-worker cũng chạy việc này mỗi chu kỳ.'
+        from .appointment_service import auto_cancel_no_shows
+        click.echo(f'auto-cancelled: {auto_cancel_no_shows(grace_minutes=grace_minutes)}')
+
     @app.cli.command('notification-worker')
     @click.option('--interval', default=30, type=click.IntRange(5, 300),
                   help='So giay giua moi lan xu ly jobs (mac dinh: 30)')
@@ -378,6 +419,15 @@ def register_commands(app):
             pass  # Windows khong ho tro SIGTERM day du
 
         while running:
+            try:
+                # Tự hủy lịch khách không đến (quá NO_SHOW_GRACE_MINUTES) trước khi gửi email trong outbox.
+                from .appointment_service import auto_cancel_no_shows
+                cancelled = auto_cancel_no_shows()
+                if cancelled:
+                    click.echo(f'[notification-worker] no-show auto-cancelled={len(cancelled)}')
+            except Exception as exc:
+                db.session.rollback()
+                current_app.logger.error(f'[notification-worker] Loi tu huy lich: {exc}', exc_info=True)
             try:
                 result = process_jobs(batch_size=batch_size) if appointment_id is None else process_jobs(
                     batch_size=batch_size, appointment_id=appointment_id)

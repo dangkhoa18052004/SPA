@@ -4,6 +4,7 @@ from ..models import KhachHang, NhanVien, ChucVu
 from ..decorators import roles_required
 from werkzeug.security import generate_password_hash
 from ..services.upload_service import InvalidUploadError, save_validated_image
+from ..services import review_service
 
 staff_manage_bp = Blueprint("staff_manage", __name__)
 
@@ -121,12 +122,15 @@ def get_all_staff():
         staff_list = db.session.query(NhanVien, ChucVu)\
             .outerjoin(ChucVu, NhanVien.macv == ChucVu.macv).all()
             
+        ratings = review_service.rating_summary()
         result = [
             {"manv": nv.manv, "hoten": nv.hoten, "email": nv.email, "sdt": nv.sdt,
              "taikhoan": nv.taikhoan, "role": nv.role, "trangthai": nv.trangthai,
              "chucvu": cv.tencv if cv else "N/A",
-             "anhnhanvien": nv.anhnhanvien
-            } 
+             "anhnhanvien": nv.anhnhanvien,
+             "rating_average": ratings.get(nv.manv, {}).get("average"),
+             "rating_count": ratings.get(nv.manv, {}).get("count", 0),
+            }
             for nv, cv in staff_list
         ]
         return jsonify(result), 200

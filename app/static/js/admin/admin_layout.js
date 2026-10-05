@@ -107,62 +107,60 @@ function hasRole(allowedRoles) {
 /**
  * Cấu hình menu items cho từng role
  */
+// Sắp theo tần suất dùng: việc hằng ngày trước, danh mục/nhân sự/chăm sóc theo nhóm, trang cá nhân cuối.
+const MENU_ITEMS = {
+    dashboard: { title: 'Tổng quan', href: '/admin/dashboard', icon: 'fa-tachometer-alt' },
+    appointments: { title: 'Lịch hẹn', href: '/admin/appointments', icon: 'fa-calendar-alt' },
+    invoices: { title: 'Hóa đơn', href: '/admin/invoices', icon: 'fa-file-invoice-dollar' },
+    package_sales: { title: 'Bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
+    customers: { title: 'Khách hàng', href: '/admin/customers', icon: 'fa-user-friends' },
+    services: { title: 'Dịch vụ', href: '/admin/services', icon: 'fa-spa' },
+    packages: { title: 'Gói dịch vụ / Liệu trình', href: '/admin/packages', icon: 'fa-box-open' },
+    roles: { title: 'Chức vụ', href: '/admin/roles', icon: 'fa-user-tag' },
+    staff: { title: 'Nhân viên', href: '/admin/staff', icon: 'fa-users-cog' },
+    shifts: { title: 'Ca làm', href: '/admin/shifts', icon: 'fa-clock' },
+    approve_shifts: { title: 'Duyệt đăng ký ca', href: '/admin/approve-shifts', icon: 'fa-calendar-check' },
+    salary: { title: 'Lương', href: '/admin/salary', icon: 'fa-money-bill-wave' },
+    loyalty: { title: 'Điểm thưởng', href: '/admin/loyalty', icon: 'fa-gift' },
+    reviews: { title: 'Đánh giá', href: '/admin/reviews', icon: 'fa-star' },
+    chat: { title: 'Tin nhắn', href: '/admin/chat', icon: 'fa-comments' },
+    my_schedule: { title: 'Lịch làm của tôi', href: '/admin/my-schedule', icon: 'fa-calendar-check' },
+    register_shift: { title: 'Đăng ký ca', href: '/admin/register-shift', icon: 'fa-calendar-plus' },
+    my_salary: { title: 'Lương của tôi', href: '/admin/my-salary', icon: 'fa-money-bill-wave' },
+    profile: { title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
+};
+
+const menuItem = (key, overrides = {}) => ({ key, ...MENU_ITEMS[key], ...overrides });
+const menuGroup = title => ({ group: title });
+
 const MENU_CONFIG = {
     admin: [
-        { key: 'loyalty', title: 'Điểm thưởng', href: '/admin/loyalty', icon: 'fa-gift' },
-        { key: 'reviews', title: 'Quản lý Đánh giá', href: '/admin/reviews', icon: 'fa-star' },
-        { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
-        { key: 'dashboard', title: 'Dashboard', href: '/admin/dashboard', icon: 'fa-tachometer-alt' },
-        { key: 'appointments', title: 'Quản lý Lịch hẹn', href: '/admin/appointments', icon: 'fa-calendar-alt' },
-        { key: 'invoices', title: 'Quản lý Hóa đơn', href: '/admin/invoices', icon: 'fa-file-invoice-dollar' },
-        { key: 'customers', title: 'Quản lý Khách hàng', href: '/admin/customers', icon: 'fa-user-friends' },
-        { key: 'staff', title: 'Quản lý Nhân viên', href: '/admin/staff', icon: 'fa-users-cog' },
-        { key: 'shifts', title: 'Quản lý Ca làm', href: '/admin/shifts', icon: 'fa-clock' },
-        { key: 'approve_shifts', title: 'Duyệt đăng ký ca', href: '/admin/approve-shifts', icon: 'fa-calendar-check' },
-        { key: 'salary', title: 'Quản lý Lương', href: '/admin/salary', icon: 'fa-money-bill-wave' },
-        { key: 'services', title: 'Quản lý Dịch vụ', href: '/admin/services', icon: 'fa-spa' },
-        { key: 'packages', title: 'Gói dịch vụ / Liệu trình', href: '/admin/packages', icon: 'fa-spa' },
-        { key: 'package_sales', title: 'Bán gói / Phiếu bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
-        { key: 'roles', title: 'Quản lý Chức vụ', href: '/admin/roles', icon: 'fa-user-tag' },
-        { key: 'chat', title: 'Tin nhắn', href: '/admin/chat', icon: 'fa-comments' }
+        menuItem('dashboard'), menuItem('appointments'), menuItem('invoices'), menuItem('package_sales'), menuItem('customers'),
+        menuGroup('Danh mục'), menuItem('services'), menuItem('packages'), menuItem('roles'),
+        menuGroup('Nhân sự'), menuItem('staff'), menuItem('shifts'), menuItem('approve_shifts'), menuItem('salary'),
+        menuGroup('Chăm sóc'), menuItem('loyalty'), menuItem('reviews'), menuItem('chat'),
+        menuGroup('Tài khoản'), menuItem('profile'),
     ],
 
     manager: [
-        { key: 'loyalty', title: 'Điểm thưởng', href: '/admin/loyalty', icon: 'fa-gift' },
-        { key: 'reviews', title: 'Quản lý Đánh giá', href: '/admin/reviews', icon: 'fa-star' },
-        { key: 'package_sales', title: 'Bán gói / Phiếu bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
-        { key: 'packages', title: 'Gói dịch vụ / Liệu trình', href: '/admin/packages', icon: 'fa-spa' },
-        { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
-        { key: 'dashboard', title: 'Dashboard', href: '/admin/dashboard', icon: 'fa-tachometer-alt' },
-        { key: 'my_salary', title: 'Lương của tôi', href: '/admin/my-salary', icon: 'fa-money-bill-wave' },
-        { key: 'appointments', title: 'Quản lý Lịch hẹn', href: '/admin/appointments', icon: 'fa-calendar-alt' },
-        { key: 'invoices', title: 'Quản lý Hóa đơn', href: '/admin/invoices', icon: 'fa-file-invoice-dollar' },
-        { key: 'customers', title: 'Quản lý Khách hàng', href: '/admin/customers', icon: 'fa-user-friends' },
-        // { key: 'shifts', title: 'Quản lý Ca làm', href: '/admin/shifts', icon: 'fa-clock' },
-        // { key: 'approve_shifts', title: 'Duyệt đăng ký ca', href: '/admin/approve-shifts', icon: 'fa-calendar-check' },
-        { key: 'chat', title: 'Tin nhắn', href: '/admin/chat', icon: 'fa-comments' }
+        menuItem('dashboard'), menuItem('appointments'), menuItem('invoices'), menuItem('package_sales'), menuItem('customers'),
+        menuGroup('Danh mục'), menuItem('packages'),
+        menuGroup('Chăm sóc'), menuItem('loyalty'), menuItem('reviews'), menuItem('chat'),
+        menuGroup('Tài khoản'), menuItem('my_salary'), menuItem('profile'),
     ],
 
     letan: [
-        { key: 'loyalty', title: 'Đổi quà / Tra mã', href: '/admin/loyalty?tab=redemptions', icon: 'fa-gift' },
-        { key: 'package_sales', title: 'Bán gói / Phiếu bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
-        { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
-        { key: 'appointments', title: 'Quản lý Lịch hẹn', href: '/admin/appointments', icon: 'fa-calendar-alt' },
-        { key: 'invoices', title: 'Quản lý Hóa đơn', href: '/admin/invoices', icon: 'fa-file-invoice-dollar' },
-        { key: 'customers', title: 'Quản lý Khách hàng', href: '/admin/customers', icon: 'fa-user-friends' },
-        { key: 'my_schedule', title: 'Lịch làm của tôi', href: '/admin/my-schedule', icon: 'fa-calendar-check' },
-        { key: 'register_shift', title: 'Đăng ký ca', href: '/admin/register-shift', icon: 'fa-calendar-plus' },
-        { key: 'my_salary', title: 'Lương của tôi', href: '/admin/my-salary', icon: 'fa-money-bill-wave' },
-        { key: 'chat', title: 'Tin nhắn', href: '/admin/chat', icon: 'fa-comments' }
+        menuItem('dashboard'), menuItem('appointments'), menuItem('invoices'), menuItem('package_sales'), menuItem('customers'),
+        menuItem('loyalty', { title: 'Đổi quà / Tra mã', href: '/admin/loyalty?tab=redemptions' }),
+        menuItem('chat'),
+        menuGroup('Của tôi'), menuItem('my_schedule'), menuItem('register_shift'), menuItem('my_salary'), menuItem('profile'),
     ],
 
     staff: [
-        { key: 'reviews', title: 'Đánh giá của khách', href: '/admin/reviews', icon: 'fa-star' },
-        { key: 'packages', title: 'Liệu trình khách hàng', href: '/admin/packages#treatments', icon: 'fa-spa' },
-        { key: 'profile', title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
-        { key: 'my_schedule', title: 'Lịch làm của tôi', href: '/admin/my-schedule', icon: 'fa-calendar-check' },
-        { key: 'register_shift', title: 'Đăng ký ca', href: '/admin/register-shift', icon: 'fa-calendar-plus' },
-        { key: 'my_salary', title: 'Lương của tôi', href: '/admin/my-salary', icon: 'fa-money-bill-wave' },
+        menuItem('dashboard'), menuItem('my_schedule'),
+        menuItem('packages', { title: 'Liệu trình khách hàng', href: '/admin/packages#treatments' }),
+        menuItem('reviews', { title: 'Đánh giá của khách' }),
+        menuGroup('Của tôi'), menuItem('register_shift'), menuItem('my_salary'), menuItem('profile'),
     ]
 };
 
@@ -195,14 +193,18 @@ function buildSidebar() {
 
     const currentPath = window.location.pathname;
 
-    // Build HTML
-    const menuHTML = menuItems.map(item => {
-        const isActive = currentPath === item.href ? 'active' : '';
+    // Build HTML (mục nhóm là tiêu đề không bấm được)
+    const menuHTML = menuItems.map(entry => {
+        if (entry.group) {
+            return `<li class="sidebar-group" role="presentation">${entry.group}</li>`;
+        }
+        const targetPath = new URL(entry.href, window.location.origin).pathname;
+        const isActive = currentPath === targetPath;
         return `
             <li>
-                <a href="${item.href}" class="${isActive}">
-                    <i class="fas ${item.icon}"></i>
-                    <span>${item.title}</span>
+                <a href="${entry.href}" class="${isActive ? 'active' : ''}" ${isActive ? 'aria-current="page"' : ''}>
+                    <i class="fas ${entry.icon}" aria-hidden="true"></i>
+                    <span>${entry.title}</span>
                 </a>
             </li>
         `;
@@ -210,7 +212,7 @@ function buildSidebar() {
 
     menu.innerHTML = menuHTML;
 
-    console.log(`✅ Sidebar built for role: ${role} (${menuItems.length} items)`);
+    console.log(`✅ Sidebar built for role: ${role} (${menuItems.filter(i => !i.group).length} items)`);
 }
 
 // ====== USER INFO DISPLAY ======

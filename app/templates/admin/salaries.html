@@ -4,6 +4,24 @@
 
 {% block page_title %}Quản lý Lương Nhân viên{% endblock %}
 
+{% block extra_css %}
+<style>
+    .salary-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--spacing-sm); }
+    .salary-filter-field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+    .salary-filter-field[hidden] { display: none; }
+    .salary-filter-field label { font-size: var(--font-sm); font-weight: var(--font-semibold); }
+    .salary-filter-actions { display: flex; gap: var(--spacing-xs); }
+    .salary-filter-actions .btn { min-height: 44px; }
+    .commission-table { width: 100%; border-collapse: collapse; font-size: var(--font-sm); }
+    .commission-table th, .commission-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-color); text-align: left; }
+    .commission-table td.num, .commission-table th.num { text-align: right; white-space: nowrap; }
+    @media (max-width: 600px) {
+        .salary-filter-field, .salary-filter-actions { flex: 1 1 100%; }
+        .salary-filter-actions .btn { flex: 1; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <div class="header-actions">
@@ -24,37 +42,36 @@
         </div>
     </div>
 
-    <div class="d-flex align-items-end gap-3 flex-wrap"> 
-        
-        <div class="filter-group d-flex flex-column" style="min-width: 150px;">
-            <label for="filter-type">Lọc theo:</label>
+    <div class="salary-filters">
+        <div class="salary-filter-field">
+            <label for="filter-type">Lọc theo</label>
             <select id="filter-type" class="form-control" onchange="toggleFilterInputs()">
-                <option value="month">Lọc theo tháng</option>
-                <option value="day">Lọc theo ngày </option>
+                <option value="month">Tháng</option>
+                <option value="day">Ngày</option>
             </select>
         </div>
-        
-        <div id="filter-month-group" class="filter-group d-flex flex-column gap-1" style="min-width: 160px;">
-            <label for="filter-month-input">Chọn tháng:</label>
-            <input type="month" id="filter-month-input" class="form-control" style="width: auto;">
-        </div>
-        
-        <div id="filter-day-group" class="filter-group d-flex flex-column gap-1" style="display: none; min-width: 160px;">
-            <label for="filter-day-input">Chọn ngày:</label>
-            <input type="date" id="filter-day-input" class="form-control" style="width: auto;">
+
+        <div id="filter-month-group" class="salary-filter-field">
+            <label for="filter-month-input">Chọn tháng</label>
+            <input type="month" id="filter-month-input" class="form-control">
         </div>
 
-        <div class="filter-group-actions d-flex gap-2">
-            <button class="btn btn-info" onclick="applySalaryFilter()">
-                <i class="fas fa-filter"></i> Lọc
+        <div id="filter-day-group" class="salary-filter-field" hidden>
+            <label for="filter-day-input">Chọn ngày</label>
+            <input type="date" id="filter-day-input" class="form-control">
+        </div>
+
+        <div class="salary-filter-actions">
+            <button type="button" class="btn btn-primary" onclick="applySalaryFilter()">
+                <i class="fas fa-filter" aria-hidden="true"></i> Lọc
             </button>
-            
-            <button class="btn btn-danger" onclick="exportSalaryPDF()">
-                <i class="fas fa-file-pdf"></i> Xuất PDF
+            <button type="button" class="btn btn-secondary" onclick="exportSalaryPDF()">
+                <i class="fas fa-file-pdf" aria-hidden="true"></i> Xuất PDF
             </button>
         </div>
     </div>
 </div>
+<p id="salary-filter-summary" class="filter-summary" aria-live="polite"></p>
 
 <div class="data-table-container">
     <table id="salaries-table" class="data-table">

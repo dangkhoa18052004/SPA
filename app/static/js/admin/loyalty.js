@@ -24,7 +24,7 @@
     }
     async function detail(id,p=1){
         const data=await api(`/api/admin/loyalty/customers/${id}?page=${p}`);
-        el('loyaltyContent').innerHTML=`<h3>${esc(data.customer.hoten)} · ${esc(data.customer.sdt)}</h3><div class="loyalty-cards">${Object.entries(data.wallet).map(([k,v])=>`<div class="loyalty-card">${labels[k]}<strong>${v}</strong></div>`).join('')}</div>${history(data.items)}<button class="btn btn-secondary" data-back>Danh sách khách hàng</button>`;
+        el('loyaltyContent').innerHTML=`<h3>${esc(data.customer.hoten)} · ${esc(data.customer.sdt)}</h3><div class="loyalty-cards">${data.tier?`<div class="loyalty-card">Hạng thành viên<strong>${esc(data.tier.tier.name)}</strong><small>${data.tier.qualifying_points} điểm xét hạng${data.tier.next_tier?` · còn ${data.tier.points_to_next} điểm lên ${esc(data.tier.next_tier.name)}`:''}</small></div>`:''}${Object.entries(data.wallet).map(([k,v])=>`<div class="loyalty-card">${labels[k]}<strong>${v}</strong></div>`).join('')}</div>${history(data.items)}<button class="btn btn-secondary" data-back>Danh sách khách hàng</button>`;
         el('loyaltyContent').querySelector('[data-back]').onclick=()=>load();pager(data,p=>detail(id,p).catch(e=>note(e.message)));
     }
     const rules={earn_amount_unit:'Số tiền cho mỗi lần tích điểm (VNĐ)',earn_points:'Điểm tích mỗi lần',point_value:'Giá trị một điểm (VNĐ)',minimum_redeem_points:'Số điểm dùng tối thiểu',maximum_redeem_percent:'Giảm bằng điểm tối đa (%)',earn_on_service_invoice:'Tích điểm khi trả tiền dịch vụ',earn_on_package_purchase:'Tích điểm khi mua gói',redeem_on_service_invoice:'Cho dùng điểm trả tiền dịch vụ',redeem_on_package_purchase:'Cho dùng điểm mua gói'};
@@ -39,6 +39,23 @@
         content.innerHTML=`<div class="loyalty-state loyalty-error" role="alert"><p><strong>Không tải được “${esc(label)}”.</strong> ${esc(detail)}</p><button type="button" class="btn btn-secondary" data-reload>Thử lại</button></div>`;
         content.querySelector('[data-reload]').onclick=()=>load();
     }
+    // Ngưỡng hạng: điểm xét hạng = điểm tích từ thanh toán − hoàn tác do hoàn tiền (đổi thưởng không trừ).
+    async function renderTierPolicy(content){
+        const {policy}=await api('/api/admin/loyalty/tiers');
+        const row=(t={code:'',name:'',min_points:''},i)=>`<tr><td><input name="code" value="${esc(t.code)}" aria-label="Mã hạng ${i+1}" required maxlength="30"></td><td><input name="name" value="${esc(t.name)}" aria-label="Tên hạng ${i+1}" required maxlength="50"></td><td><input name="min_points" type="number" min="0" step="1" value="${esc(t.min_points)}" aria-label="Ngưỡng điểm hạng ${i+1}" required></td><td><button type="button" class="btn btn-secondary" data-remove-tier aria-label="Xóa hạng ${i+1}">Xóa</button></td></tr>`;
+        const section=document.createElement('section');
+        section.className='loyalty-tier-policy';
+        section.innerHTML=`<h3>Hạng thành viên</h3><p>Hạng xét theo điểm tích từ thanh toán đã xác nhận. Đổi điểm/đổi thưởng không làm giảm hạng; hoàn tiền thu hồi điểm tích sẽ giảm tiến độ.</p><form id="loyaltyTiers"><div class="loyalty-table"><table><thead><tr><th>Mã</th><th>Tên hạng</th><th>Từ (điểm)</th><th></th></tr></thead><tbody>${policy.tiers.map(row).join('')}</tbody></table></div><button type="button" class="btn btn-secondary" data-add-tier>Thêm hạng</button><label><input type="checkbox" name="count_adjustments" ${policy.count_adjustments?'checked':''}> Tính cả điều chỉnh điểm thủ công vào hạng</label><button class="btn btn-primary" type="submit">Lưu hạng</button></form>`;
+        content.appendChild(section);
+        const form=section.querySelector('form'),body=form.querySelector('tbody');
+        const bindRemove=()=>body.querySelectorAll('[data-remove-tier]').forEach(b=>b.onclick=()=>{if(body.rows.length>1)b.closest('tr').remove();});
+        bindRemove();
+        form.querySelector('[data-add-tier]').onclick=()=>{body.insertAdjacentHTML('beforeend',row(undefined,body.rows.length));bindRemove();};
+        form.onsubmit=async e=>{e.preventDefault();const b=form.querySelector('[type=submit]');b.disabled=true;try{
+            const tiers=[...body.rows].map(r=>({code:r.querySelector('[name=code]').value.trim(),name:r.querySelector('[name=name]').value.trim(),min_points:Number(r.querySelector('[name=min_points]').value)}));
+            await api('/api/admin/loyalty/tiers','PUT',{tiers,count_adjustments:form.elements.count_adjustments.checked});note('Đã lưu hạng thành viên.');
+        }catch(error){note(error.message);}finally{b.disabled=false;}};
+    }
     async function load(){
         const token=++version;note('');
         el('adminLoyalty').querySelectorAll('[data-tab]').forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle('btn-primary',on);b.classList.toggle('btn-secondary',!on);b.setAttribute('aria-pressed',String(on));});
@@ -50,6 +67,7 @@
             if(tab==='config'){
                 content.innerHTML=`<form id="loyaltyRules">${Object.entries(rules).map(([k,label])=>typeof data.config[k]==='boolean'?`<label><input name="${k}" type="checkbox" ${data.config[k]?'checked':''}> ${label}</label>`:`<label>${label}<input name="${k}" type="number" min="${k==='maximum_redeem_percent'||k==='earn_points'?0:1}" ${k==='maximum_redeem_percent'?'max="100" step="0.01"':'step="1"'} value="${esc(data.config[k])}" required></label>`).join('')}<p>Điểm không hết hạn.</p><button class="btn btn-primary" type="submit">Lưu quy tắc</button></form>`;
                 el('loyaltyRules').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button');b.disabled=true;try{const body={};for(const k of Object.keys(rules))body[k]=typeof data.config[k]==='boolean'?f.elements[k].checked:Number(f.elements[k].value);await api('/api/admin/loyalty/config','PUT',body);note('Đã lưu quy tắc.');}catch(error){note(error.message);}finally{b.disabled=false;}};
+                await renderTierPolicy(content);
             }
             if(tab==='customers'){
                 content.innerHTML=`<form data-search><label>Tìm tên, SĐT, email<input name="search" value="${esc(search)}"></label><button class="btn btn-secondary">Tìm khách hàng</button></form><div class="loyalty-table"><table><thead><tr><th>Khách hàng</th><th>Khả dụng</th><th>Đang giữ</th><th>Đã tích</th><th>Đã dùng</th><th>Thao tác</th></tr></thead><tbody>${data.items.map(c=>`<tr><td>${esc(c.hoten)}<br>${esc(c.sdt)}<br>${esc(c.email)}</td><td>${c.available_points}</td><td>${c.reserved_points}</td><td>${c.lifetime_earned}</td><td>${c.lifetime_redeemed}</td><td><button class="btn btn-secondary" data-detail="${c.makh}">Chi tiết</button><button class="btn btn-primary" data-adjust="${c.makh}">Điều chỉnh điểm</button></td></tr>`).join('')||'<tr><td colspan="6">Không tìm thấy khách hàng.</td></tr>'}</tbody></table></div>`;

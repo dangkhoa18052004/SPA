@@ -67,7 +67,7 @@ def test_postgresql_sql_only_swaps_checks_and_single_head():
     assert 'DROP TABLE' not in sql and 'DROP COLUMN' not in sql and 'DELETE' not in sql and 'UPDATE' not in sql
     config = Config('migrations/alembic.ini')
     config.set_main_option('script_location', 'migrations')
-    assert ScriptDirectory.from_config(config).get_heads() == ['20261004_0013']
+    assert ScriptDirectory.from_config(config).get_heads() == ['20261005_0016']
 
 
 @pytest.mark.parametrize('amount, snapshot, expected', [

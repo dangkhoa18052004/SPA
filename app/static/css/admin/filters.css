@@ -67,7 +67,7 @@
 /* Appointment filters only; custom dates get their own grid row. */
 .appointment-filter-grid {
     display: grid;
-    grid-template-columns: minmax(180px, 220px) minmax(180px, 220px) minmax(260px, 1fr);
+    grid-template-columns: minmax(180px, 220px) minmax(180px, 220px) minmax(260px, 1fr) auto;
     gap: 16px;
     align-items: end;
     container-type: inline-size;
@@ -84,6 +84,20 @@
 
 .appointment-filter-grid:has(.custom-date-filter:not(.d-none)) {
     grid-template-columns: minmax(0, 220px) minmax(432px, 1fr);
+}
+
+/* "Xóa bộ lọc" luôn hiển thị ở mọi kích thước màn hình */
+.appointment-filter-grid .filter-reset-btn {
+    height: var(--input-height);
+    min-height: 44px;
+    white-space: nowrap;
+    justify-content: center;
+}
+
+.filter-summary {
+    margin: var(--spacing-xs) 0 0;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
 }
 
 .appointment-filter-grid .custom-date-filter {
@@ -127,6 +141,11 @@
 
     .appointment-filter-grid > .search-wrapper {
         grid-column: 1 / -1;
+    }
+
+    .appointment-filter-grid > .filter-reset-btn {
+        grid-column: 1 / -1;
+        justify-self: end;
     }
 
     .appointment-filter-grid:has(.custom-date-filter:not(.d-none)) > .search-wrapper {
@@ -414,5 +433,30 @@
     
     .stat-card-compact {
         min-width: 100%;
+    }
+}
+
+/* Mobile: KPI phụ trang lịch hẹn gọn trên một hàng (số + nhãn, ẩn icon) */
+@media (max-width: 767px) {
+    .invoice-dashboard-container .stats-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--spacing-xs);
+        padding-bottom: var(--spacing-md);
+    }
+
+    .invoice-dashboard-container .stats-row > .d-none {
+        display: none !important;
+    }
+
+    .invoice-dashboard-container .stat-card-compact {
+        min-width: 0;
+        padding: var(--spacing-sm);
+        justify-content: center;
+        text-align: center;
+    }
+
+    .invoice-dashboard-container .stat-card-compact .stat-icon {
+        display: none;
     }
 }

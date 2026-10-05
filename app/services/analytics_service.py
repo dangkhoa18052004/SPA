@@ -1,7 +1,9 @@
 # app/services/analytics_service.py
 """
 Analytics Service - Doanh thu, Thống kê Lịch hẹn, Khách hàng & KPI Spa.
-Doanh thu chuẩn xác dựa trên ThanhToan (sotien + ngaythanhtoan).
+Doanh thu thực thu = dịch vụ (ThanhToan.sotien theo ngaythanhtoan)
+                     + bán gói (GoiDichVuPurchase.payable_amount theo paid_at, status='paid').
+Lượt dùng buổi gói không tạo ThanhToan nên không bị tính doanh thu lần hai.
 """
 
 from datetime import datetime, date, time, timedelta
@@ -13,6 +15,7 @@ from ..extensions import db
 from ..models import (
     ThanhToan,
     HoaDon,
+    GoiDichVuPurchase,
     LichHen,
     ChiTietLichHen,
     KhachHang,
@@ -53,95 +56,139 @@ def _parse_date_range(from_date, to_date, default_days=30):
     return from_d, to_d, start_dt, end_dt
 
 
-def revenue_timeseries(from_date=None, to_date=None, group_by="day"):
-    """
-    Tính chuỗi thời gian doanh thu thực thu từ bảng ThanhToan.
-    - group_by: 'day' hoặc 'month'.
-    - Điền 0 vào các ngày/tháng không có phát sinh giao dịch để Chart.js vẽ liên tục.
-    """
-    from_d, to_d, start_dt, end_dt = _parse_date_range(from_date, to_date)
-
-    payments = (
-        db.session.query(
-            ThanhToan.ngaythanhtoan,
-            ThanhToan.sotien,
-        )
+def _service_payments(start_dt, end_dt):
+    return (
+        db.session.query(ThanhToan.ngaythanhtoan, ThanhToan.sotien)
         .filter(
             ThanhToan.ngaythanhtoan >= start_dt,
             ThanhToan.ngaythanhtoan <= end_dt,
             ThanhToan.sotien > 0,
         )
-        .order_by(ThanhToan.ngaythanhtoan.asc())
         .all()
     )
 
-    data_map = {}
-    trans_map = {}
 
+def _package_payments(start_dt, end_dt):
+    """Gói đã thanh toán: số thực thu sau ưu đãi/điểm; gói trả bằng điểm (0đ) bị loại."""
+    return (
+        db.session.query(GoiDichVuPurchase.paid_at, GoiDichVuPurchase.payable_amount)
+        .filter(
+            GoiDichVuPurchase.status == 'paid',
+            GoiDichVuPurchase.paid_at >= start_dt,
+            GoiDichVuPurchase.paid_at <= end_dt,
+            GoiDichVuPurchase.payable_amount > 0,
+        )
+        .all()
+    )
+
+
+def revenue_breakdown(start_dt, end_dt):
+    """Tổng thực thu trong khoảng: tách dịch vụ, gói và tổng (Decimal)."""
+    service_rows = _service_payments(start_dt, end_dt)
+    package_rows = _package_payments(start_dt, end_dt)
+    service = sum((Decimal(r[1]) for r in service_rows), Decimal('0'))
+    package = sum((Decimal(r[1]) for r in package_rows), Decimal('0'))
+    return {
+        "service": service,
+        "package": package,
+        "total": service + package,
+        "service_transactions": len(service_rows),
+        "package_transactions": len(package_rows),
+    }
+
+
+def _money(value):
+    return float(round(value, 2))
+
+
+def revenue_timeseries(from_date=None, to_date=None, group_by="day"):
+    """
+    Chuỗi thời gian doanh thu thực thu (dịch vụ + bán gói).
+    - group_by: 'day' hoặc 'month'.
+    - Điền 0 vào các ngày/tháng không có phát sinh giao dịch để Chart.js vẽ liên tục.
+    - total_revenue là tổng; service_revenue/package_revenue là phần tách riêng.
+    """
+    from_d, to_d, start_dt, end_dt = _parse_date_range(from_date, to_date)
+
+    keys = []
     if group_by == "month":
-        # Tạo chuỗi các tháng liên tục từ from_d đến to_d
+        fmt = "%Y-%m"
         cur_year, cur_month = from_d.year, from_d.month
-        end_year, end_month = to_d.year, to_d.month
-        while (cur_year < end_year) or (cur_year == end_year and cur_month <= end_month):
-            key = f"{cur_year:04d}-{cur_month:02d}"
-            data_map[key] = Decimal('0')
-            trans_map[key] = 0
-            if cur_month == 12:
-                cur_year += 1
-                cur_month = 1
-            else:
-                cur_month += 1
-
-        for p in payments:
-            if p.ngaythanhtoan:
-                key = p.ngaythanhtoan.strftime("%Y-%m")
-                if key in data_map:
-                    data_map[key] += Decimal(p.sotien)
-                    trans_map[key] += 1
+        while (cur_year, cur_month) <= (to_d.year, to_d.month):
+            keys.append(f"{cur_year:04d}-{cur_month:02d}")
+            cur_year, cur_month = (cur_year + 1, 1) if cur_month == 12 else (cur_year, cur_month + 1)
     else:
-        # group_by == 'day'
+        fmt = "%Y-%m-%d"
         cur_d = from_d
         while cur_d <= to_d:
-            key = cur_d.strftime("%Y-%m-%d")
-            data_map[key] = Decimal('0')
-            trans_map[key] = 0
+            keys.append(cur_d.strftime(fmt))
             cur_d += timedelta(days=1)
 
-        for p in payments:
-            if p.ngaythanhtoan:
-                key = p.ngaythanhtoan.strftime("%Y-%m-%d")
-                if key in data_map:
-                    data_map[key] += Decimal(p.sotien)
-                    trans_map[key] += 1
+    service_map = {k: Decimal('0') for k in keys}
+    package_map = {k: Decimal('0') for k in keys}
+    trans_map = {k: 0 for k in keys}
 
-    labels = list(data_map.keys())
-    revenue_data = [float(round(data_map[k], 2)) for k in labels]
+    for target, rows in ((service_map, _service_payments(start_dt, end_dt)),
+                         (package_map, _package_payments(start_dt, end_dt))):
+        for paid_at, amount in rows:
+            if not paid_at:
+                continue
+            key = paid_at.strftime(fmt)
+            if key in target:
+                target[key] += Decimal(amount)
+                trans_map[key] += 1
+
+    total_map = {k: service_map[k] + package_map[k] for k in keys}
     records = [
-        {"date": k, "revenue": float(round(data_map[k], 2)), "transactions_count": trans_map[k]}
-        for k in labels
+        {
+            "date": k,
+            "revenue": _money(total_map[k]),
+            "service_revenue": _money(service_map[k]),
+            "package_revenue": _money(package_map[k]),
+            "transactions_count": trans_map[k],
+        }
+        for k in keys
     ]
 
-    total_revenue = sum(data_map.values(), Decimal('0'))
-    total_transactions = sum(trans_map.values())
+    service_total = sum(service_map.values(), Decimal('0'))
+    package_total = sum(package_map.values(), Decimal('0'))
 
     return {
         "success": True,
         "from_date": from_d.isoformat(),
         "to_date": to_d.isoformat(),
         "group_by": group_by,
-        "total_revenue": float(round(total_revenue, 2)),
-        "total_transactions": total_transactions,
+        "total_revenue": _money(service_total + package_total),
+        "service_revenue": _money(service_total),
+        "package_revenue": _money(package_total),
+        "total_transactions": sum(trans_map.values()),
         "chart_data": {
-            "labels": labels,
+            "labels": keys,
             "datasets": [
                 {
-                    "label": "Doanh thu (VNĐ)",
-                    "data": revenue_data,
+                    "label": "Tổng thực thu (VNĐ)",
+                    "data": [_money(total_map[k]) for k in keys],
                     "borderColor": "#C9A961",
                     "backgroundColor": "rgba(201, 169, 97, 0.15)",
                     "fill": True,
                     "tension": 0.3,
-                }
+                },
+                {
+                    "label": "Dịch vụ",
+                    "data": [_money(service_map[k]) for k in keys],
+                    "borderColor": "#4a7c59",
+                    "backgroundColor": "rgba(74, 124, 89, 0.1)",
+                    "fill": False,
+                    "tension": 0.3,
+                },
+                {
+                    "label": "Bán gói",
+                    "data": [_money(package_map[k]) for k in keys],
+                    "borderColor": "#2c5282",
+                    "backgroundColor": "rgba(44, 82, 130, 0.1)",
+                    "fill": False,
+                    "tension": 0.3,
+                },
             ],
         },
         "records": records,
@@ -227,36 +274,22 @@ def appointment_stats(from_date=None, to_date=None):
 
 def average_invoice(from_date=None, to_date=None):
     """
-    Tính giá trị trung bình mỗi hóa đơn / thanh toán (AOV).
-    Dựa trên thực thu từ bảng ThanhToan.
+    Giá trị trung bình mỗi giao dịch thực thu (AOV), gồm thanh toán dịch vụ và bán gói.
     """
     from_d, to_d, start_dt, end_dt = _parse_date_range(from_date, to_date)
-
-    res = (
-        db.session.query(
-            func.coalesce(func.sum(ThanhToan.sotien), 0).label("total_rev"),
-            func.count(ThanhToan.matt).label("total_tx"),
-            func.coalesce(func.avg(ThanhToan.sotien), 0).label("avg_tx"),
-        )
-        .filter(
-            ThanhToan.ngaythanhtoan >= start_dt,
-            ThanhToan.ngaythanhtoan <= end_dt,
-            ThanhToan.sotien > 0,
-        )
-        .first()
-    )
-
-    total_revenue = float(res.total_rev) if res else 0.0
-    total_transactions = int(res.total_tx) if res else 0
-    average_value = float(res.avg_tx) if res else 0.0
+    rev = revenue_breakdown(start_dt, end_dt)
+    total_transactions = rev["service_transactions"] + rev["package_transactions"]
+    average_value = rev["total"] / total_transactions if total_transactions else Decimal('0')
 
     return {
         "success": True,
         "from_date": from_d.isoformat(),
         "to_date": to_d.isoformat(),
-        "total_revenue": round(total_revenue, 2),
+        "total_revenue": _money(rev["total"]),
+        "service_revenue": _money(rev["service"]),
+        "package_revenue": _money(rev["package"]),
         "total_transactions": total_transactions,
-        "average_invoice": round(average_value, 2),
+        "average_invoice": _money(average_value),
     }
 
 
@@ -383,10 +416,8 @@ def new_customers(from_date=None, to_date=None):
 def get_kpi_cards(target_date=None):
     """
     Tính toán các chỉ số KPI Cards cho Dashboard Quản trị.
-    FIX BUG:
-    1. Doanh thu hôm nay: CHỈ tính từ các khoản ThanhToan có ngaythanhtoan trong ngày hôm nay.
-    2. Khách hàng mới tháng này: Lọc theo KhachHang.ngaytao >= đầu tháng.
-    3. Doanh thu tháng: Tổng ThanhToan trong tháng hiện tại.
+    1. Doanh thu hôm nay/tháng: thực thu dịch vụ + bán gói, kèm số tách riêng.
+    2. Khách hàng mới tháng này: Lọc theo KhachHang.ngaytao trong tháng.
     """
     if not target_date:
         today = date.today()
@@ -405,29 +436,9 @@ def get_kpi_cards(target_date=None):
     month_end = datetime.combine(today.replace(day=last_day), time.max)
     month_start_dt = datetime.combine(month_start, time.min)
 
-    # 1. Doanh thu hôm nay (chính xác từ ThanhToan)
-    today_revenue = (
-        db.session.query(func.coalesce(func.sum(ThanhToan.sotien), 0))
-        .filter(
-            ThanhToan.ngaythanhtoan >= today_start,
-            ThanhToan.ngaythanhtoan <= today_end,
-            ThanhToan.sotien > 0,
-        )
-        .scalar()
-        or 0
-    )
-
-    # 2. Doanh thu tháng này (chính xác từ ThanhToan)
-    month_revenue = (
-        db.session.query(func.coalesce(func.sum(ThanhToan.sotien), 0))
-        .filter(
-            ThanhToan.ngaythanhtoan >= month_start_dt,
-            ThanhToan.ngaythanhtoan <= month_end,
-            ThanhToan.sotien > 0,
-        )
-        .scalar()
-        or 0
-    )
+    # 1-2. Doanh thu thực thu hôm nay / tháng này (dịch vụ + bán gói)
+    today_rev = revenue_breakdown(today_start, today_end)
+    month_rev = revenue_breakdown(month_start_dt, month_end)
 
     # 3. Lịch hẹn hôm nay
     today_appointments = (
@@ -479,34 +490,68 @@ def get_kpi_cards(target_date=None):
         or 0
     )
 
-    # 6. Giá trị thanh toán trung bình (AOV) tháng này
-    month_aov_res = (
-        db.session.query(func.coalesce(func.avg(ThanhToan.sotien), 0))
-        .filter(
-            ThanhToan.ngaythanhtoan >= month_start_dt,
-            ThanhToan.ngaythanhtoan <= month_end,
-            ThanhToan.sotien > 0,
-        )
-        .scalar()
-        or 0
-    )
+    # 6. Giá trị giao dịch trung bình (AOV) tháng này
+    month_tx = month_rev["service_transactions"] + month_rev["package_transactions"]
+    month_aov = month_rev["total"] / month_tx if month_tx else Decimal('0')
 
     return {
         "success": True,
         "date": today.isoformat(),
         "today": {
-            "revenue": float(today_revenue),
+            "revenue": _money(today_rev["total"]),
+            "service_revenue": _money(today_rev["service"]),
+            "package_revenue": _money(today_rev["package"]),
             "total_appointments": len(today_appointments),
             "appointments_by_status": status_counts,
             "working_staff": working_staff_today,
         },
         "month": {
-            "revenue": float(month_revenue),
+            "revenue": _money(month_rev["total"]),
+            "service_revenue": _money(month_rev["service"]),
+            "package_revenue": _money(month_rev["package"]),
             "new_customers": new_customers_month,
-            "average_invoice": float(month_aov_res),
+            "average_invoice": _money(month_aov),
         },
         "general": {
             "total_customers": total_customers,
             "active_staff": active_staff,
         },
+    }
+
+
+def dashboard_summary(from_date=None, to_date=None):
+    """
+    KPI dashboard dùng chung một khoảng ngày: thực thu (dịch vụ/gói/tổng), AOV,
+    số lịch, số/tỷ lệ hủy, khách mới. Chart lấy từ các API cùng tham số from/to.
+    """
+    from_d, to_d, start_dt, end_dt = _parse_date_range(from_date, to_date)
+    rev = revenue_breakdown(start_dt, end_dt)
+    transactions = rev["service_transactions"] + rev["package_transactions"]
+    stats = appointment_stats(from_d, to_d)
+    total_appointments = stats["total_appointments"]
+    cancelled = stats["counts"][AppointmentStatus.CANCELLED]
+    new_count = (
+        db.session.query(func.count(KhachHang.makh))
+        .filter(KhachHang.ngaytao >= start_dt, KhachHang.ngaytao <= end_dt)
+        .scalar()
+        or 0
+    )
+    return {
+        "success": True,
+        "from_date": from_d.isoformat(),
+        "to_date": to_d.isoformat(),
+        "revenue": {
+            "total": _money(rev["total"]),
+            "service": _money(rev["service"]),
+            "package": _money(rev["package"]),
+            "transactions": transactions,
+            "average_transaction": _money(rev["total"] / transactions) if transactions else 0.0,
+        },
+        "appointments": {
+            "total": total_appointments,
+            "completed": stats["counts"][AppointmentStatus.COMPLETED],
+            "cancelled": cancelled,
+            "cancel_rate": round(cancelled / total_appointments * 100, 1) if total_appointments else 0.0,
+        },
+        "new_customers": new_count,
     }

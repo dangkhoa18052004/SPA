@@ -9,6 +9,7 @@ let availableStaff = [];
 let currentPage = 1;
 const itemsPerPage = 10;
 let currentUserRole = null;
+let appointmentSearchText = '';
 
 let selectedServiceIds = []; 
 let selectedCustomerId = null;
@@ -45,9 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadServices();
             loadStaff();
             
-            // Lắng nghe sự kiện từ bộ lọc
-            document.getElementById('filter-status-select')?.addEventListener('change', filterAppointments);
-            document.getElementById('filter-date-select')?.addEventListener('change', handleDateSelectChange);
+            // Select ngày/trạng thái đã có onchange trong template; chỉ bổ sung phím Enter.
             document.getElementById('filter-start-date')?.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') applyCustomDateFilter();
             });
@@ -839,11 +838,49 @@ function filterCustomers() {
 }
 
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+// Danh sách sau khi áp dụng ô tìm kiếm; bảng, phân trang và tóm tắt dùng chung.
+function visibleAppointments() {
+    if (!appointmentSearchText) return allAppointments;
+    return allAppointments.filter(apt =>
+        (apt.khachhang_hoten || '').toLowerCase().includes(appointmentSearchText)
+        || String(apt.malh || '').includes(appointmentSearchText));
+}
+
+function updateFilterSummary() {
+    const summary = document.getElementById('filter-summary');
+    if (!summary) return;
+    const dateSelect = document.getElementById('filter-date-select');
+    const statusSelect = document.getElementById('filter-status-select');
+    const parts = [];
+    if (dateSelect && dateSelect.value) {
+        if (dateSelect.value === 'custom') {
+            const start = document.getElementById('filter-start-date')?.value;
+            const end = document.getElementById('filter-end-date')?.value || start;
+            const vi = iso => iso ? iso.split('-').reverse().join('/') : '';
+            if (start) parts.push(start === end ? vi(start) : `${vi(start)} – ${vi(end)}`);
+        } else {
+            parts.push(dateSelect.options[dateSelect.selectedIndex].text);
+        }
+    }
+    if (statusSelect && statusSelect.value) parts.push(statusSelect.options[statusSelect.selectedIndex].text);
+    if (appointmentSearchText) parts.push(`tìm “${appointmentSearchText}”`);
+    const count = visibleAppointments().length;
+    summary.textContent = parts.length
+        ? `${count} lịch hẹn · Đang lọc: ${parts.join(' · ')}`
+        : `${count} lịch hẹn · Không áp dụng bộ lọc`;
+    document.getElementById('reset-filters-btn')?.toggleAttribute('data-active', parts.length > 0);
+}
+
 function renderAppointmentsTable() {
     const tbody = document.querySelector('#appointments-table tbody');
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedData = allAppointments.slice(startIndex, startIndex + itemsPerPage);
-    
+    const paginatedData = visibleAppointments().slice(startIndex, startIndex + itemsPerPage);
+    updateFilterSummary();
+
     if (paginatedData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center">Không có lịch hẹn nào</td></tr>';
         return;
@@ -857,14 +894,14 @@ function renderAppointmentsTable() {
         return `
             <tr data-appointment-id="${apt.malh}">
                 <td class="d-none">#${apt.malh}</td>
-                <td>${formatDateTime(apt.ngaygio)}</td>
-                <td>${customerName}</td>
-                <td>${serviceName}</td>
-                <td>${staffName}</td>
-                <td><span class="badge badge-${getStatusClass(apt.trangthai)}">${getAppointmentStatusText(apt.trangthai)}</span></td>
+                <td data-label="Ngày giờ" class="cell-time">${formatDateTime(apt.ngaygio)}</td>
+                <td data-label="Khách hàng" class="cell-customer">${escapeHtml(customerName)}</td>
+                <td data-label="Dịch vụ">${escapeHtml(serviceName)}</td>
+                <td data-label="Nhân viên">${escapeHtml(staffName)}</td>
+                <td data-label="Trạng thái" class="cell-status"><span class="badge badge-${getStatusClass(apt.trangthai)}">${getAppointmentStatusText(apt.trangthai)}</span></td>
                 <td class="d-none">${appointmentPaymentBadge(apt)}</td>
-                <td class="d-none">${apt.ghichu || ''}</td>
-                <td class="action-buttons">
+                <td class="d-none">${escapeHtml(apt.ghichu || '')}</td>
+                <td class="action-buttons" data-label="Thao tác">
                     ${appointmentActions(apt)}
                 </td>
             </tr>
@@ -873,7 +910,7 @@ function renderAppointmentsTable() {
 }
 
 function renderPagination() {
-    const totalPages = Math.ceil(allAppointments.length / itemsPerPage);
+    const totalPages = Math.ceil(visibleAppointments().length / itemsPerPage);
     const paginationDiv = document.getElementById('pagination');
     
     if (!paginationDiv || totalPages <= 1) {
@@ -904,7 +941,7 @@ function renderPagination() {
 }
 
 function changePage(page) {
-    const totalPages = Math.ceil(allAppointments.length / itemsPerPage);
+    const totalPages = Math.ceil(visibleAppointments().length / itemsPerPage);
     if (page < 1 || page > totalPages) return;
     currentPage = page;
     renderAppointmentsTable();
@@ -947,6 +984,7 @@ function resetFilters() {
 
     const searchInput = document.getElementById('search-input');
     if (searchInput) searchInput.value = '';
+    appointmentSearchText = '';
     document.querySelector('.search-clear')?.classList.remove('active');
 
     currentPage = 1;
@@ -1151,10 +1189,13 @@ async function completeAppointment(malh) {
     });
 }
 
-async function cancelAppointment(malh) {
-    const reason = prompt('Lý do hủy lịch hẹn:');
-    if (reason === null) return;
-    
+function cancelAppointment(malh) {
+    showConfirm('Hủy lịch hẹn', `Lịch #${malh} sẽ bị hủy và các buổi gói đang giữ được hoàn lại. Thao tác này không hoàn tác được.`,
+        reason => submitCancelAppointment(malh, reason), null, 'Hủy lịch', 'Quay lại',
+        { danger: true, inputLabel: 'Lý do hủy (không bắt buộc)' });
+}
+
+async function submitCancelAppointment(malh, reason) {
     try {
         const response = await fetch(`/api/admin/appointments/${malh}/cancel`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ reason: reason }) });
         const data = await response.json();
@@ -1249,50 +1290,53 @@ function showToast(message, type = 'success') {
 function showSuccess(message) { showToast(message, 'success'); }
 function showError(message) { showToast(message, 'error'); }
 
-function showConfirm(title, message, onConfirm, onCancel = null, confirmText = 'OK', cancelText = 'Hủy') {
+// Hộp xác nhận dùng chung. options.danger: nút xác nhận màu đỏ và focus mặc định ở nút "quay lại";
+// options.inputLabel: thêm ô nhập (onConfirm nhận giá trị). Esc = hủy.
+function showConfirm(title, message, onConfirm, onCancel = null, confirmText = 'OK', cancelText = 'Hủy', options = {}) {
     const oldModal = document.getElementById('confirm-toast-modal');
     if (oldModal) oldModal.remove();
-    const modalHtml = `<div id="confirm-toast-modal"><div class="confirm-toast-content"><div class="confirm-toast-header"><i class="fas fa-exclamation-triangle"></i><h4>${title}</h4></div><div class="confirm-toast-body">${message}</div><div class="confirm-toast-actions"><button type="button" class="btn btn-secondary" id="confirm-btn-cancel">${cancelText}</button><button type="button" class="btn btn-primary" id="confirm-btn-ok">${confirmText}</button></div></div></div>`;
+    const input = options.inputLabel
+        ? `<label class="confirm-toast-input">${options.inputLabel}<textarea id="confirm-input" rows="3" maxlength="500"></textarea></label>`
+        : '';
+    const modalHtml = `<div id="confirm-toast-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-toast-title" aria-describedby="confirm-toast-body"><div class="confirm-toast-content"><div class="confirm-toast-header"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i><h4 id="confirm-toast-title">${title}</h4></div><div class="confirm-toast-body" id="confirm-toast-body">${message}${input}</div><div class="confirm-toast-actions"><button type="button" class="btn btn-secondary" id="confirm-btn-cancel">${cancelText}</button><button type="button" class="btn ${options.danger ? 'btn-danger' : 'btn-primary'}" id="confirm-btn-ok">${confirmText}</button></div></div></div>`;
+    const previousFocus = document.activeElement;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     const modal = document.getElementById('confirm-toast-modal');
-    const closeMod = () => { modal.classList.remove('show'); setTimeout(() => { modal.remove(); }, 200); };
-    document.getElementById('confirm-btn-ok').onclick = function() { onConfirm(); closeMod(); };
-    document.getElementById('confirm-btn-cancel').onclick = function() { if (onCancel) { onCancel(); } closeMod(); };
-    setTimeout(() => { modal.classList.add('show'); }, 10);
+    const closeMod = () => {
+        document.removeEventListener('keydown', onKey);
+        modal.classList.remove('show');
+        setTimeout(() => { modal.remove(); previousFocus?.focus?.(); }, 200);
+    };
+    const cancel = () => { if (onCancel) { onCancel(); } closeMod(); };
+    const onKey = e => { if (e.key === 'Escape') cancel(); };
+    document.addEventListener('keydown', onKey);
+    document.getElementById('confirm-btn-ok').onclick = function() {
+        const value = document.getElementById('confirm-input')?.value.trim();
+        onConfirm(value);
+        closeMod();
+    };
+    document.getElementById('confirm-btn-cancel').onclick = cancel;
+    setTimeout(() => {
+        modal.classList.add('show');
+        (document.getElementById('confirm-input') || document.getElementById(options.danger ? 'confirm-btn-cancel' : 'confirm-btn-ok'))?.focus();
+    }, 10);
 }
 
 function exportAppointments() { showError('Chức năng xuất Excel đang được phát triển'); }
 
-// HÀM SEARCH LỊCH HẸN
+// HÀM SEARCH LỊCH HẸN (lọc trên danh sách đã tải, giữ khi chuyển trang)
 function searchAppointments() {
-    const searchText = document.getElementById('search-input').value.toLowerCase();
-    const clearBtn = document.querySelector('.search-clear');
-    
-    if (searchText.length > 0) {
-        clearBtn.classList.add('active');
-    } else {
-        clearBtn.classList.remove('active');
-    }
-
-    const filteredAppointments = allAppointments.filter(apt => {
-        const customerName = (apt.khachhang_hoten || '').toLowerCase();
-        const appointmentId = (apt.malh || '').toString().toLowerCase();
-        
-        return customerName.includes(searchText) || appointmentId.includes(searchText);
-    });
-
-    const originalAppointments = allAppointments; // Lưu trữ danh sách gốc
-    allAppointments = filteredAppointments;
+    const searchInput = document.getElementById('search-input');
+    appointmentSearchText = (searchInput?.value || '').trim().toLowerCase();
+    document.querySelector('.search-clear')?.classList.toggle('active', appointmentSearchText.length > 0);
     currentPage = 1;
     renderAppointmentsTable();
     renderPagination();
-    allAppointments = originalAppointments; 
 }
 
 function clearSearch() {
     document.getElementById('search-input').value = '';
-    document.querySelector('.search-clear').classList.remove('active');
-    filterAppointments(); 
+    searchAppointments();
 }
 
 // Gán các hàm ra window để gọi từ HTML inline và modal
@@ -1313,10 +1357,13 @@ function appointmentInvoiceAction(apt) {
 }
 function appointmentActions(apt) {
     const permissions = apt.permissions || {};
-    return `${permissions.canView ? `<button class="btn btn-info btn-sm" onclick="viewAppointmentDetail(${apt.malh})">Xem</button>` : ''}
+    // Hành động tiếp theo đứng trước và nổi bật; "Xem" là nút phụ ở cuối.
+    return `${permissions.canCheckIn ? `<button class="btn btn-primary btn-sm" onclick="checkInAppointment(${apt.malh})" aria-label="Check-in: khách đã đến lịch #${apt.malh}"><i class="fas fa-user-check" aria-hidden="true"></i> Check-in</button>` : ''}
         ${permissions.canConfirm ? `<button class="btn btn-primary btn-sm" onclick="confirmAppointment(${apt.malh})">Xác nhận</button>` : ''}
         ${permissions.canComplete ? `<button class="btn btn-success btn-sm" onclick="completeAppointment(${apt.malh})">Hoàn thành</button>` : ''}
-        ${appointmentInvoiceAction(apt)}`;
+        ${appointmentInvoiceAction(apt)}
+        ${permissions.canChangeServices ? `<button class="btn btn-secondary btn-sm" onclick="openChangeServicesModal(${apt.malh})">Đổi dịch vụ</button>` : ''}
+        ${permissions.canView ? `<button class="btn btn-secondary btn-sm" onclick="viewAppointmentDetail(${apt.malh})" aria-label="Xem chi tiết lịch #${apt.malh}">Xem</button>` : ''}`;
 }
 function appointmentPaymentBadge(apt) {
     if (!apt.payment_status) return '—';
@@ -1324,3 +1371,72 @@ function appointmentPaymentBadge(apt) {
     return `<span class="badge badge-${paid ? 'success' : 'warning'}">${apt.payment_status}</span>`;
 }
 document.addEventListener('invoice-payment-updated', () => loadAppointments());
+
+// ========== ĐỔI DỊCH VỤ THEO YÊU CẦU KHÁCH ==========
+// Giữ giờ hẹn và KTV; server kiểm tra lại ca làm/trùng lịch với tổng thời lượng mới.
+async function openChangeServicesModal(malh) {
+    if (!window.ChangeServicesDialog) return;
+    try {
+        const detailRes = await fetch(`/api/admin/appointments/${malh}`, { headers: getAuthHeaders(false) });
+        const detail = (await detailRes.json()).appointment;
+        if (!detailRes.ok || !detail) throw new Error('Không tải được lịch hẹn');
+        let services = allServices;
+        if (!services.length) {
+            const r = await fetch('/api/admin/services', { headers: getAuthHeaders(false) });
+            services = r.ok ? await r.json() : [];
+        }
+        let treatments = [];
+        if (detail.khachhang && currentUserRole !== 'staff') {
+            const r = await fetch(`/api/admin/appointments/customers/${detail.khachhang.makh}/treatments`, { headers: getAuthHeaders(false) });
+            if (r.ok) treatments = (await r.json()).treatments || [];
+        }
+        const current = new Map(detail.services.map(s => [s.madv, {
+            package: !!s.coverage,
+            label: s.coverage ? `${s.coverage.source_type === 'gift' ? 'Quà tặng' : 'Buổi gói'}: ${s.coverage.tengoi}` : '',
+        }]));
+        const day = detail.ngaygio.slice(0, 10);
+        const packageOptions = madv => treatments.flatMap(t => t.status === 'cancelled' ? [] :
+            t.items.filter(i => i.madv === madv && i.usable !== false && i.available_sessions > 0
+                && (!i.effective_expires_at || i.effective_expires_at.slice(0, 10) >= day)
+                && (!i.valid_from || i.valid_from.slice(0, 10) <= day))
+                .map(i => ({ value: `${t.mathe}:${i.id}`, label: `${i.source_type === 'gift' ? 'Quà tặng' : 'Buổi gói'}: ${t.tengoi} — còn ${i.available_sessions}` })));
+        window.ChangeServicesDialog.open({
+            title: `Đổi dịch vụ – lịch #${malh}`,
+            subtitle: `${escapeHtml(detail.khachhang?.hoten || 'Khách')} · ${formatDateTime(detail.ngaygio)} · KTV ${escapeHtml(detail.nhanvien?.hoten || 'chưa gán')}`,
+            services: services.filter(s => s.active !== false || current.has(s.madv)),
+            current, packageOptions, startAt: detail.ngaygio,
+            submit: async (madv_list, package_usages) => {
+                const response = await fetch(`/api/admin/appointments/${malh}/services`, {
+                    method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ madv_list, package_usages }),
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.msg || 'Không thể đổi dịch vụ');
+                showSuccess(`${data.msg}. Dự kiến kết thúc ${data.end_time}.`);
+                loadAppointments();
+            },
+        });
+    } catch (error) {
+        showError(error.message || 'Không tải được dữ liệu');
+    }
+}
+window.openChangeServicesModal = openChangeServicesModal;
+
+
+// ========== CHECK-IN: KHÁCH ĐÃ ĐẾN ==========
+function checkInAppointment(malh) {
+    const apt = allAppointments.find(a => a.malh === malh);
+    const who = apt ? `${escapeHtml(apt.khachhang_hoten || 'Khách')} – ${formatDateTime(apt.ngaygio)}` : `lịch #${malh}`;
+    showConfirm('Check-in khách', `Xác nhận khách đã đến: ${who}?\nLịch chuyển sang "Đang thực hiện" và không còn bị tự hủy.`, async () => {
+        try {
+            const response = await fetch(`/api/admin/appointments/${malh}/check-in`, { method: 'POST', headers: getAuthHeaders() });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.msg || 'Check-in thất bại');
+            showSuccess(data.msg);
+            loadAppointments();
+            loadStatistics();
+        } catch (error) {
+            showError(error.message);
+        }
+    }, null, 'Check-in', 'Quay lại');
+}
+window.checkInAppointment = checkInAppointment;

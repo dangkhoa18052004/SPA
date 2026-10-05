@@ -107,3 +107,17 @@ def get_kpi_cards():
     except Exception as e:
         current_app.logger.error(f"Lỗi lấy KPI cards: {e}", exc_info=True)
         return jsonify({"success": False, "msg": "Lỗi tính toán chỉ số KPI"}), 500
+
+
+@analytics_bp.route("/summary", methods=["GET"])
+@roles_required("admin", "manager")
+def get_summary():
+    """KPI tổng hợp theo cùng khoảng ngày from/to cho dashboard."""
+    try:
+        data = analytics_service.dashboard_summary(request.args.get("from"), request.args.get("to"))
+        return jsonify(data), 200
+    except ValueError:
+        return jsonify({"success": False, "msg": "Ngày không hợp lệ (YYYY-MM-DD)"}), 400
+    except Exception as e:
+        current_app.logger.error(f"Lỗi lấy analytics summary: {e}", exc_info=True)
+        return jsonify({"success": False, "msg": "Lỗi tính toán chỉ số"}), 500

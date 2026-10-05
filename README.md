@@ -185,6 +185,9 @@ MAIL_USERNAME=your_email
 MAIL_PASSWORD=your_password
 MAIL_USE_TLS=True
 MAIL_FROM=your_email
+GEMINI_API_KEY=your_gemini_key   # tùy chọn; để trống thì tắt trợ lý AI (xem docs/AI_BOOKING_AGENT.md)
+GEMINI_MODEL=gemini-3.8-flash
+GEMINI_FALLBACK_MODELS=gemini-flash-latest,gemini-3.5-flash-lite
 MOMO_PARTNER_CODE_SANDBOX=your_partner_code
 MOMO_ACCESS_KEY_SANDBOX=your_access_key
 MOMO_SECRET_KEY_SANDBOX=your_secret_key
@@ -194,6 +197,9 @@ YOUR_IPN_URL=http://127.0.0.1:5000/api/payment/momo-ipn
 YOUR_BASE_DOMAIN=http://127.0.0.1:5000
 5. Chạy migrate database
 flask db upgrade
+
+Database cũ chưa có bảng `alembic_version`: xem [hướng dẫn migration](docs/DATABASE_MIGRATIONS.md)
+để nhận diện revision và `flask db stamp` trước khi upgrade.
 6. Chạy ứng dụng
 python run.py
 

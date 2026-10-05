@@ -33,6 +33,10 @@ function formatTime(dateString) {
     });
 }
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
 function getStatusBadge(status) {
     const label = STATUS_LABELS[status] || status;
     const className = STATUS_CLASSES[status] || 'status-default';
@@ -131,40 +135,31 @@ function loadDashboardData(role) {
 // ===================================
 
 async function loadAdminDashboard() {
+    initDashboardRange();
+    initAiSummary();
     try {
-        await loadAdminStats();
-        await loadAdminTodayAppointments();
-        await loadAnalyticsCharts();
+        await Promise.all([loadAdminStats(), loadAdminTodayAppointments(), refreshRangeAnalytics()]);
     } catch (error) {
         console.error('❌ Error loading admin dashboard:', error);
         showToast('Lỗi tải dữ liệu dashboard', 'error');
     }
 }
 
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+// Các số "hôm nay" và tổng khách không phụ thuộc khoảng ngày đã chọn.
 async function loadAdminStats() {
     try {
         const response = await fetch('/api/dashboard/stats', { headers: getAuthHeaders(false) });
         if (!response.ok) throw new Error('Failed to fetch stats');
-        
         const data = await response.json();
-        
         if (data.success && data.stats) {
-            const stats = data.stats;
-            
-            // Stats Today
-            const todayAptEl = document.getElementById('stat-today-appointments');
-            if (todayAptEl) todayAptEl.textContent = stats.today.total_appointments;
-            
-            const workingStaffEl = document.getElementById('stat-working-staff');
-            if (workingStaffEl) workingStaffEl.textContent = stats.today.working_staff;
-
-            const newCustomersEl = document.getElementById('stat-total-customers');
-            if (newCustomersEl) newCustomersEl.textContent = stats.general.total_customers; 
-
-            // Stats Month
-            const monthRevenueEl = document.getElementById('stat-month-revenue');
-            if (monthRevenueEl) monthRevenueEl.textContent = formatCurrency(stats.month.revenue);
-
+            setText('stat-today-appointments', data.stats.today.total_appointments);
+            setText('stat-working-staff', data.stats.today.working_staff);
+            setText('stat-total-customers', data.stats.general.total_customers);
         }
     } catch (error) {
         console.error('Error loading admin stats:', error);
@@ -182,26 +177,17 @@ async function loadAdminTodayAppointments() {
         if (data.success && data.appointments && data.appointments.length > 0) {
             tableBody.innerHTML = data.appointments.map(apt => `
                 <tr>
-                    <td class="d-none">#${apt.malh}</td>
                     <td><strong>${formatTime(apt.ngaygio)}</strong></td>
-                    <td>${apt.khachhang_hoten}</td>
-                    <td><span class="service-tag">${apt.dichvu_ten}</span></td>
-                    <td>${apt.nhanvien_hoten}</td>
+                    <td>${escapeHtml(apt.khachhang_hoten)}</td>
+                    <td><span class="service-tag">${escapeHtml(apt.dichvu_ten)}</span></td>
+                    <td>${escapeHtml(apt.nhanvien_hoten)}</td>
                     <td>${getStatusBadge(apt.trangthai)}</td>
-                    <td class="d-none">
-                        <button class="btn-icon btn-info btn-sm" onclick="viewAppointment(${apt.malh})" title="Xem chi tiết">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button class="btn-icon btn-warning btn-sm" onclick="editAppointment(${apt.malh})" title="Sửa">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                    </td>
                 </tr>
             `).join('');
         } else {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="text-center empty-state">
+                    <td colspan="5" class="text-center empty-state">
                         <i class="fas fa-calendar-times"></i>
                         <p>Không có lịch hẹn nào hôm nay</p>
                     </td>
@@ -211,7 +197,7 @@ async function loadAdminTodayAppointments() {
     } catch (error) {
         console.error('Error loading today appointments:', error);
         const tableBody = document.getElementById('admin-appointments-table');
-        if (tableBody) { tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i> Lỗi tải dữ liệu</td></tr>`; }
+        if (tableBody) { tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i> Lỗi tải dữ liệu</td></tr>`; }
     }
 }
 
@@ -278,6 +264,11 @@ async function loadLetanTodayAppointments() {
                         ${apt.trangthai === 'pending' ? `
                             <button class="btn-icon btn-success btn-sm" onclick="confirmAppointment(${apt.malh})" title="Xác nhận">
                                 <i class="fas fa-check"></i>
+                            </button>
+                        ` : ''}
+                        ${['pending', 'confirmed'].includes(apt.trangthai) ? `
+                            <button class="btn btn-primary btn-sm" onclick="startAppointment(${apt.malh})" aria-label="Check-in: khách đã đến">
+                                <i class="fas fa-user-check" aria-hidden="true"></i> Check-in
                             </button>
                         ` : ''}
                     </td>
@@ -353,9 +344,9 @@ async function loadStaffTodaySchedule() {
                             <button class="btn-icon btn-info btn-sm" onclick="viewAppointment(${apt.malh})" title="Xem">
                                 <i class="fas fa-eye"></i>
                             </button>
-                            ${apt.trangthai === 'confirmed' ? `
-                                <button class="btn-icon btn-info btn-sm" onclick="startAppointment(${apt.malh})" title="Bắt đầu">
-                                    <i class="fas fa-play"></i>
+                            ${['pending', 'confirmed'].includes(apt.trangthai) ? `
+                                <button class="btn btn-primary btn-sm" onclick="startAppointment(${apt.malh})" aria-label="Check-in: khách đã đến">
+                                    <i class="fas fa-user-check" aria-hidden="true"></i> Check-in
                                 </button>
                             ` : apt.trangthai === 'in_progress' ? `
                                 <button class="btn-icon btn-success btn-sm" onclick="completeAppointment(${apt.malh})" title="Hoàn thành">
@@ -412,21 +403,21 @@ async function confirmAppointment(malh) {
     }
 }
 
+// Check-in: khách đã đến → Đang thực hiện (dùng chung API với trang Lịch hẹn, lịch không còn bị tự hủy).
 async function startAppointment(malh) {
-    if (!confirm('Bắt đầu thực hiện lịch hẹn này?')) return;
+    if (!confirm('Xác nhận khách đã đến (check-in)?')) return;
     
     try {
-        const response = await fetch(`/api/appointments/${malh}`, {
-            method: 'PUT',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ trangthai: 'in_progress' })
+        const response = await fetch(`/api/admin/appointments/${malh}/check-in`, {
+            method: 'POST',
+            headers: getAuthHeaders()
         });
         
         const data = await response.json();
         
         if (data.success) {
-            showToast('Đã bắt đầu thực hiện', 'success');
-            loadStaffTodaySchedule();
+            showToast(data.msg || 'Đã check-in', 'success');
+            loadDashboardData(localStorage.getItem('admin_role'));
         } else {
             showToast(data.msg || 'Lỗi cập nhật', 'error');
         }
@@ -460,58 +451,133 @@ async function completeAppointment(malh) {
 }
 
 // ===================================
-// ======= ANALYTICS CHARTS (PHASE 2)
+// ======= ANALYTICS (KHOẢNG NGÀY CHUNG)
 // ===================================
 let revenueChartInstance = null;
 let appointmentChartInstance = null;
+let serviceMixChartInstance = null;
+const dashboardRange = { from: null, to: null };
 
-async function loadAnalyticsCharts() {
-    await loadRevenueChart('day');
-    await loadAppointmentChart();
+function isoDate(d) {
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function formatViDate(iso) {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+}
+
+function presetRange(preset) {
+    const today = new Date();
+    const to = isoDate(today);
+    if (preset === 'today') return { from: to, to };
+    if (preset === 'month') return { from: isoDate(new Date(today.getFullYear(), today.getMonth(), 1)), to };
+    const days = Number(preset) || 30;
+    const start = new Date(today);
+    start.setDate(start.getDate() - (days - 1));
+    return { from: isoDate(start), to };
+}
+
+function rangeQuery() {
+    return `from=${dashboardRange.from}&to=${dashboardRange.to}`;
+}
+
+function initDashboardRange() {
+    const preset = document.getElementById('dash-range-preset');
+    if (!preset || preset.dataset.bound) return;
+    preset.dataset.bound = '1';
+    const custom = document.getElementById('dash-range-custom');
+    const fromInput = document.getElementById('dash-from');
+    const toInput = document.getElementById('dash-to');
+    Object.assign(dashboardRange, presetRange(preset.value));
+
+    preset.addEventListener('change', () => {
+        if (preset.value === 'custom') {
+            custom.hidden = false;
+            fromInput.value = dashboardRange.from;
+            toInput.value = dashboardRange.to;
+            fromInput.focus();
+            return;
+        }
+        custom.hidden = true;
+        Object.assign(dashboardRange, presetRange(preset.value));
+        refreshRangeAnalytics();
+    });
+    document.getElementById('dash-range-apply').addEventListener('click', () => {
+        if (!fromInput.value || !toInput.value) {
+            showToast('Vui lòng chọn đủ Từ ngày và Đến ngày', 'error');
+            return;
+        }
+        if (fromInput.value > toInput.value) {
+            showToast('Từ ngày phải trước hoặc bằng Đến ngày', 'error');
+            return;
+        }
+        Object.assign(dashboardRange, { from: fromInput.value, to: toInput.value });
+        refreshRangeAnalytics();
+    });
+    document.getElementById('revenue-group-select').addEventListener('change', e => loadRevenueChart(e.target.value));
+}
+
+async function refreshRangeAnalytics() {
+    setText('dash-range-label', `Đang xem: ${formatViDate(dashboardRange.from)} – ${formatViDate(dashboardRange.to)}`);
+    const group = document.getElementById('revenue-group-select');
+    await Promise.all([
+        loadRangeSummary(),
+        loadRevenueChart(group ? group.value : 'day'),
+        loadServiceMixChart(),
+        loadAppointmentChart(),
+    ]);
+}
+
+async function fetchAnalytics(path) {
+    const response = await fetch(`/api/analytics/${path}`, { headers: getAuthHeaders(false) });
+    const res = await response.json();
+    if (!response.ok || !res.success) throw new Error(res.msg || 'Lỗi tải dữ liệu');
+    return res;
+}
+
+async function loadRangeSummary() {
+    try {
+        const res = await fetchAnalytics(`summary?${rangeQuery()}`);
+        setText('kpi-revenue-total', formatCurrency(res.revenue.total));
+        setText('kpi-revenue-service', formatCurrency(res.revenue.service));
+        setText('kpi-revenue-package', formatCurrency(res.revenue.package));
+        setText('kpi-aov', formatCurrency(res.revenue.average_transaction));
+        setText('kpi-transactions', res.revenue.transactions);
+        setText('kpi-appointments', res.appointments.total);
+        setText('kpi-completed', res.appointments.completed);
+        setText('kpi-cancelled', res.appointments.cancelled);
+        setText('kpi-cancel-rate', `${res.appointments.cancel_rate}%`);
+        setText('kpi-new-customers', res.new_customers);
+    } catch (e) {
+        console.error('Error loading summary:', e);
+        showToast('Không tải được chỉ số KPI', 'error');
+    }
+}
+
+function compactMoney(value) {
+    return value >= 1000000 ? (value / 1000000) + 'M' : value >= 1000 ? (value / 1000) + 'k' : value;
 }
 
 async function loadRevenueChart(groupBy = 'day') {
     const canvas = document.getElementById('revenueTimeseriesChart');
     if (!canvas || typeof Chart === 'undefined') return;
-
     try {
-        const response = await fetch(`/api/analytics/revenue-timeseries?group_by=${groupBy}`, {
-            headers: getAuthHeaders(false)
-        });
-        const res = await response.json();
-        if (!res.success) return;
-
-        if (revenueChartInstance) {
-            revenueChartInstance.destroy();
-        }
-
-        const ctx = canvas.getContext('2d');
-        revenueChartInstance = new Chart(ctx, {
+        const res = await fetchAnalytics(`revenue-timeseries?group_by=${groupBy}&${rangeQuery()}`);
+        if (revenueChartInstance) revenueChartInstance.destroy();
+        revenueChartInstance = new Chart(canvas.getContext('2d'), {
             type: 'line',
             data: res.chart_data,
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return ' Doanh thu: ' + formatCurrency(context.raw);
-                            }
-                        }
-                    }
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${formatCurrency(ctx.raw)}` } }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return value >= 1000000 ? (value / 1000000) + 'M' : value >= 1000 ? (value / 1000) + 'k' : value;
-                            }
-                        }
-                    }
-                }
+                scales: { y: { beginAtZero: true, ticks: { callback: compactMoney } } }
             }
         });
     } catch (e) {
@@ -519,37 +585,94 @@ async function loadRevenueChart(groupBy = 'day') {
     }
 }
 
-async function loadAppointmentChart() {
-    const canvas = document.getElementById('appointmentStatsChart');
+async function loadServiceMixChart() {
+    const canvas = document.getElementById('serviceMixChart');
+    const list = document.getElementById('top-services-list');
     if (!canvas || typeof Chart === 'undefined') return;
-
     try {
-        const response = await fetch('/api/analytics/appointment-stats', {
-            headers: getAuthHeaders(false)
-        });
-        const res = await response.json();
-        if (!res.success) return;
-
-        if (appointmentChartInstance) {
-            appointmentChartInstance.destroy();
-        }
-
-        const ctx = canvas.getContext('2d');
-        appointmentChartInstance = new Chart(ctx, {
+        const res = await fetchAnalytics(`top-services?limit=5&${rangeQuery()}`);
+        if (serviceMixChartInstance) serviceMixChartInstance.destroy();
+        serviceMixChartInstance = new Chart(canvas.getContext('2d'), {
             type: 'doughnut',
             data: res.chart_data,
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { boxWidth: 12, font: { size: 11 } }
-                    }
-                }
+                plugins: { legend: { display: false } }
+            }
+        });
+        if (list) {
+            const colors = res.chart_data.datasets[0]?.backgroundColor || [];
+            list.innerHTML = res.top_services.length
+                ? res.top_services.map((s, i) => `
+                    <li><span class="dot" style="background:${colors[i] || '#999'}" aria-hidden="true"></span>
+                        <span class="name">${escapeHtml(s.tendv)}</span>
+                        <span class="count">${s.booking_count} lượt</span></li>`).join('')
+                : '<li class="empty">Chưa có lượt đặt trong khoảng này</li>';
+        }
+    } catch (e) {
+        console.error('Error loading service mix chart:', e);
+    }
+}
+
+async function loadAppointmentChart() {
+    const canvas = document.getElementById('appointmentStatsChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    try {
+        const res = await fetchAnalytics(`appointment-stats?${rangeQuery()}`);
+        if (appointmentChartInstance) appointmentChartInstance.destroy();
+        appointmentChartInstance = new Chart(canvas.getContext('2d'), {
+            type: 'doughnut',
+            data: res.chart_data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
             }
         });
     } catch (e) {
         console.error('Error loading appointment chart:', e);
     }
+}
+
+
+// ===================================
+// ======= TÓM TẮT KINH DOANH AI (GĐ5)
+// ===================================
+async function initAiSummary() {
+    const panel = document.getElementById('ai-summary-panel');
+    if (!panel) return;
+    try {
+        const status = await (await fetch('/api/ai/status')).json();
+        if (!status.configured) return;
+    } catch (e) { return; }
+    panel.hidden = false;
+    const button = document.getElementById('ai-summary-btn');
+    const body = document.getElementById('ai-summary-body');
+    button.addEventListener('click', async () => {
+        button.disabled = true;
+        body.innerHTML = '<p><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Đang phân tích số liệu...</p>';
+        try {
+            const response = await fetch('/api/ai/business-summary', {
+                method: 'POST', headers: getAuthHeaders(),
+                body: JSON.stringify({ from: dashboardRange.from, to: dashboardRange.to }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.msg || 'Không tạo được tóm tắt');
+            body.innerHTML = `
+                <p class="ai-summary-range">Khoảng ${formatViDate(data.from_date)} – ${formatViDate(data.to_date)}</p>
+                <div class="ai-summary-cols">
+                    <section><h4>Số liệu thực tế (FACTS)</h4><ul>${data.facts.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul></section>
+                    <section><h4>Nhận xét & gợi ý (AI – SUGGESTIONS)</h4>
+                        ${data.summary ? `<p>${escapeHtml(data.summary)}</p>` : ''}
+                        <ul>${data.suggestions.map(s => `<li>${escapeHtml(s)}</li>`).join('') || '<li>Không có gợi ý.</li>'}</ul>
+                        ${data.removed_unverified ? `<p class="ai-summary-hint">Đã loại ${data.removed_unverified} câu có số không có trong dữ liệu.</p>` : ''}
+                    </section>
+                </div>`;
+        } catch (error) {
+            body.innerHTML = `<p class="text-danger">${escapeHtml(error.message)}</p>`;
+        } finally {
+            button.disabled = false;
+        }
+    });
 }

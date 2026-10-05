@@ -7,6 +7,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/invoice-receipt.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/appointment-treatments.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/change-services.css', v='1.2') }}">
 {% endblock %}
 
 {% block content %}
@@ -61,7 +62,7 @@
     <div class="filter-row appointment-filter-grid">
         
         <div class="appointment-filter-select">
-            <select id="filter-date-select" class="form-control" onchange="handleDateSelectChange()">
+            <select id="filter-date-select" class="form-control" onchange="handleDateSelectChange()" aria-label="Lọc theo ngày">
                 <option value="">Tổng toàn bộ</option>
                 <option value="today">Hôm nay</option>
                 <option value="this_week">Tuần này</option>
@@ -85,10 +86,12 @@
         </div>
 
         <div class="appointment-filter-select">
-            <select id="filter-status-select" class="form-control" onchange="filterAppointments()">
+            <select id="filter-status-select" class="form-control" onchange="filterAppointments()" aria-label="Lọc theo trạng thái">
                 <option value="">Tất cả trạng thái</option>
+                <option value="pending">Chờ xác nhận</option>
                 <option value="confirmed">Đã xác nhận</option>
-                <option value="completed">Hoàn thành</option>
+                <option value="in_progress">Đang thực hiện</option>
+                <option value="completed">Đã hoàn thành</option>
                 <option value="cancelled">Đã hủy</option>
             </select>
         </div>
@@ -100,23 +103,19 @@
                 id="search-input" 
                 class="search-input" 
                 placeholder="Tìm kiếm theo tên, mã lịch hẹn"
-                onkeyup="searchAppointments()"
+                aria-label="Tìm kiếm lịch hẹn"
+                oninput="searchAppointments()"
             >
-            <button class="search-clear" onclick="clearSearch()">
-                <i class="fas fa-times"></i>
+            <button type="button" class="search-clear" onclick="clearSearch()" aria-label="Xóa nội dung tìm kiếm">
+                <i class="fas fa-times" aria-hidden="true"></i>
             </button>
         </div>
-        
-        <div class="filter-group d-none d-lg-flex gap-2">
-            <button class="btn btn-sm btn-primary" onclick="filterAppointments()">
-                <i class="fas fa-filter"></i> Lọc
-            </button>
-            <button class="btn btn-sm btn-secondary" onclick="resetFilters()">
-                <i class="fas fa-redo"></i> Reset
-            </button>
-        </div>
-        
+
+        <button type="button" id="reset-filters-btn" class="btn btn-secondary filter-reset-btn" onclick="resetFilters()">
+            <i class="fas fa-redo" aria-hidden="true"></i> Xóa bộ lọc
+        </button>
     </div>
+    <p id="filter-summary" class="filter-summary" aria-live="polite"></p>
 </div>
 
 
@@ -327,7 +326,8 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/admin/qrcode.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/admin/appointments.js') }}"></script>
+<script src="{{ url_for('static', filename='js/change-services.js', v='1.0') }}"></script>
+<script src="{{ url_for('static', filename='js/admin/appointments.js', v='2.1') }}"></script>
 <script src="{{ url_for('static', filename='js/admin/invoice-receipt.js', v='2.1') }}"></script>
 <script src="{{ url_for('static', filename='js/admin/invoice-payment.js') }}"></script>
 {% endblock %}

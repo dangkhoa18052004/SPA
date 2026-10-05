@@ -53,3 +53,4 @@ uploads/**/*
 # OS metadata
 .DS_Store
 Thumbs.db
+tests/runtime_ui_improvements/

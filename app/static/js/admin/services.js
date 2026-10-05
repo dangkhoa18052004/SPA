@@ -327,6 +327,8 @@ async function editService(id) {
     document.getElementById('service-duration').value = service.thoiluong || '';
     document.getElementById('service-desc').value = service.mota || '';
     document.getElementById('service-post-care').value = service.post_care_instructions || '';
+    document.getElementById('service-commission-percent').value = service.commission_percent ?? '';
+    document.getElementById('service-commission-fixed').value = service.commission_fixed ?? '';
     document.getElementById('service-status').value = service.active.toString();
     
     const imagePreview = document.getElementById('image-preview');
@@ -365,6 +367,8 @@ async function handleSaveService(e) {
     if (duration) formData.append('thoiluong', parseInt(duration));
     if (desc) formData.append('mota', desc);
     formData.append('post_care_instructions', postCare);
+    formData.append('commission_percent', document.getElementById('service-commission-percent').value);
+    formData.append('commission_fixed', document.getElementById('service-commission-fixed').value);
     formData.append('active', active); // Gửi "true" hoặc "false"
     
     if (imageFile) {

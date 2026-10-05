@@ -4,6 +4,7 @@ Appointment Service - Core Business Logic for Spa Appointment Management.
 Dùng chung cho Customer Booking, Admin Management, và AI Assistant.
 """
 
+import re
 from datetime import datetime, date, time, timedelta
 import threading
 from flask import current_app
@@ -559,20 +560,246 @@ def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, s
     }
 
 
+CUSTOMER_EDITABLE_STATUSES = (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED)
+NO_SHOW_GRACE_MINUTES = 30
+NO_SHOW_EMAIL_MAX_AGE_HOURS = 24
+
+
+def vn_now():
+    """Giờ Việt Nam dạng naive, cùng quy ước với LichHen.ngaygio (không phụ thuộc múi giờ máy chủ)."""
+    return datetime.utcnow() + timedelta(hours=7)
+
+
+def customer_can_modify(apt, now=None):
+    """Khách được hủy/đổi dịch vụ khi lịch chưa bắt đầu và chưa tới giờ hẹn."""
+    return apt.trangthai in CUSTOMER_EDITABLE_STATUSES and apt.ngaygio > (now or vn_now())
+
+
+def _lock_appointment(appointment_id):
+    LichHen.query.filter_by(malh=appointment_id).update({LichHen.malh: LichHen.malh}, synchronize_session=False)
+    apt = LichHen.query.filter_by(malh=appointment_id).populate_existing().first()
+    if not apt:
+        raise AppointmentNotFoundError("Không tìm thấy lịch hẹn")
+    return apt
+
+
+SYSTEM_NOTE_KINDS = ('Đổi dịch vụ', 'Check-in', 'Tự động hủy')
+_SYSTEM_NOTE_RE = re.compile(r'\[(Đổi dịch vụ|Check-in|Tự động hủy)\s+(\d{2}:\d{2} \d{2}/\d{2}/\d{4})([^\]]*)\]')
+
+
+def set_system_note(apt, kind, text):
+    """Ghi chú hệ thống dạng "[kind ...]": mỗi loại chỉ giữ bản mới nhất để ghi chú không dài thêm."""
+    pattern = re.compile(r'\s*\[' + re.escape(kind) + r'\s+\d{2}:\d{2} \d{2}/\d{2}/\d{4}[^\]]*\]')
+    base = pattern.sub('', apt.ghichu or '').strip()
+    note = f'[{kind} {text}]'
+    apt.ghichu = f'{base}\n{note}' if base else note
+
+
+def split_notes(ghichu):
+    """Tách ghi chú của khách/nhân viên khỏi ghi chú hệ thống. Lấy bản mới nhất của từng loại."""
+    events = {}
+    for kind, at, rest in _SYSTEM_NOTE_RE.findall(ghichu or ''):
+        events[kind] = dict(at=at, detail=rest.lstrip(':').strip())
+    remaining = _SYSTEM_NOTE_RE.sub('', ghichu or '')
+    user_note = '\n'.join(line.strip() for line in remaining.splitlines() if line.strip())
+    return user_note, events
+
+
+def change_appointment_services(appointment_id, madv_list, user_id=None, role='customer', package_usages=None,
+                                actor_name=None):
+    """
+    Đổi danh sách dịch vụ của một lịch hẹn chưa kết thúc.
+    - Khách: chỉ lịch của mình, trạng thái chờ xác nhận/đã xác nhận, trước giờ hẹn.
+    - KTV (role staff): chỉ lịch được phân cho mình; lễ tân/quản lý/admin: mọi lịch đang hoạt động
+      (kể cả đang thực hiện, khi khách yêu cầu đổi tại quầy).
+    - Giữ nguyên giờ hẹn và KTV; kiểm tra lại ca làm/trùng lịch với tổng thời lượng mới.
+    - Buổi gói đang giữ cho dịch vụ còn lại được giữ nguyên; dịch vụ bị bỏ thì trả lại buổi.
+      package_usages (tùy chọn) chỉ áp cho dịch vụ chưa có buổi gói đang giữ.
+    """
+    apt = _lock_appointment(appointment_id)
+    if role == 'customer':
+        if user_id is not None and apt.makh != user_id:
+            raise AppointmentPermissionError("Bạn không có quyền sửa lịch hẹn này")
+        if not customer_can_modify(apt):
+            raise AppointmentValidationError(
+                "Chỉ đổi dịch vụ được trước giờ hẹn. Vui lòng liên hệ spa nếu cần hỗ trợ!")
+    elif role == 'staff' and apt.manv != user_id:
+        raise AppointmentPermissionError("Bạn chỉ đổi dịch vụ cho lịch được phân cho mình")
+    if apt.trangthai not in AppointmentStatus.ACTIVE_STATUSES:
+        raise AppointmentValidationError(
+            f"Không thể đổi dịch vụ của lịch hẹn đã {AppointmentStatus.to_vietnamese(apt.trangthai)}")
+
+    try:
+        new_ids = list(dict.fromkeys(int(m) for m in (madv_list or [])))
+    except (ValueError, TypeError):
+        raise AppointmentValidationError("Danh sách dịch vụ không hợp lệ")
+    if not new_ids:
+        raise AppointmentValidationError("Vui lòng chọn ít nhất một dịch vụ")
+    services = DichVu.query.filter(DichVu.madv.in_(new_ids)).all()
+    if len(services) != len(new_ids):
+        raise AppointmentValidationError("Một số dịch vụ không tồn tại trong hệ thống")
+    old_ids = [d.madv for d in apt.chitiet]
+    for service in services:
+        if service.active is False and service.madv not in old_ids:
+            raise AppointmentValidationError(f"Dịch vụ '{service.tendv}' hiện đang tạm ngừng cung cấp")
+    if set(new_ids) == set(old_ids) and not package_usages:
+        raise AppointmentValidationError("Danh sách dịch vụ không thay đổi")
+
+    duration = sum(s.thoiluong for s in services if s.thoiluong and s.thoiluong > 0) or 60
+    if apt.manv:
+        is_avail, conflicts, reason = check_staff_availability(apt.manv, apt.ngaygio, duration, exclude_malh=apt.malh)
+        if not is_avail:
+            staff = db.session.get(NhanVien, apt.manv)
+            raise AppointmentConflictError(
+                f"{staff.hoten if staff else 'Kỹ thuật viên'} không đủ thời gian cho dịch vụ mới "
+                f"({duration} phút): {AVAILABILITY_MESSAGES.get(reason, reason)}",
+                conflicts=conflicts)
+
+    from ..models import LieuTrinhUsage
+    from .package_service import reserve_usages, lock_treatment
+    from .notification_service import sync_appointment_jobs
+    names = {s.madv: s.tendv for s in services}
+    try:
+        usages = LieuTrinhUsage.query.filter_by(malh=apt.malh).all()
+        for usage in usages:
+            if usage.madv not in new_ids:
+                if usage.state != 'reserved':
+                    raise AppointmentValidationError("Không thể bỏ dịch vụ đã trừ buổi liệu trình")
+                lock_treatment(usage.mathe)
+                db.session.delete(usage)  # buổi đang giữ quay lại số buổi khả dụng
+        covered = {u.madv for u in usages if u.madv in new_ids}
+        for detail in list(apt.chitiet):
+            if detail.madv not in new_ids:
+                db.session.delete(detail)
+        for madv in new_ids:
+            if madv not in old_ids:
+                db.session.add(ChiTietLichHen(malh=apt.malh, madv=madv))
+        db.session.flush()
+        db.session.expire(apt, ['chitiet'])
+        if package_usages:
+            if not isinstance(package_usages, list) or any(
+                    not isinstance(row, dict) or row.get('madv') in covered for row in package_usages):
+                raise AppointmentValidationError("Dịch vụ này đã dùng buổi gói trong lịch hẹn")
+            reserve_usages(apt, package_usages, require_item_id=role != 'customer')
+        set_system_note(apt, 'Đổi dịch vụ', f"{vn_now():%H:%M %d/%m/%Y}"
+                        f"{' bởi ' + actor_name if actor_name else ''}: {', '.join(names[m] for m in new_ids)}")
+        sync_appointment_jobs(apt)
+        db.session.commit()
+    except AppointmentServiceError:
+        db.session.rollback()
+        raise
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi đổi dịch vụ lịch hẹn {appointment_id}: {e}", exc_info=True)
+        raise AppointmentServiceError("Lỗi hệ thống khi đổi dịch vụ", status_code=500)
+
+    return {
+        "success": True,
+        "message": "Đã cập nhật dịch vụ của lịch hẹn",
+        "malh": apt.malh,
+        "services": [names[m] for m in new_ids],
+        "total_duration": duration,
+        "end_time": (apt.ngaygio + timedelta(minutes=duration)).strftime('%H:%M'),
+    }
+
+
+def can_check_in(apt, now=None):
+    """Check-in được khi lịch chờ/đã xác nhận và trong ngày hẹn (khách đến sớm hoặc trễ trong ngày)."""
+    now = now or vn_now()
+    return apt.trangthai in CUSTOMER_EDITABLE_STATUSES and apt.ngaygio.date() == now.date()
+
+
+def check_in_appointment(appointment_id, user_id=None, role='letan', actor_name=None):
+    """
+    Ghi nhận khách đã đến: chuyển lịch sang "Đang thực hiện" (in_progress).
+    Lịch đã check-in không bị tự hủy vì không đến; nhắc lịch còn chờ được hủy.
+    KTV chỉ check-in lịch được phân cho mình; lễ tân/quản lý/admin check-in mọi lịch.
+    """
+    from .notification_service import sync_appointment_jobs
+    apt = _lock_appointment(appointment_id)
+    if role == 'staff' and apt.manv != user_id:
+        raise AppointmentPermissionError("Bạn chỉ check-in lịch được phân cho mình")
+    if apt.trangthai not in CUSTOMER_EDITABLE_STATUSES:
+        raise AppointmentValidationError(
+            f"Không thể check-in lịch hẹn {AppointmentStatus.to_vietnamese(apt.trangthai).lower()}")
+    now = vn_now()
+    if apt.ngaygio.date() != now.date():
+        raise AppointmentValidationError("Chỉ check-in được trong ngày hẹn")
+    try:
+        apt.trangthai = AppointmentStatus.IN_PROGRESS
+        set_system_note(apt, 'Check-in', f"{now:%H:%M %d/%m/%Y}{' bởi ' + actor_name if actor_name else ''}")
+        sync_appointment_jobs(apt)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi check-in lịch hẹn {appointment_id}: {e}", exc_info=True)
+        raise AppointmentServiceError("Lỗi hệ thống khi check-in", status_code=500)
+    late = int((now - apt.ngaygio).total_seconds() // 60)
+    return {
+        "success": True,
+        "message": "Đã check-in, lịch chuyển sang Đang thực hiện"
+                   + (f" (trễ {late} phút)" if late > 0 else ""),
+        "malh": apt.malh,
+        "trangthai": apt.trangthai,
+        "trangthai_vi": AppointmentStatus.to_vietnamese(apt.trangthai),
+        "checked_in_at": now.isoformat(timespec='minutes'),
+    }
+
+
+def auto_cancel_no_shows(now=None, grace_minutes=None, limit=200):
+    """
+    Tự hủy lịch chờ xác nhận/đã xác nhận mà khách không đến sau `grace_minutes` (mặc định 30 phút):
+    trả lại buổi gói đang giữ, hủy nhắc lịch và xếp email thông báo vào outbox (worker gửi, có retry).
+    Mỗi lịch xử lý trong transaction riêng; chạy lặp lại không hủy/gửi trùng.
+    """
+    from ..models import LieuTrinhUsage
+    from .package_service import transition_usages
+    from .notification_service import sync_appointment_jobs, enqueue_no_show_cancelled
+    now = now or vn_now()
+    if grace_minutes is None:
+        grace_minutes = current_app.config.get('NO_SHOW_GRACE_MINUTES', NO_SHOW_GRACE_MINUTES)
+    cutoff = now - timedelta(minutes=grace_minutes)
+    ids = [row[0] for row in db.session.query(LichHen.malh).filter(
+        LichHen.trangthai.in_(CUSTOMER_EDITABLE_STATUSES), LichHen.ngaygio <= cutoff,
+    ).order_by(LichHen.ngaygio).limit(limit).all()]
+    db.session.commit()
+    cancelled = []
+    for malh in ids:
+        try:
+            apt = _lock_appointment(malh)
+            if apt.trangthai not in CUSTOMER_EDITABLE_STATUSES or apt.ngaygio > cutoff:
+                db.session.rollback()
+                continue  # đã check-in/hủy ở nơi khác trong lúc chờ khóa
+            released = LieuTrinhUsage.query.filter_by(malh=malh, state='reserved').count()
+            apt.trangthai = AppointmentStatus.CANCELLED
+            transition_usages(apt.malh, 'released')
+            sync_appointment_jobs(apt)
+            set_system_note(apt, 'Tự động hủy', f"{now:%H:%M %d/%m/%Y}: khách không đến sau {grace_minutes} phút")
+            # Chỉ báo email cho lịch vừa lỡ; lịch tồn đọng lâu ngày chỉ hủy, tránh gửi thư cho lịch đã cũ.
+            max_age = current_app.config.get('NO_SHOW_EMAIL_MAX_AGE_HOURS', NO_SHOW_EMAIL_MAX_AGE_HOURS)
+            if apt.ngaygio >= now - timedelta(hours=max_age):
+                enqueue_no_show_cancelled(apt, released_sessions=released, grace_minutes=grace_minutes)
+            db.session.commit()
+            cancelled.append(malh)
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Lỗi tự hủy lịch không đến #{malh}: {e}", exc_info=True)
+    if cancelled:
+        current_app.logger.info(f"[no-show] Tự hủy {len(cancelled)} lịch: {cancelled}")
+    return cancelled
+
+
 def cancel_appointment(appointment_id, user_id=None, role='customer', reason=None):
     """
     Hủy lịch hẹn:
     - Nếu role='customer':
       + Phải là chủ lịch hẹn (apt.makh == user_id).
-      + Không được hủy nếu đã completed hoặc cancelled.
-      + Không được hủy trong vòng 4 giờ trước giờ hẹn.
+      + Chỉ hủy lịch chờ xác nhận/đã xác nhận và trước giờ hẹn.
+        Quá giờ hẹn mà khách không đến: hệ thống tự hủy sau NO_SHOW_GRACE_MINUTES.
     - Nếu role in ('admin', 'manager', 'letan', 'staff'):
       + Không được hủy nếu đã completed hoặc cancelled.
     """
-    LichHen.query.filter_by(malh=appointment_id).update({LichHen.malh:LichHen.malh}, synchronize_session=False)
-    apt = LichHen.query.filter_by(malh=appointment_id).populate_existing().first()
-    if not apt:
-        raise AppointmentNotFoundError("Không tìm thấy lịch hẹn")
+    apt = _lock_appointment(appointment_id)
 
     # Kiểm tra quyền
     if role == 'customer':
@@ -585,12 +812,13 @@ def cancel_appointment(appointment_id, user_id=None, role='customer', reason=Non
             f"Không thể hủy lịch hẹn đã {AppointmentStatus.to_vietnamese(apt.trangthai)}"
         )
 
-    # Kiểm tra thời gian hủy (đối với khách hàng)
+    # Khách chỉ tự hủy trước giờ hẹn; lịch đang thực hiện phải liên hệ spa.
     if role == 'customer':
-        time_until = apt.ngaygio - datetime.now()
-        if time_until < timedelta(hours=4):
+        if apt.trangthai not in CUSTOMER_EDITABLE_STATUSES:
+            raise AppointmentValidationError("Lịch hẹn đang được thực hiện, vui lòng liên hệ spa để được hỗ trợ!")
+        if apt.ngaygio <= vn_now():
             raise AppointmentValidationError(
-                "Không thể hủy lịch hẹn trong vòng 4 giờ trước giờ hẹn. Vui lòng liên hệ spa để được hỗ trợ!"
+                "Đã đến hoặc quá giờ hẹn nên không thể tự hủy. Vui lòng liên hệ spa để được hỗ trợ!"
             )
 
     try:
@@ -650,13 +878,18 @@ def update_appointment_status(appointment_id, new_status, user_id=None, role='st
         )
 
     try:
+        previous_status = apt.trangthai
         apt.trangthai = norm_status
         from .package_service import transition_usages
         from .notification_service import sync_appointment_jobs
+        from . import commission_service
         if norm_status == AppointmentStatus.COMPLETED:
             transition_usages(apt.malh, 'consumed')
+            commission_service.record_for_appointment(apt)
         elif norm_status == AppointmentStatus.CANCELLED:
             transition_usages(apt.malh, 'released')
+        if previous_status == AppointmentStatus.COMPLETED and norm_status != AppointmentStatus.COMPLETED:
+            commission_service.void_for_appointment(apt.malh)
         sync_appointment_jobs(apt)
         if commit:
             db.session.commit()
@@ -719,57 +952,70 @@ def assign_staff_to_appointment(appointment_id, manv):
     }
 
 
-def get_available_slots(target_date, madv=None, manv=None):
+SLOT_FIRST = time(7, 30)
+SLOT_LAST = time(18, 30)
+SLOT_STEP_MINUTES = 30
+
+
+def slot_times():
+    """Các giờ bắt đầu hợp lệ trong ngày (07:30 → 18:30, bước 30 phút), không trùng lặp."""
+    current = datetime.combine(date.min, SLOT_FIRST)
+    last = datetime.combine(date.min, SLOT_LAST)
+    times = []
+    while current <= last:
+        times.append(current.time())
+        current += timedelta(minutes=SLOT_STEP_MINUTES)
+    return times
+
+
+def _slot_available(slot_dt, duration, manv=None):
+    if manv:
+        return check_staff_availability(manv, slot_dt, duration)[0]
+    return any(check_staff_availability(staff.manv, slot_dt, duration)[0]
+               for staff in get_staff_working_at(slot_dt, duration))
+
+
+def get_available_slots(target_date, madv=None, manv=None, madv_list=None):
     """
-    Lấy danh sách các khung giờ từ 08:00 đến 18:00 (bước nhảy 30 phút).
-    - Quá khứ: available = False
-    - Nếu có manv: xét manv có rảnh (ca làm + không trùng)
-    - Nếu không có manv: xét có ít nhất 1 kỹ thuật viên rảnh
+    Khung giờ trong ngày cho tổng thời lượng các dịch vụ đã chọn.
+    - madv_list (ưu tiên) hoặc madv: tính tổng thời lượng; không có → 60 phút.
+    - reason: 'past' | 'unavailable' | 'available'.
+    - Có manv: xét riêng nhân viên đó; không có: cần ít nhất 1 KTV có ca phủ hết và không trùng lịch.
+    Server vẫn kiểm tra lại khi tạo lịch; đây chỉ là gợi ý cho giao diện.
     """
     if isinstance(target_date, str):
         target_date = datetime.strptime(target_date, "%Y-%m-%d").date()
 
-    duration = 60
-    if madv:
-        try:
-            service = DichVu.query.get(int(madv))
-            if service and service.thoiluong and service.thoiluong > 0:
-                duration = service.thoiluong
-        except (ValueError, TypeError):
-            pass
+    ids = madv_list if madv_list else ([madv] if madv else [])
+    duration = calculate_total_duration(ids)
+    try:
+        manv_int = int(manv) if manv else None
+    except (ValueError, TypeError):
+        manv_int = None
 
     slots = []
     now = datetime.now()
-
-    for hour in range(8, 18):
-        for minute in [0, 30]:
-            time_str = f"{hour:02d}:{minute:02d}"
-            slot_time = time(hour, minute)
-            slot_dt = datetime.combine(target_date, slot_time)
-
-            if slot_dt < now:
-                slots.append({"time": time_str, "available": False})
-                continue
-
-            if manv:
-                try:
-                    manv_int = int(manv)
-                    is_avail, _, _ = check_staff_availability(manv_int, slot_dt, duration)
-                except (ValueError, TypeError):
-                    is_avail = False
-            else:
-                # Tìm xem có nhân viên nào rảnh vào khung giờ này không
-                working_staff = get_staff_working_at(slot_dt, duration)
-                is_avail = False
-                for staff in working_staff:
-                    staff_avail, _, _ = check_staff_availability(staff.manv, slot_dt, duration)
-                    if staff_avail:
-                        is_avail = True
-                        break
-
-            slots.append({
-                "time": time_str,
-                "available": is_avail
-            })
-
+    for slot_time in slot_times():
+        slot_dt = datetime.combine(target_date, slot_time)
+        if slot_dt < now:
+            available, reason = False, "past"
+        else:
+            available = _slot_available(slot_dt, duration, manv_int)
+            reason = "available" if available else "unavailable"
+        slots.append({"time": slot_time.strftime("%H:%M"), "available": available, "reason": reason})
     return slots
+
+
+def suggest_next_slots(after_date, madv_list=None, manv=None, days=14, limit=3):
+    """Gợi ý tối đa `limit` ngày tiếp theo còn chỗ, mỗi ngày lấy giờ sớm nhất."""
+    if isinstance(after_date, str):
+        after_date = datetime.strptime(after_date, "%Y-%m-%d").date()
+    suggestions = []
+    for offset in range(1, days + 1):
+        day = after_date + timedelta(days=offset)
+        first = next((s for s in get_available_slots(day, manv=manv, madv_list=madv_list) if s["available"]), None)
+        if first:
+            suggestions.append({"date": day.isoformat(), "time": first["time"]})
+            if len(suggestions) >= limit:
+                break
+    return suggestions

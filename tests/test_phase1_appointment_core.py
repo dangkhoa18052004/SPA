@@ -217,7 +217,8 @@ def test_no_available_staff_returns_409(app, client, customer_auth_headers, seed
 # =========================================================================
 def test_cancel_appointment_more_than_4_hours_succeeds(app, client, customer_auth_headers, seed_data):
     """Test 7: Khách hàng hủy lịch hẹn trước > 4 giờ thành công."""
-    future_dt = datetime.now() + timedelta(hours=10)
+    # Giờ cố định trong ngày: "now + 10h" có thể vắt qua nửa đêm và bị từ chối theo ca làm.
+    future_dt = datetime.combine(date.today() + timedelta(days=2), time(10, 0))
     # Tạo ca làm việc cho ngày tương ứng nếu cần
     with app.app_context():
         c = CaLam(ngay=future_dt.date(), giobatdau=time(0, 0), gioketthuc=time(23, 59))
@@ -247,30 +248,35 @@ def test_cancel_appointment_more_than_4_hours_succeeds(app, client, customer_aut
 
 
 # =========================================================================
-# 8. Cancel <4h reject
+# 8. Khách được hủy sát giờ hẹn (bỏ mốc 4 giờ), nhưng không hủy khi đã quá giờ hẹn
 # =========================================================================
-def test_cancel_appointment_less_than_4_hours_rejected(app, client, customer_auth_headers, seed_data):
-    """Test 8: Khách hàng hủy lịch hẹn trong vòng < 4 giờ bị từ chối (400 Bad Request)."""
-    close_dt = datetime.now() + timedelta(hours=2)
+def test_cancel_appointment_until_start_time(app, client, customer_auth_headers, seed_data):
+    """Test 8: Hủy 2 giờ trước giờ hẹn thành công; lịch đã quá giờ hẹn bị từ chối (400)."""
+    close_dt = datetime.utcnow() + timedelta(hours=9)  # giờ Việt Nam + 2 giờ
+    past_dt = datetime.utcnow() + timedelta(hours=7) - timedelta(minutes=5)
+    malhs = []
     with app.app_context():
-        c = CaLam(ngay=close_dt.date(), giobatdau=time(0, 0), gioketthuc=time(23, 59))
-        db.session.add(c)
-        db.session.flush()
-        db.session.execute(nhanvien_calam.insert().values(manv=seed_data["staff1_id"], maca=c.maca))
-        
-        apt = LichHen(
-            makh=app.config["TEST_CUSTOMER_ID"],
-            manv=seed_data["staff1_id"],
-            ngaygio=close_dt,
-            trangthai=AppointmentStatus.CONFIRMED
-        )
-        db.session.add(apt)
+        for dt in (close_dt, past_dt):
+            c = CaLam(ngay=dt.date(), giobatdau=time(0, 0), gioketthuc=time(23, 59))
+            db.session.add(c)
+            db.session.flush()
+            db.session.execute(nhanvien_calam.insert().values(manv=seed_data["staff1_id"], maca=c.maca))
+            apt = LichHen(
+                makh=app.config["TEST_CUSTOMER_ID"],
+                manv=seed_data["staff1_id"],
+                ngaygio=dt,
+                trangthai=AppointmentStatus.CONFIRMED
+            )
+            db.session.add(apt)
+            db.session.flush()
+            malhs.append(apt.malh)
         db.session.commit()
-        malh = apt.malh
 
-    res = client.put(f"/api/appointments/{malh}/cancel", headers=customer_auth_headers)
+    res = client.put(f"/api/appointments/{malhs[0]}/cancel", headers=customer_auth_headers)
+    assert res.status_code == 200, res.get_json()
+    res = client.put(f"/api/appointments/{malhs[1]}/cancel", headers=customer_auth_headers)
     assert res.status_code == 400
-    assert "trong vòng 4 giờ" in res.get_json()["message"]
+    assert "quá giờ hẹn" in res.get_json()["message"]
 
 
 # =========================================================================

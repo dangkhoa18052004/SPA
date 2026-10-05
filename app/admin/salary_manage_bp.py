@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app, render_template, mak
 from ..extensions import db
 from ..models import Luong, NhanVien, CaLam, nhanvien_calam, BangLuongChiTiet, ChucVu
 from ..decorators import roles_required
+from ..services import commission_service
 from sqlalchemy import extract, func, and_
 from datetime import datetime
 from weasyprint import HTML
@@ -12,7 +13,7 @@ salary_manage_bp = Blueprint("salary_manage", __name__)
 @salary_manage_bp.route("/salaries/calculate", methods=["POST"])
 @roles_required('admin', 'manager')
 def calculate_salaries():
-    """ (ĐÃ CẬP NHẬT) Tổng hợp lương, thưởng, và khấu trừ từ Bảng Chi Tiết vào Bảng Lương Tháng. """
+    """ Tổng hợp lương ca, hoa hồng, thưởng và khấu trừ vào Bảng Lương Tháng. """
     data = request.get_json()
     thang, nam = data.get("thang"), data.get("nam")
     if not thang or not nam: 
@@ -45,9 +46,10 @@ def calculate_salaries():
 
             # Cập nhật bảng lương tháng
             luong_thang.luongcoban = total_base
+            luong_thang.hoahong = commission_service.monthly_total(staff.manv, thang, nam)
             luong_thang.thuong = total_bonus
             luong_thang.khautru = total_deduction
-            luong_thang.tongluong = (total_base + total_bonus - total_deduction)
+            luong_thang.recompute_total()
             
             # Cập nhật liên kết
             BangLuongChiTiet.query.filter(
@@ -86,18 +88,26 @@ def get_all_salaries():
                 BangLuongChiTiet.ngay_lam == selected_date
             ).all()
 
-            result = [{
-                "filter_type": "day", 
-                "id_chitiet": blct.id, # ID của bảng chi tiết
-                "hoten": nv.hoten,
-                "ngay_lam": blct.ngay_lam.isoformat(),
-                "chucvu": cv.tencv,
-                "sogio_lam": str(blct.sogio_lam),
-                "dongia_gio": str(blct.dongia_gio),
-                "luong_ca": str(blct.luong_ca),
-                "thuong_ca": str(blct.thuong_ca),     # <-- THÊM MỚI
-                "khautru_ca": str(blct.khautru_ca)  # <-- THÊM MỚI
-            } for blct, nv, cv in daily_salaries if nv.role != 'admin']
+            day_commissions = commission_service.daily_totals(selected_date)
+            result = []
+            for blct, nv, cv in daily_salaries:
+                if nv.role == 'admin':
+                    continue
+                result.append({
+                    "filter_type": "day",
+                    "id_chitiet": blct.id,  # ID của bảng chi tiết
+                    "manv": nv.manv,
+                    "hoten": nv.hoten,
+                    "ngay_lam": blct.ngay_lam.isoformat(),
+                    "chucvu": cv.tencv,
+                    "sogio_lam": str(blct.sogio_lam),
+                    "dongia_gio": str(blct.dongia_gio),
+                    "luong_ca": str(blct.luong_ca),
+                    # Hoa hồng tính theo ngày, gắn vào ca đầu tiên của nhân viên để không cộng lặp.
+                    "hoahong_ngay": str(day_commissions.pop(nv.manv, Decimal('0'))),
+                    "thuong_ca": str(blct.thuong_ca),
+                    "khautru_ca": str(blct.khautru_ca),
+                })
             
         else:
             # Lọc theo tháng (Giữ nguyên logic)
@@ -119,6 +129,7 @@ def get_all_salaries():
                 "nam": s.nam, 
                 "tongluong": str(s.tongluong),
                 "luongcoban": str(s.luongcoban),
+                "hoahong": str(s.hoahong or 0),
                 "thuong": str(s.thuong),
                 "khautru": str(s.khautru)
             } for s in salaries if s.nhanvien and s.nhanvien.role != 'admin']
@@ -165,9 +176,7 @@ def adjust_daily_salary(id_chitiet):
             luong_thang.khautru = summary[1] or Decimal('0')
             
             # Tính lại tổng lương tháng
-            luong_thang.tongluong = (luong_thang.luongcoban or Decimal('0')) + \
-                                    (luong_thang.thuong or Decimal('0')) - \
-                                    (luong_thang.khautru or Decimal('0'))
+            luong_thang.recompute_total()
         
         db.session.commit()
         return jsonify({"msg": "Cập nhật lương ca thành công"}), 200
@@ -195,7 +204,7 @@ def adjust_monthly_salary(maluong):
         if khautru is not None: 
             salary.khautru = Decimal(khautru)
         
-        salary.tongluong = (salary.luongcoban or Decimal('0')) + (salary.thuong or Decimal('0')) - (salary.khautru or Decimal('0'))
+        salary.recompute_total()
         
         db.session.commit()
         return jsonify({"msg": "Điều chỉnh lương thành công"}), 200
@@ -229,18 +238,21 @@ def export_salaries_pdf():
                 BangLuongChiTiet.ngay_lam == selected_date
             ).all()
             
+            day_commissions = commission_service.daily_totals(selected_date)
             for blct, nv, cv in query:
                 if nv.role != 'admin':
                     # === SỬA: Tính tổng ca ===
                     luong_ca_d = Decimal(blct.luong_ca or '0')
                     thuong_ca_d = Decimal(blct.thuong_ca or '0')
                     khautru_ca_d = Decimal(blct.khautru_ca or '0')
-                    tong_ngay = luong_ca_d + thuong_ca_d - khautru_ca_d
+                    hoahong_d = day_commissions.pop(nv.manv, Decimal('0'))  # một lần/nhân viên/ngày
+                    tong_ngay = luong_ca_d + hoahong_d + thuong_ca_d - khautru_ca_d
                     
                     data.append({
                         "hoten": nv.hoten,
                         "chucvu": cv.tencv,
                         "luong_ca": luong_ca_d,
+                        "hoahong": hoahong_d,
                         "thuong_ca": thuong_ca_d,
                         "khautru_ca": khautru_ca_d,
                         "tong_ngay": tong_ngay # <-- Cột tổng mới
@@ -267,6 +279,7 @@ def export_salaries_pdf():
                     data.append({
                         "hoten": s.nhanvien.hoten if s.nhanvien else 'N/A', 
                         "luongcoban": Decimal(s.luongcoban or '0'),
+                        "hoahong": Decimal(s.hoahong or '0'),
                         "thuong": Decimal(s.thuong or '0'),
                         "khautru": Decimal(s.khautru or '0'),
                         "tongluong": tongluong_decimal
@@ -290,3 +303,21 @@ def export_salaries_pdf():
     except Exception as e:
         current_app.logger.error(f"Lỗi khi xuất PDF lương: {e}")
         return jsonify({"msg": "Xuất PDF thất bại"}), 500
+
+
+@salary_manage_bp.route("/salaries/<int:maluong>/commissions", methods=["GET"])
+@roles_required('admin', 'manager')
+def get_salary_commissions(maluong):
+    """Chi tiết hoa hồng (đang hiệu lực) của một bảng lương tháng."""
+    salary = db.session.get(Luong, maluong)
+    if not salary:
+        return jsonify({"msg": "Không tìm thấy bảng lương"}), 404
+    entries = commission_service.entries_for_month(salary.manv, salary.thang, salary.nam)
+    return jsonify({
+        "maluong": salary.maluong,
+        "hoten": salary.nhanvien.hoten if salary.nhanvien else 'N/A',
+        "thang": salary.thang,
+        "nam": salary.nam,
+        "total": str(sum((e.amount for e in entries), Decimal('0'))),
+        "entries": [commission_service.serialize(e) for e in entries],
+    }), 200

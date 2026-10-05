@@ -5,6 +5,7 @@ from ..extensions import db
 from ..decorators import roles_required
 from ..models import KhachHang, NhanVien, LoyaltyWallet, LoyaltyPointTransaction, LoyaltyReward, LoyaltyRewardRedemption
 from ..services import loyalty_service as service
+from ..services import loyalty_tier_service as tiers
 from ..routes.loyalty_bp import paginate, payload, request_key, validation, conflict, choice_arg, text_arg
 from sqlalchemy.exc import IntegrityError
 
@@ -31,6 +32,16 @@ def config():
         service.update_config(payload())
         db.session.commit()
     return jsonify(success=True, config=service.serialize_config())
+
+
+@admin_loyalty_bp.route('/api/admin/loyalty/tiers', methods=['GET', 'PUT'])
+@roles_required('admin', 'manager')
+def tier_policy():
+    manager()
+    if request.method == 'PUT':
+        tiers.update_policy(payload())
+        db.session.commit()
+    return jsonify(success=True, policy=tiers.serialize_policy())
 
 
 @admin_loyalty_bp.route('/api/admin/loyalty/overview')
@@ -62,7 +73,7 @@ def customer_detail(makh):
     if not customer:
         return jsonify(success=False, msg='Không tìm thấy khách hàng'), 404
     return jsonify(success=True, customer=dict(makh=makh, hoten=customer.hoten, sdt=customer.sdt, email=customer.email),
-        wallet=service.get_balance(makh), **paginate(LoyaltyPointTransaction.query.filter_by(makh=makh).order_by(LoyaltyPointTransaction.id.desc()), service.serialize_transaction))
+        wallet=service.get_balance(makh), tier=tiers.tier_status(makh), **paginate(LoyaltyPointTransaction.query.filter_by(makh=makh).order_by(LoyaltyPointTransaction.id.desc()), service.serialize_transaction))
 
 
 @admin_loyalty_bp.route('/api/admin/loyalty/customers/<int:makh>/adjust', methods=['POST'])

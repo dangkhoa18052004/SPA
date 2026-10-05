@@ -66,6 +66,9 @@ class DichVu(db.Model):
     active = db.Column(db.Boolean, default=True)
     mota = db.Column(db.Text)
     post_care_instructions = db.Column(db.Text, nullable=True)
+    # Chính sách hoa hồng KTV: số tiền cố định ưu tiên hơn phần trăm; cả hai trống = 0đ.
+    commission_percent = db.Column(db.Numeric(5, 2), nullable=True)
+    commission_fixed = db.Column(db.Numeric(12, 2), nullable=True)
 
 class AppointmentStatus:
     PENDING = 'pending'
@@ -276,8 +279,16 @@ class Luong(db.Model):
     thuong = db.Column(db.Numeric(12, 2), default=0)
     khautru = db.Column(db.Numeric(12, 2), default=0)
     tongluong = db.Column(db.Numeric(12, 2))
+    hoahong = db.Column(db.Numeric(12, 2), nullable=False, default=0, server_default='0')
     chi_tiet = db.relationship('BangLuongChiTiet', back_populates='luong_thang_tonghop', lazy='dynamic')
     nhanvien = db.relationship('NhanVien', backref=db.backref('luong', lazy=True))
+
+    def recompute_total(self):
+        """Lương = lương ca + hoa hồng + thưởng − khấu trừ."""
+        from decimal import Decimal
+        self.tongluong = ((self.luongcoban or Decimal('0')) + (self.hoahong or Decimal('0'))
+                          + (self.thuong or Decimal('0')) - (self.khautru or Decimal('0')))
+        return self.tongluong
 
 class BangLuongChiTiet(db.Model):
     __tablename__ = 'bangluongchitiet'
@@ -484,3 +495,46 @@ class NotificationJob(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     __table_args__ = (db.CheckConstraint("status IN ('pending','processing','sent','failed','cancelled')", name='ck_job_status'),)
+
+
+class CommissionEntry(db.Model):
+    """Hoa hồng KTV cho một dịch vụ trong lịch đã hoàn thành; giá trị được chụp lại tại thời điểm ghi."""
+    __tablename__ = 'commission_entry'
+    id = db.Column(db.Integer, primary_key=True)
+    malh = db.Column(db.Integer, db.ForeignKey('lichhen.malh'), nullable=False, index=True)
+    madv = db.Column(db.Integer, db.ForeignKey('dichvu.madv'), nullable=False)
+    manv = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'), nullable=False, index=True)
+    service_name = db.Column(db.String(100), nullable=False)
+    source_type = db.Column(db.String(20), nullable=False)  # regular | package | gift
+    base_amount = db.Column(db.Numeric(12, 2), nullable=False)
+    rate_percent = db.Column(db.Numeric(5, 2), nullable=True)
+    fixed_amount = db.Column(db.Numeric(12, 2), nullable=True)
+    amount = db.Column(db.Numeric(12, 2), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='active', server_default='active')
+    earned_at = db.Column(db.DateTime, nullable=False, index=True)
+    voided_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    staff = db.relationship('NhanVien')
+    appointment = db.relationship('LichHen')
+    __table_args__ = (
+        db.UniqueConstraint('malh', 'madv', name='uq_commission_appointment_service'),
+        db.CheckConstraint("status IN ('active','voided')", name='ck_commission_status'),
+        db.CheckConstraint("source_type IN ('regular','package','gift')", name='ck_commission_source'),
+    )
+
+
+class AIBookingDraft(db.Model):
+    """Bản nháp đặt lịch do AI tạo. Không phải lịch hẹn; chỉ thành LichHen khi khách xác nhận."""
+    __tablename__ = 'ai_booking_draft'
+    id = db.Column(db.String(36), primary_key=True)
+    makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), nullable=False, index=True)
+    madv_list = db.Column(db.JSON, nullable=False)
+    ngaygio = db.Column(db.DateTime, nullable=False)
+    manv = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'), nullable=True)
+    note = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='draft', server_default='draft')
+    malh = db.Column(db.Integer, db.ForeignKey('lichhen.malh'), nullable=True, unique=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    confirmed_at = db.Column(db.DateTime, nullable=True)
+    __table_args__ = (db.CheckConstraint("status IN ('draft','confirmed','expired')", name='ck_ai_draft_status'),)

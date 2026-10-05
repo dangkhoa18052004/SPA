@@ -47,6 +47,8 @@ def get_dashboard_stats():
                     "total_appointments": kpis["today"]["total_appointments"],
                     "appointments_by_status": kpis["today"]["appointments_by_status"],
                     "revenue": kpis["today"]["revenue"],
+                    "service_revenue": kpis["today"]["service_revenue"],
+                    "package_revenue": kpis["today"]["package_revenue"],
                     "working_staff": kpis["today"]["working_staff"],
                     "upcoming_appointments": upcoming_appointments,
                 },
@@ -56,6 +58,9 @@ def get_dashboard_stats():
                 "month": {
                     "appointments": month_appointments,
                     "revenue": kpis["month"]["revenue"],
+                    "service_revenue": kpis["month"]["service_revenue"],
+                    "package_revenue": kpis["month"]["package_revenue"],
+                    "average_invoice": kpis["month"]["average_invoice"],
                     "new_customers": kpis["month"]["new_customers"],
                 },
                 "general": {

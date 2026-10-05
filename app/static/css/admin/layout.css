@@ -291,3 +291,17 @@
         padding: var(--spacing-md);
     }
 }
+/* Tiêu đề nhóm trong menu (không bấm được) */
+.sidebar-menu li.sidebar-group {
+    padding: var(--spacing-md) var(--spacing-lg) 4px;
+    font-size: var(--font-xs);
+    font-weight: var(--font-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.sidebar-menu li a:focus-visible {
+    outline: 2px solid var(--text-white);
+    outline-offset: -2px;
+}

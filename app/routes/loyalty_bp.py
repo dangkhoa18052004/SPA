@@ -5,6 +5,7 @@ from ..extensions import db
 from ..decorators import customer_required, login_required
 from ..models import HoaDon, GoiDichVuPurchase, ThanhToan, LoyaltyPointTransaction, LoyaltyReward, LoyaltyRewardRedemption
 from ..services import loyalty_service as service
+from ..services import loyalty_tier_service as tiers
 
 loyalty_bp = Blueprint('loyalty', __name__)
 
@@ -65,7 +66,8 @@ def me():
     service.get_wallet(g.current_user.makh)
     balance = service.get_balance(g.current_user.makh)
     db.session.commit()
-    return jsonify(success=True, wallet=balance, config=service.serialize_config())
+    return jsonify(success=True, wallet=balance, config=service.serialize_config(),
+                   tier=tiers.tier_status(g.current_user.makh))
 
 
 @loyalty_bp.route('/api/loyalty/me/transactions')

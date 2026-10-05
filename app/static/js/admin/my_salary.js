@@ -59,7 +59,7 @@ function renderSalariesTable() {
     const tbody = document.querySelector('#salary-table tbody');
     
     if (mySalaries.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Chưa có lịch sử lương</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Chưa có lịch sử lương</td></tr>';
         return;
     }
     
@@ -67,6 +67,7 @@ function renderSalariesTable() {
         <tr>
             <td>${salary.thang}/${salary.nam}</td>
             <td>${formatCurrency(salary.luongcoban)}</td>
+            <td>${formatCurrency(salary.hoahong || 0)}</td>
             <td>${formatCurrency(salary.thuong || 0)}</td>
             <td>${formatCurrency(salary.khautru || 0)}</td>
             <td><strong>${formatCurrency(salary.tongluong)}</strong></td>

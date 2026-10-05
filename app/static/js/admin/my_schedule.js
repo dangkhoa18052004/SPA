@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     setupNavigation();
 
+    loadMyRating();
+
 });
 
 
@@ -380,4 +382,23 @@ function getAuthHeaders(includeContentType = true) {
 
     return headers;
 
+}
+
+// Điểm đánh giá trung bình của chính KTV (cùng nguồn với trang Đánh giá).
+async function loadMyRating() {
+    const target = document.getElementById('my-rating');
+    let manv = null;
+    try { manv = JSON.parse(localStorage.getItem('admin_user') || '{}').manv; } catch (e) { manv = null; }
+    if (!target || !manv) return;
+    try {
+        const response = await fetch(`/api/reviews/staff/${manv}`);
+        const data = await response.json();
+        if (!response.ok || !data.success) return;
+        const { total_reviews: count, average_rating: average } = data.stats;
+        target.innerHTML = count
+            ? `<i class="fas fa-star" style="color:#f5a623" aria-hidden="true"></i> Đánh giá của bạn: <strong>${average}/5</strong> từ ${count} lượt · <a href="/admin/reviews">Xem chi tiết</a>`
+            : 'Bạn chưa có đánh giá nào.';
+    } catch (error) {
+        console.error('Lỗi tải điểm đánh giá:', error);
+    }
 }

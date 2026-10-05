@@ -80,3 +80,14 @@ Job dùng khóa `appointment:<malh>:postcare` khi gửi Resend. Lỗi provider �
 trong `last_error`; retry sau 5 × attempts phút, tối đa `max_attempts`. Không reset
 sent/failed job để gửi lại một cách tùy tiện. Khách thiếu/blank email vẫn hoàn thành
 lịch, không enqueue email. Review request giữ lịch sau 2 giờ.
+
+## Tự hủy lịch khi khách không đến
+
+Mỗi chu kỳ, `notification-worker` (được `python run.py` khởi động cùng web) tự hủy lịch **chờ xác nhận/đã xác nhận**
+đã quá giờ hẹn `NO_SHOW_GRACE_MINUTES` phút (mặc định 30, đặt trong `.env`). Khi hủy:
+- trả lại các buổi gói/quà đang giữ cho lịch, hủy email nhắc lịch còn chờ;
+- ghi chú "[Tự động hủy ...]" vào lịch;
+- xếp email `appointment_no_show` vào outbox (báo khách lịch đã hủy, mời đặt lịch mới), worker gửi và retry như email khác.
+
+Lịch đã chuyển "Đang thực hiện" (khách đã đến) không bị hủy. Chạy một lần thủ công: `flask --app wsgi:app auto-cancel-no-shows`.
+Khách tự hủy hoặc đổi dịch vụ được tới trước giờ hẹn; nhân viên đổi dịch vụ theo yêu cầu khách ở trang Lịch hẹn (nút "Đổi dịch vụ").

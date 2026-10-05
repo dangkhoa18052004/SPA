@@ -721,3 +721,125 @@
         height: 140px;
     }
 }
+/* ==================== NGUỒN BUỔI, KHUNG GIỜ, TÓM TẮT TRƯỚC XÁC NHẬN ==================== */
+.booking-source-block {
+    margin-top: 20px;
+    padding: 16px;
+    border: 1px dashed #d8c9a3;
+    border-radius: 12px;
+    background: #fdfaf3;
+}
+
+.booking-source-title {
+    margin: 0 0 6px;
+    font-size: 16px;
+}
+
+.booking-source-hint {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: #6b6257;
+}
+
+.booking-source-block .package-section select {
+    min-height: 44px;
+}
+
+.slot-status {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #555;
+}
+
+.slot-status p { margin: 4px 0; }
+.slot-status .slot-error { color: #b42318; }
+
+.slot-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.slot-suggestions .btn,
+.slot-status [data-retry-slots] {
+    min-height: 44px;
+}
+
+.summary-covered {
+    color: #2f6b45;
+    font-weight: 600;
+    text-align: right;
+}
+
+.summary-covered s {
+    color: #999;
+    font-weight: 400;
+    margin-right: 4px;
+}
+
+.confirm-recap {
+    margin-top: 20px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: #f6f3ec;
+    font-size: 14px;
+}
+
+.confirm-recap:empty { display: none; }
+.confirm-recap p { margin: 2px 0; }
+
+/* Desktop: Quay lại bên trái, Tiếp theo/Xác nhận bên phải */
+.form-actions {
+    justify-content: space-between;
+    align-items: center;
+}
+
+.form-actions .btn {
+    flex: 0 0 auto;
+    min-width: 170px;
+    min-height: 44px;
+}
+
+/* Mobile: một CTA chính rộng, dính phía trên thanh điều hướng dưới (65px) và nút chat/nhạc
+   (đáy ~20–140px), để không bị che và không che dữ liệu tóm tắt. */
+@media (max-width: 768px) {
+    .form-step.active .form-actions {
+        position: sticky;
+        bottom: calc(144px + env(safe-area-inset-bottom, 0px));
+        z-index: 5;
+        margin-left: -8px;
+        margin-right: -8px;
+        padding: 8px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+        border-radius: 12px;
+    }
+}
+
+@media (max-width: 640px) {
+    /* Đặc hiệu cao hơn responsive.css (nạp sau) để giữ "Quay lại" và CTA trên một hàng. */
+    .appointment-form-section .form-actions {
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .appointment-form-section .form-actions .btn-primary {
+        flex: 1 1 auto;
+        width: auto;
+        min-width: 0;
+    }
+
+    .appointment-form-section .form-actions .btn-outline {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: 0;
+        min-height: 44px;
+        padding: 0 12px;
+        border: none;
+        background: transparent;
+        text-decoration: underline;
+    }
+
+    .appointment-form-section .form-actions > span:empty { display: none; }
+}

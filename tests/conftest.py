@@ -35,6 +35,8 @@ def app():
         "MOMO_SECRET_KEY_SANDBOX": "test-momo-secret",
         "UPLOAD_FOLDER": upload_folder,
         "MAX_CONTENT_LENGTH": 1024 * 1024,
+        # Test không bao giờ gọi Gemini thật: mặc định tắt AI, test AI tự bật và mock.
+        "GEMINI_API_KEY": "",
     })
 
     with application.app_context():

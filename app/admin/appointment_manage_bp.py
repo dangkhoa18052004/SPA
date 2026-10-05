@@ -678,6 +678,36 @@ def complete_appointment(malh):
         return jsonify({"msg": "Lỗi hệ thống"}), 500
 
 
+@appointment_manage_bp.route("/appointments/<int:malh>/check-in", methods=["POST"])
+@roles_required("admin", "manager", "letan", "staff")
+def check_in_appointment(malh):
+    """Khách đã đến spa: chuyển lịch sang Đang thực hiện (không bị tự hủy)."""
+    staff = g.current_user
+    try:
+        res = appointment_service.check_in_appointment(malh, user_id=staff.manv, role=staff.role,
+                                                       actor_name=staff.hoten)
+        return jsonify({"success": True, "msg": res["message"], "appointment": res}), 200
+    except AppointmentServiceError as e:
+        return jsonify({"success": False, "msg": e.message}), e.status_code
+
+
+@appointment_manage_bp.route("/appointments/<int:malh>/services", methods=["PUT"])
+@roles_required("admin", "manager", "letan", "staff")
+def change_appointment_services(malh):
+    """Đổi dịch vụ theo yêu cầu khách (giữ giờ hẹn và KTV, kiểm tra lại thời lượng)."""
+    staff = g.current_user
+    data = request.get_json(silent=True) or {}
+    try:
+        res = appointment_service.change_appointment_services(
+            malh, data.get("madv_list"), user_id=staff.manv, role=staff.role,
+            package_usages=data.get("package_usages"), actor_name=staff.hoten)
+        return jsonify({"success": True, "msg": res["message"], **res}), 200
+    except AppointmentConflictError as e:
+        return jsonify({"success": False, "msg": e.message, "conflicts": e.conflicts}), 409
+    except AppointmentServiceError as e:
+        return jsonify({"success": False, "msg": e.message}), e.status_code
+
+
 @appointment_manage_bp.route("/appointments/<int:malh>/assign", methods=["POST"])
 @roles_required("admin", "manager", "letan")
 def assign_staff_to_appointment(malh):
@@ -792,6 +822,8 @@ def appointment_billing_data(appointment, invoice, covered):
             'canConfirm': own_appointment and status == AppointmentStatus.PENDING,
             'canComplete': own_appointment and status in (AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS),
             'canCancel': billing_role and status in AppointmentStatus.ACTIVE_STATUSES,
+            'canChangeServices': own_appointment and status in AppointmentStatus.ACTIVE_STATUSES,
+            'canCheckIn': own_appointment and appointment_service.can_check_in(appointment),
             'canCreateInvoice': billing_role and completed and invoice is None and bool(service_ids - covered),
             'canPayInvoice': billing_role and completed and invoice is not None and invoice.trangthai == 'Chưa thanh toán',
             'canViewInvoice': billing_role and completed and invoice is not None and invoice.trangthai == 'Đã thanh toán',

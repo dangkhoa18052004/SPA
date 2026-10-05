@@ -80,6 +80,16 @@ class Config:
     YOUR_IPN_URL = os.getenv("YOUR_IPN_URL") 
     YOUR_BASE_DOMAIN = os.getenv("YOUR_BASE_DOMAIN", "http://127.0.0.1:5000")
     PUBLIC_SITE_URL = os.getenv("PUBLIC_SITE_URL", "https://binspa.id.vn")
+    # Số phút sau giờ hẹn mà khách chưa đến thì notification-worker tự hủy lịch.
+    NO_SHOW_GRACE_MINUTES = int(os.getenv("NO_SHOW_GRACE_MINUTES", "30"))
+    # Gemini AI (giai đoạn 5): chỉ đọc từ môi trường; để trống thì AI tắt, phần còn lại vẫn chạy.
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "30"))
+    # Model dự phòng (phân tách bằng dấu phẩy) khi model chính quá tải 429/5xx.
+    GEMINI_FALLBACK_MODELS = os.getenv("GEMINI_FALLBACK_MODELS", "")
+    # Lịch lỡ cũ hơn số giờ này chỉ tự hủy, không gửi email (tránh gửi thư cho lịch tồn đọng).
+    NO_SHOW_EMAIL_MAX_AGE_HOURS = int(os.getenv("NO_SHOW_EMAIL_MAX_AGE_HOURS", "24"))
     
     # VietQR & SePay Configuration
     VIETQR_BANK_ID = os.getenv("VIETQR_BANK_ID")
@@ -87,10 +97,6 @@ class Config:
     VIETQR_ACCOUNT_NAME = os.getenv("VIETQR_ACCOUNT_NAME")
     SEPAY_API_KEY = os.getenv("SEPAY_API_KEY")
 
-    # Gemini được chuẩn bị ở mức cấu hình; giai đoạn này không gọi Gemini.
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL")
-    
     # config Upload
     UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'uploads')
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_UPLOAD_SIZE_MB", "5")) * 1024 * 1024

@@ -66,6 +66,8 @@ def test_flask_db_upgrade_from_existing_head(migration_engine, monkeypatch):
         for sql in ['CREATE TABLE khachhang (makh INTEGER PRIMARY KEY)',
             'CREATE TABLE nhanvien (manv INTEGER PRIMARY KEY)',
             'CREATE TABLE lichhen (malh INTEGER PRIMARY KEY, manv INTEGER REFERENCES nhanvien(manv))',
+            'CREATE TABLE dichvu (madv INTEGER PRIMARY KEY)',
+            'CREATE TABLE luong (maluong INTEGER PRIMARY KEY)',
             'CREATE TABLE hoadon (mahd INTEGER PRIMARY KEY, tongtien NUMERIC NOT NULL)',
             'CREATE TABLE goidichvu (magoi INTEGER PRIMARY KEY, active BOOLEAN NOT NULL)',
             'CREATE TABLE goidichvupurchase (id INTEGER PRIMARY KEY, amount NUMERIC NOT NULL)',
@@ -82,7 +84,7 @@ def test_flask_db_upgrade_from_existing_head(migration_engine, monkeypatch):
     result=runner.invoke(args=['db','upgrade'])
     assert result.exit_code==0,result.output
     with engine.connect() as c:
-        assert c.execute(text('SELECT version_num FROM alembic_version')).scalar()=='20261004_0013'
+        assert c.execute(text('SELECT version_num FROM alembic_version')).scalar()=='20261005_0016'
         assert c.execute(text('SELECT payable_amount FROM hoadon')).scalar()==500000
     with application.app_context():
         db.session.remove();db.engine.dispose()

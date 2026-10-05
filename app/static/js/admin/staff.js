@@ -67,7 +67,7 @@ function renderStaffTable(staffList) {
     const tbody = document.querySelector('#staff-table tbody');
     
     if (staffList.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center">Không có nhân viên nào</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center">Không có nhân viên nào</td></tr>';
         return;
     }
     
@@ -99,6 +99,9 @@ function renderStaffTable(staffList) {
                 <td>${staff.email || 'N/A'}</td>
                 <td class="d-none">${staff.sdt || 'N/A'}</td>
                 <td>${staff.chucvu || 'N/A'}</td>
+                <td>${staff.rating_count
+                    ? `<span aria-label="Điểm trung bình ${staff.rating_average} trên 5 từ ${staff.rating_count} đánh giá"><i class="fas fa-star" style="color:#f5a623" aria-hidden="true"></i> ${staff.rating_average} <small>(${staff.rating_count})</small></span>`
+                    : '<small>Chưa có</small>'}</td>
                 <td><span class="badge badge-${staff.role}">${getRoleText(staff.role)}</span></td>
                 <td><span class="badge badge-${staff.trangthai ? 'active' : 'inactive'}">${staff.trangthai ? 'Hoạt động' : 'Vô hiệu'}</span></td>
                 <td>

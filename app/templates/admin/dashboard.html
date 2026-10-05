@@ -17,125 +17,135 @@
     </div>
 
     <div id="admin-dashboard" style="display: none;">
-        
-        <!-- Row for Stats and Quick Actions -->
-        <div class="content-row">
-            <!-- Stats Overview Panel -->
-            <div class="panel stats-overview-panel">
-                <div class="section-header">
-                    <h3><i class="fas fa-chart-line d-none"></i> Tổng quan Hoạt động</h3>
-                </div>
-                <div class="stats-grid-2x2">
-                    <div class="stat-card blue">
-                        <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
-                        <div class="stat-content">
-                            <div class="stat-label">Lịch hẹn hôm nay</div>
-                            <div class="stat-value" id="stat-today-appointments">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card green">
-                        <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
-                        <div class="stat-content">
-                            <div class="stat-label">Doanh thu Tháng</div>
-                            <div class="stat-value" id="stat-month-revenue">0đ</div>
-                        </div>
-                    </div>
-                    <div class="stat-card orange">
-                        <div class="stat-icon"><i class="fas fa-users"></i></div>
-                        <div class="stat-content">
-                            <div class="stat-label">Nhân viên có ca</div>
-                            <div class="stat-value" id="stat-working-staff">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card purple">
-                        <div class="stat-icon"><i class="fas fa-user-friends"></i></div>
-                        <div class="stat-content">
-                            <div class="stat-label">Tổng khách hàng</div>
-                            <div class="stat-value" id="stat-total-customers">0</div>
-                        </div>
-                    </div>
+
+        <!-- Bộ lọc khoảng ngày dùng chung cho KPI và biểu đồ -->
+        <div class="panel dashboard-range" role="search" aria-label="Khoảng thời gian báo cáo">
+            <div class="range-controls">
+                <label for="dash-range-preset">Khoảng thời gian</label>
+                <select id="dash-range-preset">
+                    <option value="today">Hôm nay</option>
+                    <option value="7">7 ngày gần nhất</option>
+                    <option value="30" selected>30 ngày gần nhất</option>
+                    <option value="month">Tháng này</option>
+                    <option value="custom">Tùy chọn…</option>
+                </select>
+                <div class="range-custom" id="dash-range-custom" hidden>
+                    <label for="dash-from">Từ ngày</label>
+                    <input type="date" id="dash-from">
+                    <label for="dash-to">Đến ngày</label>
+                    <input type="date" id="dash-to">
+                    <button type="button" class="btn btn-primary" id="dash-range-apply">Áp dụng</button>
                 </div>
             </div>
+            <p class="range-label" id="dash-range-label" aria-live="polite"></p>
+        </div>
 
-            <!-- Quick Actions Panel -->
-            <div class="panel quick-actions-panel">
-                <div class="section-header">
-                    <h3><i class="fas fa-bolt d-none"></i> Hành động Nhanh</h3>
-                </div>
-                <div class="quick-actions grid-4-col">
-                    <a href="/admin/appointments" class="action-btn">
-                        <i class="fas fa-calendar-plus"></i>
-                        <span>Đặt lịch hẹn</span>
-                    </a>
-                    <a href="/admin/invoices" class="action-btn">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                        <span>Hóa đơn</span>
-                    </a>
-                    <a href="/admin/chat" class="action-btn">
-                        <i class="fas fa-comments"></i>
-                        <span>Tin nhắn</span>
-                    </a>
-                    <a href="/admin/services" class="action-btn">
-                        <i class="fas fa-spa"></i>
-                        <span>Dịch vụ</span>
-                    </a>
-                </div>
+        <div class="kpi-grid" id="dash-kpis">
+            <div class="kpi-card kpi-primary">
+                <span class="kpi-label">Tổng thực thu</span>
+                <strong class="kpi-value" id="kpi-revenue-total">0₫</strong>
+                <span class="kpi-sub">Dịch vụ <b id="kpi-revenue-service">0₫</b> · Bán gói <b id="kpi-revenue-package">0₫</b></span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Giá trị TB / giao dịch</span>
+                <strong class="kpi-value" id="kpi-aov">0₫</strong>
+                <span class="kpi-sub"><b id="kpi-transactions">0</b> giao dịch đã thu</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Lịch hẹn</span>
+                <strong class="kpi-value" id="kpi-appointments">0</strong>
+                <span class="kpi-sub"><b id="kpi-completed">0</b> đã hoàn thành</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Lịch hủy</span>
+                <strong class="kpi-value" id="kpi-cancelled">0</strong>
+                <span class="kpi-sub">Tỷ lệ hủy <b id="kpi-cancel-rate">0%</b></span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Khách hàng mới</span>
+                <strong class="kpi-value" id="kpi-new-customers">0</strong>
+                <span class="kpi-sub">Tổng <b id="stat-total-customers">0</b> khách</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Hôm nay</span>
+                <strong class="kpi-value"><span id="stat-today-appointments">0</span> lịch</strong>
+                <span class="kpi-sub"><b id="stat-working-staff">0</b> nhân viên có ca</span>
             </div>
         </div>
 
-        <!-- Charts Section (Analytics) -->
-        <div class="content-row" style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 25px;">
-            <div class="panel" style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0; font-size: 16px;"><i class="fas fa-chart-line" style="color: #C9A961;"></i> Biểu đồ Doanh thu</h3>
-                    <div>
-                        <select id="revenue-group-select" class="form-select form-select-sm" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;" onchange="loadRevenueChart(this.value)">
-                            <option value="day">Theo ngày (30 ngày)</option>
-                            <option value="month">Theo tháng</option>
-                        </select>
-                    </div>
-                </div>
-                <div style="position: relative; height: 260px;">
-                    <canvas id="revenueTimeseriesChart"></canvas>
-                </div>
+        <div class="panel ai-summary-panel" id="ai-summary-panel" hidden>
+            <div class="section-header">
+                <h3><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Tóm tắt kinh doanh AI</h3>
+                <button type="button" class="btn btn-primary" id="ai-summary-btn">Tạo tóm tắt cho khoảng đang xem</button>
             </div>
-            <div class="panel" style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <div class="section-header" style="margin-bottom: 15px;">
-                    <h3 style="margin: 0; font-size: 16px;"><i class="fas fa-chart-pie" style="color: #4a7c59;"></i> Trạng thái Lịch hẹn</h3>
+            <div id="ai-summary-body" aria-live="polite">
+                <p class="ai-summary-hint">Số liệu (FACTS) do hệ thống tính; AI chỉ viết nhận xét và gợi ý. Câu có số không nằm trong dữ liệu sẽ tự bị loại.</p>
+            </div>
+        </div>
+
+        <div class="analytics-row">
+            <div class="panel chart-panel chart-panel-wide">
+                <div class="section-header">
+                    <h3><i class="fas fa-chart-line" aria-hidden="true"></i> Thực thu theo thời gian</h3>
+                    <select id="revenue-group-select" aria-label="Nhóm theo">
+                        <option value="day">Theo ngày</option>
+                        <option value="month">Theo tháng</option>
+                    </select>
                 </div>
-                <div style="position: relative; height: 260px; display: flex; align-items: center; justify-content: center;">
-                    <canvas id="appointmentStatsChart"></canvas>
+                <div class="chart-box"><canvas id="revenueTimeseriesChart" aria-label="Biểu đồ thực thu dịch vụ, bán gói và tổng" role="img"></canvas></div>
+            </div>
+            <div class="panel chart-panel">
+                <div class="section-header">
+                    <h3><i class="fas fa-chart-pie" aria-hidden="true"></i> Cơ cấu dịch vụ được đặt</h3>
                 </div>
+                <div class="chart-box"><canvas id="serviceMixChart" aria-label="Biểu đồ cơ cấu dịch vụ" role="img"></canvas></div>
+                <ol class="top-services" id="top-services-list"></ol>
+            </div>
+            <div class="panel chart-panel">
+                <div class="section-header">
+                    <h3><i class="fas fa-calendar-check" aria-hidden="true"></i> Trạng thái lịch hẹn</h3>
+                </div>
+                <div class="chart-box"><canvas id="appointmentStatsChart" aria-label="Biểu đồ trạng thái lịch hẹn" role="img"></canvas></div>
+            </div>
+        </div>
+
+        <div class="panel quick-actions-panel">
+            <div class="section-header">
+                <h3><i class="fas fa-bolt" aria-hidden="true"></i> Hành động nhanh</h3>
+            </div>
+            <div class="quick-actions grid-4-col">
+                <a href="/admin/appointments" class="action-btn"><i class="fas fa-calendar-plus" aria-hidden="true"></i><span>Lịch hẹn</span></a>
+                <a href="/admin/invoices" class="action-btn"><i class="fas fa-file-invoice-dollar" aria-hidden="true"></i><span>Hóa đơn</span></a>
+                <a href="/admin/package-sales" class="action-btn"><i class="fas fa-box-open" aria-hidden="true"></i><span>Bán gói</span></a>
+                <a href="/admin/chat" class="action-btn"><i class="fas fa-comments" aria-hidden="true"></i><span>Tin nhắn</span></a>
             </div>
         </div>
 
         <!-- Appointments Table - Full Width -->
         <div class="panel table-section">
             <div class="section-header">
-                <h3><i class="fas fa-calendar-alt d-none"></i> Lịch hẹn hôm nay</h3>
+                <h3><i class="fas fa-calendar-alt" aria-hidden="true"></i> Lịch hẹn hôm nay</h3>
                 <a href="/admin/appointments" class="view-all-link">Xem tất cả <i class="fas fa-arrow-right"></i></a>
             </div>
-            <div style="overflow-x: auto;">
+            <div class="table-scroll">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th class="d-none">Mã</th>
                             <th>Giờ</th>
                             <th>Khách hàng</th>
                             <th>Dịch vụ</th>
                             <th>Nhân viên</th>
                             <th>Trạng thái</th>
-                            <th class="d-none">Hành động</th>
                         </tr>
                     </thead>
                     <tbody id="admin-appointments-table">
-                        <tr><td colspan="7" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
+                        <tr><td colspan="5" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
-    
+
     <div id="letan-dashboard" style="display: none;">
         <div class="stats-grid">
             <div class="stat-card purple">
@@ -183,7 +193,7 @@
                                 <th>Dịch vụ</th>
                                 <th>Nhân viên</th>
                                 <th>Trạng thái</th>
-                                <th class="d-none">Hành động</th>
+                                <th>Thao tác</th>
                             </tr>
                         </thead>
                         <tbody id="letan-appointments-table">
@@ -241,7 +251,7 @@
                                 <th>Khách hàng</th>
                                 <th>Dịch vụ</th>
                                 <th>Trạng thái</th>
-                                <th class= "d-none">Hành động</th>
+                                <th>Thao tác</th>
                             </tr>
                         </thead>
                         <tbody id="staff-appointments-table">
@@ -256,5 +266,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/admin/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin/dashboard.js', v='2.0') }}"></script>
 {% endblock %}

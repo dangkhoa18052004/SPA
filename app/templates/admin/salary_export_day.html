@@ -25,6 +25,7 @@
                 <th>Họ tên</th>
                 <th>Chức vụ</th>
                 <th>Lương ca (gốc)</th>
+                <th>Hoa hồng</th>
                 <th>Thưởng ca</th>
                 <th>Khấu trừ ca</th>
                 <th>Tổng nhận (ca)</th>
@@ -36,6 +37,7 @@
                 <td>{{ item.hoten }}</td>
                 <td>{{ item.chucvu }}</td>
                 <td>{{ item.luong_ca | currency }}</td>
+                <td class="bonus">+ {{ item.hoahong | currency }}</td>
                 <td class="bonus">+ {{ item.thuong_ca | currency }}</td>
                 <td class="deduction">- {{ item.khautru_ca | currency }}</td>
                 <td><strong>{{ item.tong_ngay | currency }}</strong></td>
@@ -44,7 +46,7 @@
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="5" style="text-align: right;">TỔNG CỘNG PHẢI TRẢ (CHO NGÀY NÀY):</td>
+                <td colspan="6" style="text-align: right;">TỔNG CỘNG PHẢI TRẢ (CHO NGÀY NÀY):</td>
                 <td style="font-size: 1.1em;"><strong>{{ grand_total | currency }}</strong></td>
             </tr>
         </tfoot>

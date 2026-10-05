@@ -180,6 +180,16 @@ def get_my_reviews(customer_id):
     return {"success": True, "reviews": results}
 
 
+def rating_summary(manv_ids=None):
+    """{manv: {"average": float, "count": int}} cho các nhân viên có đánh giá (chỉ số tổng hợp, không lộ nội dung)."""
+    query = db.session.query(DanhGia.manv, func.avg(DanhGia.rating), func.count(DanhGia.madg)).filter(
+        DanhGia.manv.isnot(None))
+    if manv_ids is not None:
+        query = query.filter(DanhGia.manv.in_(list(manv_ids)))
+    return {manv: {"average": round(float(avg), 1), "count": int(count)}
+            for manv, avg, count in query.group_by(DanhGia.manv).all()}
+
+
 def get_staff_reviews(manv):
     """Lấy danh sách đánh giá và điểm trung bình của một nhân viên kỹ thuật."""
     staff = NhanVien.query.get(manv)

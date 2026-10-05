@@ -45,6 +45,9 @@ class LoyaltyConfig(db.Model):
     redeem_on_service_invoice = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
     redeem_on_package_purchase = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
     points_expiry_months = db.Column(db.Integer, nullable=True)
+    # Hạng thành viên: [{code, name, min_points}] tăng dần; NULL = dùng mặc định trong loyalty_tier_service.
+    tier_thresholds = db.Column(db.JSON, nullable=True)
+    tier_count_adjustments = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     __table_args__ = (db.CheckConstraint('id = 1 AND earn_amount_unit > 0 AND earn_points >= 0 AND point_value > 0 AND minimum_redeem_points > 0 AND maximum_redeem_percent >= 0 AND maximum_redeem_percent <= 100 AND points_expiry_months IS NULL', name='ck_loyalty_config'),)
 
 

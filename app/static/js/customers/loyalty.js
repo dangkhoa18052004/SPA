@@ -26,6 +26,17 @@
         filters:{rewards:{search:'',reward_type:'',affordable_only:''},mine:{status:groups[params.get('loyalty_status')]?params.get('loyalty_status'):'usable',reward_type:'',search:''}}
     };
     const el=id=>document.getElementById(id);
+    // Hạng xét theo điểm tích từ thanh toán; đổi điểm không làm giảm tiến độ.
+    const tierCard=t=>{
+        if(!t)return '';
+        const next=t.next_tier;
+        const pctValue=Math.round(Number(t.progress_percent)||0);
+        return `<div class="loyalty-card loyalty-tier-card"><span>Hạng thành viên</span><strong>${esc(t.tier.name)}</strong>`+
+            (next?`<div class="loyalty-tier-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctValue}" aria-label="Tiến độ lên hạng ${esc(next.name)}"><span style="width:${pctValue}%"></span></div>`+
+                `<small>Còn ${esc(t.points_to_next)} điểm tích lũy để lên hạng ${esc(next.name)}</small>`
+                :'<small>Bạn đang ở hạng cao nhất</small>')+
+            `<small class="loyalty-tier-note">${esc(t.qualifying_points)} điểm xét hạng · đổi thưởng không làm giảm hạng</small></div>`;
+    };
     const notify=text=>{const m=el('customerLoyaltyMessage');if(m)m.textContent=text;};
     // sessionStorage can be unavailable (private mode); retry protection then lasts for this page only.
     let memoryPending=null;
@@ -211,7 +222,7 @@
             const [me,data]=await Promise.all([api('/api/loyalty/me'),api(endpoint+'?'+query())]);
             if(token!==state.version)return;
             state.balance=me.wallet;
-            el('loyaltyBalance').innerHTML=Object.entries(walletLabels).map(([k,label])=>`<div class="loyalty-card"><span>${label}</span><strong>${esc(state.balance[k])}</strong></div>`).join('');
+            el('loyaltyBalance').innerHTML=tierCard(me.tier)+Object.entries(walletLabels).map(([k,label])=>`<div class="loyalty-card"><span>${label}</span><strong>${esc(state.balance[k])}</strong></div>`).join('');
             const filtered=Object.entries(state.filters[state.view]||{}).some(([k,v])=>k!=='status'&&v);
             if(state.view==='history')list.innerHTML=`<ul class="loyalty-history">${data.items.map(t=>`<li><strong>${t.points_delta>0?'+':''}${t.points_delta} điểm</strong><p>${esc(t.description)}</p><small>${date(t.created_at)}</small></li>`).join('')||'<li>Bạn chưa có lịch sử điểm.</li>'}</ul>`;
             if(state.view==='rewards'){

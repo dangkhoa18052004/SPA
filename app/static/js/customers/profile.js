@@ -36,12 +36,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     initAvatarUpload();
     initForms();
     
-    if (window.location.hash === '#appointments') {
-        switchSection('appointments');
-    }
-    if (window.location.hash === '#treatments') switchSection('treatments');
-    if (window.location.hash === '#reviews') switchSection('reviews');
-    if (window.location.hash === '#loyalty') switchSection('loyalty');
+    // Link trực tiếp (#treatments, #loyalty, ...) mở đúng tab; mặc định là Lịch hẹn.
+    const initialSection = location.hash.slice(1);
+    switchSection(initialSection && document.getElementById(`${initialSection}-section`) ? initialSection : 'appointments');
 
     await initializeProfilePage();
     const reviewId = Number(new URLSearchParams(location.search).get('review'));
@@ -164,14 +161,20 @@ function initMenuLinks() {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             
-            menuLinks.forEach(l => l.classList.remove('active'));
-            this.classList.add('active');
-            
             const sectionName = this.getAttribute('data-section');
             switchSection(sectionName);
         });
     });
+    document.querySelectorAll('[data-goto-section]').forEach(link => {
+        link.addEventListener('click', e => {
+            e.preventDefault();
+            switchSection(link.dataset.gotoSection);
+        });
+    });
 }
+
+// Chỉnh sửa thông tin / đổi mật khẩu thuộc nhóm Tài khoản trên menu.
+const SECTION_MENU = { edit: 'info', password: 'info' };
 
 function switchSection(sectionName) {
     document.querySelectorAll('.profile-section').forEach(section => {
@@ -180,12 +183,21 @@ function switchSection(sectionName) {
     
     document.getElementById(`${sectionName}-section`).classList.add('active');
     
+    const menuSection = SECTION_MENU[sectionName] || sectionName;
     document.querySelectorAll('.menu-link').forEach(link => {
-        link.classList.remove('active');
-        if (link.getAttribute('data-section') === sectionName) {
-            link.classList.add('active');
+        const isActive = link.getAttribute('data-section') === menuSection;
+        link.classList.toggle('active', isActive);
+        if (isActive) {
+            link.setAttribute('aria-current', 'page');
+            // Mobile: tab hiện hành luôn nằm trong vùng nhìn của thanh tab kéo ngang.
+            link.scrollIntoView?.({ block: 'nearest', inline: 'center' });
+        } else {
+            link.removeAttribute('aria-current');
         }
     });
+    if (location.hash !== `#${sectionName}`) {
+        history.replaceState(null, '', `${location.pathname}${location.search}#${sectionName}`);
+    }
     
     // Load data khi chuyển section
     if (sectionName === 'appointments') {
@@ -350,7 +362,10 @@ async function loadUserAppointments() {
     }
 }
 
+let myAppointments = [];
+
 function displayAppointments(appointments) {
+    myAppointments = appointments;
     const list = document.getElementById('appointmentsList');
     
     if (appointments.length === 0) {
@@ -359,15 +374,19 @@ function displayAppointments(appointments) {
     }
     
     list.innerHTML = appointments.map(apt => {
-        // Xác định trạng thái hiển thị
+        // Nhãn tiếng Việt lấy từ server (AppointmentStatus.VI_MAP) để admin và hồ sơ dùng chung.
         const statusMap = {
             'pending': { text: 'Chờ xác nhận', class: 'status-pending' },
             'confirmed': { text: 'Đã xác nhận', class: 'status-confirmed' },
-            'completed': { text: 'Hoàn thành', class: 'status-completed' },
+            'in_progress': { text: 'Đang thực hiện', class: 'status-in-progress' },
+            'completed': { text: 'Đã hoàn thành', class: 'status-completed' },
             'cancelled': { text: 'Đã hủy', class: 'status-cancelled' }
         };
-        
-        const status = statusMap[apt.trangthai] || { text: apt.trangthai, class: 'status-pending' };
+        const known = statusMap[apt.trangthai];
+        const status = {
+            text: apt.trangthai_vi && apt.trangthai_vi !== apt.trangthai ? apt.trangthai_vi : (known ? known.text : 'Không xác định'),
+            class: known ? known.class : 'status-pending'
+        };
         
         return `
             <li class="appointment-item">
@@ -380,14 +399,23 @@ function displayAppointments(appointments) {
                 <div class="appointment-details">
                     <p><i class="fas fa-calendar"></i> ${formatDate(apt.ngaygio)}</p>
                     <p><i class="fas fa-user"></i> ${apt.nhanvien || 'Chưa phân công'}</p>
-                    ${apt.ghichu ? `<p><i class="fas fa-sticky-note"></i> ${apt.ghichu}</p>` : ''}
+                    ${apt.ghichu ? `<p><i class="fas fa-sticky-note" aria-hidden="true"></i> ${escapeProfileHtml(apt.ghichu)}</p>` : ''}
+                    ${apt.last_service_change_at || apt.checked_in_at ? `<p class="appointment-events">
+                        ${apt.last_service_change_at ? `<span><i class="fas fa-exchange-alt" aria-hidden="true"></i> Đã đổi dịch vụ lúc ${escapeProfileHtml(apt.last_service_change_at)}</span>` : ''}
+                        ${apt.checked_in_at ? `<span><i class="fas fa-user-check" aria-hidden="true"></i> Check-in lúc ${escapeProfileHtml(apt.checked_in_at)}</span>` : ''}
+                    </p>` : ''}
                 </div>
-                <div class="appointment-actions" style="margin-top: 15px; display: flex; gap: 10px;">
-                    ${apt.trangthai === 'confirmed' || apt.trangthai === 'pending' ? `
-                        <button class="btn btn-outline" style="padding: 8px 15px; font-size: 14px;" onclick="cancelAppointment(${apt.malh})">
-                            <i class="fas fa-times"></i> Hủy lịch
-                        </button>
-                    ` : ''}
+                <div class="appointment-actions" style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;">
+                    ${apt.can_change_services ? `
+                        <button type="button" class="btn btn-primary" style="padding: 8px 15px; font-size: 14px;" onclick="openChangeServices(${apt.malh})">
+                            <i class="fas fa-exchange-alt" aria-hidden="true"></i> Đổi dịch vụ
+                        </button>` : ''}
+                    ${apt.can_cancel ? `
+                        <button type="button" class="btn btn-outline" style="padding: 8px 15px; font-size: 14px;" onclick="cancelAppointment(${apt.malh})">
+                            <i class="fas fa-times" aria-hidden="true"></i> Hủy lịch
+                        </button>` : ''}
+                    ${!apt.can_cancel && ['pending', 'confirmed'].includes(apt.trangthai) ? `
+                        <p class="appointment-hint">Đã đến giờ hẹn. Nếu bạn không đến trong 30 phút, lịch sẽ tự động hủy và hoàn lại buổi gói (nếu có).</p>` : ''}
                     ${apt.trangthai === 'completed' ? (window.ReviewUI?.appointmentActions(apt.malh) || '') : ''}
                 </div>
             </li>
@@ -420,16 +448,60 @@ async function cancelAppointment(id) {
         const data = await response.json();
         
         if (data.success) {
-            showAlert('success', 'Hủy lịch hẹn thành công!');
+            showAlert('success', 'Hủy lịch hẹn thành công! Buổi gói đã giữ (nếu có) được hoàn lại.');
             loadUserAppointments();
         } else {
-            showAlert('error', data.msg || 'Không thể hủy lịch hẹn!');
+            // API trả lý do ở "message"; hiện đúng lý do thay vì câu chung chung.
+            showAlert('error', data.message || data.msg || 'Không thể hủy lịch hẹn!');
         }
     } catch (error) {
         console.error('Cancel error:', error);
         showAlert('error', 'Có lỗi xảy ra!');
     }
 }
+
+// ==================== ĐỔI DỊCH VỤ (trước giờ hẹn) ====================
+function escapeProfileHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+async function openChangeServices(malh) {
+    const apt = myAppointments.find(a => a.malh === malh);
+    if (!apt || !window.ChangeServicesDialog) return;
+    try {
+        const [servicesRes, treatmentsRes] = await Promise.all([
+            customerAuthFetch('/api/services', { headers: getAuthHeaders(false) }).then(r => r.json()),
+            customerAuthFetch('/api/packages/my-treatments', { headers: getAuthHeaders(false) })
+                .then(r => r.ok ? r.json() : { treatments: [] }).catch(() => ({ treatments: [] })),
+        ]);
+        const current = new Map((apt.services || []).map(s => [s.madv, { package: s.package, label: 'Đang dùng buổi gói' }]));
+        const day = apt.ngaygio.slice(0, 10);
+        // Lượt gói còn dùng được vào ngày hẹn, cho dịch vụ thêm mới.
+        const packageOptions = madv => (treatmentsRes.treatments || []).flatMap(t => t.status === 'cancelled' ? [] :
+            t.items.filter(i => i.madv === madv && i.usable !== false && i.available_sessions > 0
+                && (!i.effective_expires_at || i.effective_expires_at.slice(0, 10) >= day)
+                && (!i.valid_from || i.valid_from.slice(0, 10) <= day))
+                .map(i => ({ value: `${t.mathe}:${i.id}`, label: `${i.source_type === 'gift' ? 'Quà tặng' : 'Dùng buổi gói'}: ${t.tengoi} — còn ${i.available_sessions} buổi` })));
+        const services = (servicesRes.services || []).filter(s => s.active !== false || current.has(s.madv));
+        window.ChangeServicesDialog.open({
+            title: 'Đổi dịch vụ',
+            subtitle: `Lịch #${malh} · ${escapeProfileHtml(formatDate(apt.ngaygio))} · giữ nguyên giờ hẹn và kỹ thuật viên. Dịch vụ bỏ đi sẽ được hoàn buổi gói.`,
+            services, current, packageOptions, startAt: apt.ngaygio,
+            submit: async (madv_list, package_usages) => {
+                const response = await customerAuthFetch(`/api/appointments/${malh}/services`, {
+                    method: 'PUT', headers: getAuthHeaders(true), body: JSON.stringify({ madv_list, package_usages }),
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.message || 'Không thể đổi dịch vụ');
+                showAlert('success', `Đã đổi dịch vụ. Dự kiến kết thúc lúc ${data.end_time}.`);
+                loadUserAppointments();
+            },
+        });
+    } catch (error) {
+        showAlert('error', 'Không tải được danh sách dịch vụ. Vui lòng thử lại.');
+    }
+}
+window.openChangeServices = openChangeServices;
 
 // ==================== LOAD INVOICES ====================
 async function loadUserInvoices() {

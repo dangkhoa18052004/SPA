@@ -56,6 +56,7 @@ with app.app_context():
     package_service.create_purchase(package.magoi,customer.makh,'cash')
     db.session.commit()
     customer_id, service_id, package_id, record_id=customer.makh,service.madv,package.magoi,record.mathe
+    item_id=record.items[0].id  # option value của select liệu trình là the_item_id
     customer_token=create_access_token(identity=f'customer:{customer.makh}')
     admin_token=create_access_token(identity=f'staff:{admin.manv}')
     infinite_id=infinite.magoi
@@ -156,12 +157,14 @@ try:
                 browser.screenshot(f'{width}-admin-treatments.png')
         browser.navigate('/appointments/create')
         browser.wait("document.querySelector('[data-service-id]')")
-        browser.evaluate(f"toggleServiceSelection({service_id});document.querySelector('#appointmentDate').value='{day}';document.querySelector('#appointmentTime').value='09:00';refreshBookingSummary();")
+        browser.evaluate(f"toggleServiceSelection({service_id});document.querySelector('#appointmentDate').value='{day}';loadTimeSlots();")
+        browser.wait("document.querySelector('#appointmentTime option[value=\"09:00\"]:not([disabled])')")
+        browser.evaluate("document.querySelector('#appointmentTime').value='09:00';refreshBookingSummary();")
         browser.wait("document.querySelector('[data-treatment-service]')")
-        browser.evaluate(f"const s=document.querySelector('[data-treatment-service]');s.value='{record_id}';s.dispatchEvent(new Event('change'));")
+        browser.evaluate(f"const s=document.querySelector('[data-treatment-service]');s.value='{item_id}';s.dispatchEvent(new Event('change'));")
         browser.wait("PackageCare.getUsages().length===1")
         booking=browser.evaluate("({usages:PackageCare.getUsages(),total:document.querySelector('#summaryTotal').textContent,errors:window.__uiErrors,overflow:document.querySelector('#bookingTreatments').getBoundingClientRect().right>innerWidth})")
-        assert booking['usages']==[dict(mathe=record_id,madv=service_id,quantity=1)] and not booking['errors'] and not booking['overflow'],booking
+        assert booking['usages']==[dict(mathe=record_id,the_item_id=item_id,madv=service_id,quantity=1)] and not booking['errors'] and not booking['overflow'],booking
         assert not any(c in booking['total'] for c in '123456789'),booking
         results.append(dict(width=width,page='/appointments/create',**booking))
         print(f'PASS responsive {width}px',flush=True)
@@ -176,9 +179,11 @@ try:
     assert browser.evaluate("document.querySelector('#packagePayment').textContent.includes('Chuyển đúng')")
     for action in ['cancel','complete']:
         browser.navigate('/appointments/create');browser.wait("document.querySelector('[data-service-id]')")
-        browser.evaluate(f"toggleServiceSelection({service_id});document.querySelector('#appointmentDate').value='{day}';document.querySelector('#appointmentTime').value='09:00';refreshBookingSummary();")
+        browser.evaluate(f"toggleServiceSelection({service_id});document.querySelector('#appointmentDate').value='{day}';loadTimeSlots();")
+        browser.wait("document.querySelector('#appointmentTime option[value=\"09:00\"]:not([disabled])')")
+        browser.evaluate("document.querySelector('#appointmentTime').value='09:00';refreshBookingSummary();")
         browser.wait("document.querySelector('[data-treatment-service]')")
-        browser.evaluate(f"const s=document.querySelector('[data-treatment-service]');s.value='{record_id}';s.dispatchEvent(new Event('change'));document.querySelector('#appointmentForm').dispatchEvent(new Event('submit',{{bubbles:true,cancelable:true}}));")
+        browser.evaluate(f"const s=document.querySelector('[data-treatment-service]');s.value='{item_id}';s.dispatchEvent(new Event('change'));document.querySelector('#appointmentForm').dispatchEvent(new Event('submit',{{bubbles:true,cancelable:true}}));")
         clock.sleep(2.5)
         with app.app_context():
             apt=LichHen.query.order_by(LichHen.malh.desc()).first()
@@ -193,7 +198,7 @@ try:
             assert LieuTrinhUsage.query.filter_by(malh=appointment_id,state='released' if action=='cancel' else 'consumed').count()==1
         browser.navigate('/profile#treatments');browser.wait("document.querySelector('[data-history]')")
         if action=='complete':
-            browser.navigate(f'/profile?review={appointment_id}#appointments');browser.wait("document.querySelector('#reviewModalDynamic')")
+            browser.navigate(f'/profile?review={appointment_id}#appointments');browser.wait("document.querySelector('#spaReviewDialog[open]')")
             assert not browser.evaluate('window.__uiErrors')
     # Actual admin form upload + unlimited validity, on the isolated database.
     browser.navigate('/admin/packages/new');browser.wait("document.querySelector('#packageItems .package-item')")

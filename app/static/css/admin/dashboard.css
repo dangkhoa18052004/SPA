@@ -254,3 +254,183 @@
         font-size: var(--font-xl);
     }
 }
+/* ========== DASHBOARD: KHOẢNG NGÀY + KPI + BIỂU ĐỒ ========== */
+.dashboard-range {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.range-controls,
+.range-custom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.range-controls label {
+    font-size: var(--font-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-secondary);
+}
+
+.range-controls select,
+.range-controls input[type="date"],
+.chart-panel .section-header select {
+    min-height: var(--input-height);
+    padding: 0 var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    font-size: var(--font-md);
+}
+
+.range-custom[hidden] { display: none; }
+
+.range-label {
+    margin: 0;
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.kpi-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.kpi-card.kpi-primary { border-left: 4px solid var(--accent-color); }
+
+.kpi-label {
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+    font-weight: var(--font-medium);
+}
+
+.kpi-value {
+    font-size: var(--font-2xl);
+    line-height: 1.2;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.kpi-sub {
+    font-size: var(--font-xs);
+    color: var(--text-secondary);
+}
+
+.analytics-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+@media (min-width: 1100px) {
+    .analytics-row { grid-template-columns: 2fr 1fr 1fr; }
+}
+
+@media (min-width: 769px) and (max-width: 1099px) {
+    .analytics-row { grid-template-columns: 1fr 1fr; }
+    .chart-panel-wide { grid-column: 1 / -1; }
+}
+
+/* min-width: 0 cho phép canvas co lại thay vì đẩy rộng viewport */
+.chart-panel { min-width: 0; }
+
+.chart-panel .section-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.chart-panel .section-header h3 { font-size: var(--font-lg); }
+
+.chart-box {
+    position: relative;
+    height: 240px;
+    width: 100%;
+}
+
+.top-services {
+    list-style: none;
+    margin: var(--spacing-sm) 0 0;
+    padding: 0;
+    font-size: var(--font-sm);
+}
+
+.top-services li {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 4px 0;
+}
+
+.top-services .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.top-services .name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.top-services .count { color: var(--text-secondary); }
+.top-services .empty { color: var(--text-secondary); }
+
+.quick-actions-panel { margin-bottom: var(--spacing-lg); }
+
+.table-scroll { overflow-x: auto; }
+
+@media (min-width: 769px) {
+    .quick-actions.grid-4-col { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 768px) {
+    .dashboard-range { padding: var(--spacing-md); }
+    .range-controls,
+    .range-custom { width: 100%; }
+    .range-controls select,
+    .range-custom input[type="date"] { flex: 1 1 140px; }
+    .range-custom .btn { width: 100%; min-height: 44px; }
+    .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-sm); }
+    .kpi-value { font-size: var(--font-xl); }
+    .chart-box { height: 220px; }
+    .quick-actions.grid-4-col { grid-template-columns: repeat(2, 1fr); }
+    .action-btn { min-height: 72px; }
+}
+
+/* Tóm tắt kinh doanh AI */
+.ai-summary-panel { margin-bottom: var(--spacing-lg); }
+.ai-summary-panel[hidden] { display: none; }
+.ai-summary-panel .section-header { flex-direction: row; flex-wrap: wrap; gap: var(--spacing-sm); }
+.ai-summary-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg); }
+.ai-summary-cols h4 { margin: 0 0 var(--spacing-xs); font-size: var(--font-md); }
+.ai-summary-cols ul { margin: 0; padding-left: 18px; line-height: 1.6; list-style: disc; }
+.ai-summary-cols section:last-child { background: var(--bg-hover); border-radius: var(--radius-md); padding: var(--spacing-md); }
+.ai-summary-hint, .ai-summary-range { color: var(--text-secondary); font-size: var(--font-sm); }
+@media (max-width: 768px) { .ai-summary-cols { grid-template-columns: 1fr; } }

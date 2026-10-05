@@ -13,6 +13,7 @@ from ..models import (
     DichVu,
     NhanVien,
     ChiTietLichHen,
+    LieuTrinhUsage,
     AppointmentStatus,
 )
 from ..services import appointment_service
@@ -107,6 +108,19 @@ def create_appointment():
         return jsonify({"success": False, "message": "Đặt lịch thất bại. Vui lòng thử lại!"}), 500
 
 
+def _customer_notes(ghichu):
+    """Khách chỉ thấy ghi chú của mình + lần đổi dịch vụ/check-in gần nhất (không bao gồm "bởi" nhân viên)."""
+    note, events = appointment_service.split_notes(ghichu)
+    change = events.get('Đổi dịch vụ')
+    checkin = events.get('Check-in')
+    return {
+        "ghichu": note,
+        "last_service_change_at": change['at'] if change else None,
+        "checked_in_at": checkin['at'] if checkin else None,
+        "auto_cancelled_at": events.get('Tự động hủy', {}).get('at'),
+    }
+
+
 @appointment_bp.route("/my-appointments", methods=["GET"])
 @jwt_required()
 def get_my_appointments():
@@ -141,14 +155,22 @@ def get_my_appointments():
                     if staff:
                         staff_name = staff.hoten
 
+            covered = {u.madv for u in LieuTrinhUsage.query.filter(
+                LieuTrinhUsage.malh == apt.malh, LieuTrinhUsage.state.in_(('reserved', 'consumed'))).all()}
+            editable = appointment_service.customer_can_modify(apt)
             result.append({
                 "malh": apt.malh,
                 "ngaygio": apt.ngaygio.isoformat(),
                 "dichvu": ", ".join(services) if services else "Không có dịch vụ",
+                "services": [dict(madv=d.madv, tendv=d.dichvu.tendv, gia=str(d.dichvu.gia),
+                                  thoiluong=d.dichvu.thoiluong, package=d.madv in covered)
+                             for d in apt.chitiet if d.dichvu],
+                "can_cancel": editable,
+                "can_change_services": editable,
                 "nhanvien": staff_name,
                 "trangthai": apt.trangthai,
                 "trangthai_vi": AppointmentStatus.to_vietnamese(apt.trangthai),
-                "ghichu": apt.ghichu or "",
+                **_customer_notes(apt.ghichu),
             })
 
         return jsonify({"success": True, "appointments": result}), 200
@@ -197,19 +219,55 @@ def cancel_my_appointment(malh):
         return jsonify({"success": False, "message": "Hủy lịch hẹn thất bại"}), 500
 
 
+@appointment_bp.route("/<int:malh>/services", methods=["PUT"])
+@jwt_required()
+def change_my_appointment_services(malh):
+    """Khách đổi dịch vụ của lịch hẹn trước giờ hẹn."""
+    user_id, role = _parse_jwt_user_id(get_jwt_identity())
+    if not user_id or (role or "customer") != "customer":
+        return jsonify({"success": False, "message": "Chỉ khách hàng dùng chức năng này"}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        result = appointment_service.change_appointment_services(
+            malh, data.get("madv_list"), user_id=user_id, role="customer",
+            package_usages=data.get("package_usages"))
+        return jsonify(result), 200
+    except AppointmentConflictError as e:
+        return jsonify({"success": False, "message": e.message}), 409
+    except AppointmentServiceError as e:
+        return jsonify({"success": False, "message": e.message}), e.status_code
+
+
 @appointment_bp.route("/available-slots", methods=["GET"])
 def get_available_slots():
-    """Lấy danh sách các khung giờ còn trống."""
+    """
+    Khung giờ còn trống trong ngày theo tổng thời lượng dịch vụ (madv_list=1,2 hoặc madv=1).
+    suggest=1: khi ngày đã chọn hết chỗ, trả thêm các ngày/giờ gần nhất còn trống.
+    """
     date_str = request.args.get("date")
     madv = request.args.get("madv")
     manv = request.args.get("manv")
+    raw_list = request.args.get("madv_list", "")
+    madv_list = [x for x in raw_list.split(",") if x.strip().isdigit()] if raw_list else None
 
     if not date_str:
         return jsonify({"success": False, "message": "Thiếu ngày cần xem"}), 400
+    try:
+        target = datetime.strptime(date_str.strip()[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"success": False, "message": "Ngày không hợp lệ"}), 400
 
     try:
-        slots = appointment_service.get_available_slots(date_str, madv=madv, manv=manv)
-        return jsonify({"success": True, "slots": slots}), 200
+        slots = appointment_service.get_available_slots(target, madv=madv, manv=manv, madv_list=madv_list)
+        result = {
+            "success": True,
+            "date": target.isoformat(),
+            "duration_minutes": appointment_service.calculate_total_duration(madv_list or ([madv] if madv else [])),
+            "slots": slots,
+        }
+        if request.args.get("suggest") == "1" and not any(s["available"] for s in slots):
+            result["suggestions"] = appointment_service.suggest_next_slots(target, madv_list=madv_list or ([madv] if madv else None), manv=manv)
+        return jsonify(result), 200
     except Exception as e:
         current_app.logger.error(f"Lỗi lấy available slots: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Lỗi lấy danh sách khung giờ trống"}), 500

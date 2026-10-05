@@ -63,7 +63,7 @@ def _calculate_and_save_daily_salary(nhanvien, calam):
 
         # === SỬA LỖI: Đảm bảo mọi phép tính đều là Decimal ===
         luong_thang.luongcoban = (luong_thang.luongcoban or Decimal('0')) + luong_ca
-        luong_thang.tongluong = (luong_thang.luongcoban or Decimal('0')) + (luong_thang.thuong or Decimal('0')) - (luong_thang.khautru or Decimal('0'))
+        luong_thang.recompute_total()
         
         return True
         
@@ -343,7 +343,7 @@ def unassign_staff_from_shift():
                 luong_thang = Luong.query.get(maluong_thang)
                 if luong_thang:
                     luong_thang.luongcoban = (luong_thang.luongcoban or Decimal('0')) - luong_ca_bi_huy
-                    luong_thang.tongluong = (luong_thang.luongcoban or Decimal('0')) + (luong_thang.thuong or Decimal('0')) - (luong_thang.khautru or Decimal('0'))
+                    luong_thang.recompute_total()
         else:
             current_app.logger.warning(f"Không tìm thấy bản ghi lương chi tiết cho ca {maca} / nv {manv} để hoàn trả.")
 

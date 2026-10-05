@@ -85,7 +85,7 @@ def main():
             assert 'đang giữ' not in body and 'điểm giữ' not in body, (where, body)
 
         # T01/T02: wallet shows three metrics and only spendable points.
-        navigate('/profile#loyalty'); b.wait('document.querySelectorAll("#loyaltyBalance .loyalty-card").length===3')
+        navigate('/profile#loyalty'); b.wait('document.querySelectorAll("#loyaltyBalance .loyalty-card").length===4 && !!document.querySelector("#loyaltyBalance .loyalty-tier-card")')
         assert '700' in text('#loyaltyBalance') and '800' not in text('#loyaltyBalance'), text('#loyaltyBalance')
         no_reserved('#loyalty-section'); screenshot('wallet.png')
 

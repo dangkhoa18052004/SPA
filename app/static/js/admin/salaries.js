@@ -8,7 +8,8 @@ const MONTH_HEADER = `
         <th>Họ tên</th>
         <th>Tháng/Năm</th>
         <th>Tổng lương</th>
-        <th>Lương cơ bản</th>
+        <th>Lương ca</th>
+        <th>Hoa hồng</th>
         <th>Thưởng</th>
         <th>Khấu trừ</th>
         <th>Thao tác</th>
@@ -20,12 +21,17 @@ const DAY_HEADER = `
         <th>Họ tên</th>
         <th>Chức vụ</th>
         <th>Lương ca</th>
+        <th>Hoa hồng (ngày)</th>
         <th>Thưởng ca</th>
         <th>Khấu trừ ca</th>
-        <th>Tổng nhận (ca)</th>
+        <th>Tổng nhận</th>
         <th>Thao tác</th>
     </tr>
 `;
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
 
 // ====== KHỞI TẠO ======
 document.addEventListener('DOMContentLoaded', function() {
@@ -34,52 +40,57 @@ document.addEventListener('DOMContentLoaded', function() {
     const year = now.getFullYear();
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
     const day = now.getDate().toString().padStart(2, '0');
-    
+
     document.getElementById('filter-month-input').value = `${year}-${month}`;
     document.getElementById('filter-day-input').value = `${year}-${month}-${day}`;
-    
+
     applySalaryFilter();
 });
 
 // ====== ĐIỀU KHIỂN BỘ LỌC ======
+// Dùng thuộc tính hidden (không dùng style.display) để không xung đột với lớp tiện ích !important.
 function toggleFilterInputs() {
     currentFilterType = document.getElementById('filter-type').value;
-    if (currentFilterType === 'month') {
-        document.getElementById('filter-month-group').style.display = 'flex';
-        document.getElementById('filter-day-group').style.display = 'none';
-    } else {
-        document.getElementById('filter-month-group').style.display = 'none';
-        document.getElementById('filter-day-group').style.display = 'flex';
-    }
+    document.getElementById('filter-month-group').hidden = currentFilterType !== 'month';
+    document.getElementById('filter-day-group').hidden = currentFilterType !== 'day';
     applySalaryFilter();
+}
+
+function salaryFilterLabel() {
+    if (currentFilterType === 'month') {
+        const value = document.getElementById('filter-month-input').value;
+        if (!value) return 'tháng hiện tại';
+        const [y, m] = value.split('-');
+        return `tháng ${Number(m)}/${y}`;
+    }
+    const value = document.getElementById('filter-day-input').value;
+    return value ? `ngày ${value.split('-').reverse().join('/')}` : '';
 }
 
 // ====== TẢI LỊCH SỬ LƯƠNG (HÀM CHÍNH) ======
 async function applySalaryFilter() {
     try {
         showLoading(true);
-        
+
         const params = new URLSearchParams();
         params.append('filter_type', currentFilterType);
-        
+
         let shouldProceed = true;
 
         if (currentFilterType === 'month') {
             const monthYear = document.getElementById('filter-month-input').value;
-            if (monthYear) { 
-                params.append('month_year', monthYear); 
-            } else {
-                // Nếu không chọn tháng, mặc định lấy tháng hiện tại (Backend tự xử lý)
+            if (monthYear) {
+                params.append('month_year', monthYear);
             }
         } else {
             const day = document.getElementById('filter-day-input').value;
-            if (!day) { 
-                showError("Vui lòng chọn ngày"); 
-                shouldProceed = false; 
+            if (!day) {
+                showError("Vui lòng chọn ngày");
+                shouldProceed = false;
             }
             params.append('day', day);
         }
-        
+
         if (!shouldProceed) {
             showLoading(false);
             return;
@@ -88,16 +99,18 @@ async function applySalaryFilter() {
         const response = await fetch(`/api/admin/salaries?${params.toString()}`, {
             headers: getAuthHeaders(false)
         });
-        
+
         if (!response.ok) {
             const err = await response.json();
             throw new Error(err.msg || `HTTP ${response.status}`);
         }
-        
+
         allSalaries = await response.json();
         renderSalariesTable();
-        updateSalaryStats(); // <--- CẬP NHẬT THỐNG KÊ
-        
+        updateSalaryStats();
+        const summary = document.getElementById('salary-filter-summary');
+        if (summary) summary.textContent = `Đang xem lương ${salaryFilterLabel()} · ${allSalaries.length} dòng`;
+
     } catch (error) {
         console.error('Lỗi tải lương:', error);
         showError(error.message || 'Không thể tải danh sách lương');
@@ -106,31 +119,28 @@ async function applySalaryFilter() {
     }
 }
 
-// ====== CẬP NHẬT STATS TỔNG LƯƠNG (HÀM MỚI) ======
+function dayRowTotal(salary) {
+    return parseFloat(salary.luong_ca || 0) + parseFloat(salary.hoahong_ngay || 0)
+        + parseFloat(salary.thuong_ca || 0) - parseFloat(salary.khautru_ca || 0);
+}
+
+// ====== CẬP NHẬT STATS TỔNG LƯƠNG ======
 function updateSalaryStats() {
     const titleElement = document.getElementById('total-salary-title');
     const valueElement = document.getElementById('total-salary-stat');
     let total = 0;
-    
+
     if (!titleElement || !valueElement) return;
 
     if (currentFilterType === 'month') {
-        // Tổng hợp lương tháng
         titleElement.textContent = 'Tổng Lương (Tháng)';
-        // tongluong là tổng đã tính (luongcoban + thuong - khautru)
+        // tongluong = lương ca + hoa hồng + thưởng - khấu trừ (tính ở server)
         total = allSalaries.reduce((sum, salary) => sum + parseFloat(salary.tongluong || 0), 0);
     } else {
-        // Tổng hợp lương ngày
         titleElement.textContent = 'Tổng Lương (Ngày)';
-        total = allSalaries.reduce((sum, salary) => {
-            // Tổng ngày = lương ca + thưởng ca - khấu trừ ca
-            const luongCa = parseFloat(salary.luong_ca || 0);
-            const thuongCa = parseFloat(salary.thuong_ca || 0);
-            const khautruCa = parseFloat(salary.khautru_ca || 0);
-            return sum + (luongCa + thuongCa - khautruCa);
-        }, 0);
+        total = allSalaries.reduce((sum, salary) => sum + dayRowTotal(salary), 0);
     }
-    
+
     valueElement.textContent = formatCurrency(total);
 }
 
@@ -138,65 +148,111 @@ function updateSalaryStats() {
 function renderSalariesTable() {
     const thead = document.getElementById('salaries-table-head');
     const tbody = document.getElementById('salaries-table-body');
-    
+
     if (currentFilterType === 'month') {
-        // === RENDER BẢNG THÁNG ===
         thead.innerHTML = MONTH_HEADER;
         if (allSalaries.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center">Chưa có dữ liệu lương</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center">Chưa có dữ liệu lương</td></tr>';
             return;
         }
         tbody.innerHTML = allSalaries.map(salary => `
             <tr>
-                <td>${salary.hoten || 'N/A'}</td>
+                <td>${escapeHtml(salary.hoten || 'N/A')}</td>
                 <td>${salary.thang}/${salary.nam}</td>
                 <td><strong>${formatCurrency(salary.tongluong)}</strong></td>
                 <td>${formatCurrency(salary.luongcoban || 0)}</td>
+                <td>
+                    <button type="button" class="btn-link" onclick="openCommissionDetail(${salary.maluong})"
+                            aria-label="Xem chi tiết hoa hồng của ${escapeHtml(salary.hoten || '')}">
+                        ${formatCurrency(salary.hoahong || 0)}
+                    </button>
+                </td>
                 <td class="text-success">+ ${formatCurrency(salary.thuong || 0)}</td>
                 <td class="text-danger">- ${formatCurrency(salary.khautru || 0)}</td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn btn-warning btn-sm" onclick="openMonthlyAdjustModal(${salary.maluong})" title="Điều chỉnh Thưởng/Phạt (Tổng hợp tháng)">
-                            <i class="fas fa-edit"></i>
+                        <button class="btn btn-warning btn-sm" onclick="openMonthlyAdjustModal(${salary.maluong})"
+                                title="Điều chỉnh Thưởng/Phạt (Tổng hợp tháng)" aria-label="Điều chỉnh lương tháng">
+                            <i class="fas fa-edit" aria-hidden="true"></i>
                         </button>
                     </div>
                 </td>
             </tr>
         `).join('');
-        
+
     } else {
-        // === RENDER BẢNG NGÀY ===
         thead.innerHTML = DAY_HEADER;
         if (allSalaries.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center">Không có dữ liệu lương</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center">Không có dữ liệu lương</td></tr>';
             return;
         }
-        tbody.innerHTML = allSalaries.map(salary => {
-            // Tính tổng ngày
-            const luongCa = parseFloat(salary.luong_ca || 0);
-            const thuongCa = parseFloat(salary.thuong_ca || 0);
-            const khautruCa = parseFloat(salary.khautru_ca || 0);
-            const tongNgay = luongCa + thuongCa - khautruCa;
-
-            return `
+        tbody.innerHTML = allSalaries.map(salary => `
             <tr>
-                <td>${salary.hoten || 'N/A'}</td>
-                <td>${salary.chucvu || 'N/A'}</td>
-                <td>${formatCurrency(luongCa)}</td>
-                <td class="text-success">+ ${formatCurrency(thuongCa)}</td>
-                <td class="text-danger">- ${formatCurrency(khautruCa)}</td>
-                <td><strong>${formatCurrency(tongNgay)}</strong></td>
+                <td>${escapeHtml(salary.hoten || 'N/A')}</td>
+                <td>${escapeHtml(salary.chucvu || 'N/A')}</td>
+                <td>${formatCurrency(salary.luong_ca || 0)}</td>
+                <td>${formatCurrency(salary.hoahong_ngay || 0)}</td>
+                <td class="text-success">+ ${formatCurrency(salary.thuong_ca || 0)}</td>
+                <td class="text-danger">- ${formatCurrency(salary.khautru_ca || 0)}</td>
+                <td><strong>${formatCurrency(dayRowTotal(salary))}</strong></td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn btn-warning btn-sm" onclick="openDailyAdjustModal(${salary.id_chitiet})" title="Điều chỉnh Thưởng/Phạt (Ca này)">
-                            <i class="fas fa-edit"></i>
+                        <button class="btn btn-warning btn-sm" onclick="openDailyAdjustModal(${salary.id_chitiet})"
+                                title="Điều chỉnh Thưởng/Phạt (Ca này)" aria-label="Điều chỉnh ca">
+                            <i class="fas fa-edit" aria-hidden="true"></i>
                         </button>
                     </div>
                 </td>
             </tr>
-            `;
-        }).join('');
+        `).join('');
     }
+}
+
+// ====== CHI TIẾT HOA HỒNG ======
+async function openCommissionDetail(maluong) {
+    try {
+        const response = await fetch(`/api/admin/salaries/${maluong}/commissions`, { headers: getAuthHeaders(false) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.msg || 'Không tải được chi tiết hoa hồng');
+        const rows = data.entries.length
+            ? data.entries.map(e => `
+                <tr>
+                    <td>${new Date(e.earned_at).toLocaleDateString('vi-VN')}</td>
+                    <td>#${e.malh}</td>
+                    <td>${escapeHtml(e.service_name)}</td>
+                    <td>${escapeHtml(e.source_label)}</td>
+                    <td class="num">${formatCurrency(e.base_amount)}</td>
+                    <td class="num">${e.fixed_amount !== null ? 'Cố định' : (e.rate_percent !== null ? `${parseFloat(e.rate_percent)}%` : '—')}</td>
+                    <td class="num"><strong>${formatCurrency(e.amount)}</strong></td>
+                </tr>`).join('')
+            : '<tr><td colspan="7" class="text-center">Chưa có hoa hồng trong tháng</td></tr>';
+        const html = `
+            <div id="commissionModal" class="modal" style="display: flex;" role="dialog" aria-modal="true" aria-labelledby="commission-title">
+                <div class="modal-content" style="max-width: 860px;">
+                    <div class="modal-header">
+                        <h3 id="commission-title">Hoa hồng ${data.thang}/${data.nam} – ${escapeHtml(data.hoten)}</h3>
+                        <button type="button" class="close" onclick="closeCommissionDetail()" aria-label="Đóng">&times;</button>
+                    </div>
+                    <div class="modal-body" style="overflow-x: auto;">
+                        <table class="commission-table">
+                            <thead><tr><th>Ngày</th><th>Lịch</th><th>Dịch vụ</th><th>Nguồn</th>
+                                <th class="num">Giá trị tính</th><th class="num">Mức</th><th class="num">Hoa hồng</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                            <tfoot><tr><td colspan="6" class="num"><strong>Tổng</strong></td>
+                                <td class="num"><strong>${formatCurrency(data.total)}</strong></td></tr></tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+        document.querySelector('#commissionModal .close')?.focus();
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+function closeCommissionDetail() {
+    document.getElementById('commissionModal')?.remove();
 }
 
 // ====== XUẤT PDF ======
@@ -327,7 +383,7 @@ async function openMonthlyAdjustModal(maluong) {
                     <p>Lưu ý: Thưởng/Khấu trừ này sẽ <b>ghi đè</b> lên tổng thưởng/khấu trừ đã tính từ các ca.</p>
                     <form id="adjustForm">
                         <div class="form-group">
-                            <label>Lương cơ bản (đã tổng hợp)</label>
+                            <label>Lương ca (đã tổng hợp)</label>
                             <input type="text" class="form-control" value="${formatCurrency(salary.luongcoban || 0)}" disabled>
                         </div>
                         <div class="form-group">

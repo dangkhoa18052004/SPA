@@ -60,3 +60,20 @@
 .loyalty-page .loyalty-desk td{display:grid;grid-template-columns:110px 1fr;gap:8px;padding:6px 0;border:0}
 .loyalty-desk td::before{content:attr(data-label);color:#6b6257;font-size:13px}.loyalty-desk td[colspan]{display:block}.loyalty-desk td[colspan]::before{content:none}
 }
+
+/* Hạng thành viên và tiến độ lên hạng */
+.loyalty-tier-card { gap: 6px; }
+.loyalty-tier-progress {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+.loyalty-tier-progress > span {
+    display: block;
+    height: 100%;
+    background: #C9A961;
+    border-radius: inherit;
+}
+.loyalty-tier-card small { display: block; font-size: 12px; opacity: 0.85; }
+.loyalty-tier-card .loyalty-tier-note { opacity: 0.7; }

@@ -165,7 +165,7 @@ def get_my_salary_history():
     staff = g.current_user
     try:
         salaries = Luong.query.filter_by(manv=staff.manv).order_by(Luong.nam.desc(), Luong.thang.desc()).all()
-        result = [{"maluong": s.maluong, "thang": s.thang, "nam": s.nam, "luongcoban": str(s.luongcoban), "thuong": str(s.thuong), "khautru": str(s.khautru), "tongluong": str(s.tongluong)} for s in salaries]
+        result = [{"maluong": s.maluong, "thang": s.thang, "nam": s.nam, "luongcoban": str(s.luongcoban), "hoahong": str(s.hoahong or 0), "thuong": str(s.thuong), "khautru": str(s.khautru), "tongluong": str(s.tongluong)} for s in salaries]
         return jsonify({"success": True, "salaries": result}), 200
     except Exception as e:
         current_app.logger.error(f"Lỗi khi lấy LS lương cá nhân: {e}")
