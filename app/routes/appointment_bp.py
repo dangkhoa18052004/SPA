@@ -269,11 +269,13 @@ def get_available_slots():
         return jsonify({"success": False, "message": "Ngày không hợp lệ"}), 400
 
     try:
-        slots = appointment_service.get_available_slots(target, madv=madv, manv=manv, madv_list=madv_list)
+        day = appointment_service.day_availability(target, madv=madv, manv=manv, madv_list=madv_list)
+        slots = day["slots"]
         result = {
             "success": True,
             "date": target.isoformat(),
-            "duration_minutes": appointment_service.calculate_total_duration(madv_list or ([madv] if madv else [])),
+            "duration_minutes": day["duration"],
+            "day_status": day["status"],
             "slots": slots,
         }
         if request.args.get("suggest") == "1" and not any(s["available"] for s in slots):

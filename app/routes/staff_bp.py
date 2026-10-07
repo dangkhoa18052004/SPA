@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, current_app
 from ..models import NhanVien
+from ..services.appointment_service import technician_clause
 from ..extensions import db
 
 staff_bp = Blueprint("staff", __name__)
@@ -13,7 +14,7 @@ def get_all_staff():
     """
     try:
         staff_list = NhanVien.query.filter(
-            NhanVien.role == 'staff',
+            technician_clause(),
             NhanVien.trangthai == True
         ).order_by(NhanVien.manv.asc()).all()
         
@@ -52,7 +53,7 @@ def get_staff_detail(manv):
     try:
         staff = NhanVien.query.filter(
             NhanVien.manv == manv,
-            NhanVien.role == 'staff',
+            technician_clause(),
             NhanVien.trangthai == True
         ).first()
         

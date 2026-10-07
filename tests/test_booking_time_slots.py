@@ -31,10 +31,25 @@ def _slots(client, data, ids, **extra):
     return r.json
 
 
-def test_slot_times_are_unique_and_ordered():
-    times = [t.strftime('%H:%M') for t in appointment_service.slot_times()]
-    assert len(times) == len(set(times)) and times == sorted(times)
-    assert times[0] == '07:30' and times[-1] == '18:30'
+def test_slot_times_follow_technician_shifts(app, slot_data):
+    with app.app_context():
+        times = [t.strftime('%H:%M') for t in appointment_service.slot_times(slot_data['day'], 60)]
+        assert times == ['09:00', '09:30', '10:00', '10:30', '11:00']  # ca 09:00–12:00, dịch vụ 60 phút
+        assert len(times) == len(set(times))
+        assert appointment_service.slot_times(slot_data['day'] + timedelta(days=1), 60) == []
+
+
+def test_manager_only_shift_reports_no_technician(app, client, slot_data):
+    from app.models import NhanVien
+    with app.app_context():
+        day = slot_data['day'] + timedelta(days=1)
+        shift = CaLam(ngay=day, giobatdau=time(7), gioketthuc=time(19))
+        db.session.add(shift); db.session.flush()
+        db.session.execute(nhanvien_calam.insert().values(manv=app.config['TEST_ADMIN_ID'], maca=shift.maca))
+        db.session.commit()
+    r = client.get(f"/api/appointments/available-slots?date={day}&madv_list={slot_data['s60']}&suggest=1").json
+    assert r['day_status'] == 'no_technician' and r['slots'] == []
+    assert r['suggestions'] == []  # ngày slot_data['day'] đã qua so với 'ngày sau' → không gợi ý ngược
 
 
 def test_total_duration_limits_start_times(client, slot_data):
@@ -45,7 +60,8 @@ def test_total_duration_limits_start_times(client, slot_data):
     both = _slots(client, slot_data, [slot_data['s60'], slot_data['s90']])
     assert both['duration_minutes'] == 150
     assert [s['time'] for s in both['slots'] if s['available']] == ['09:00', '09:30']
-    assert {s['reason'] for s in both['slots']} <= {'available', 'unavailable', 'past'}
+    assert {s['reason'] for s in both['slots']} <= {'available', 'full', 'past'}
+    assert both['day_status'] == 'ok'
 
 
 def test_existing_booking_blocks_overlapping_slots(app, client, slot_data):
@@ -73,6 +89,7 @@ def test_full_day_returns_suggestions(app, client, slot_data):
         db.session.commit()
     res = _slots(client, slot_data, [slot_data['s90']], suggest=1)
     assert not any(s['available'] for s in res['slots'])
+    assert res['day_status'] == 'too_long'  # 4 tiếng không vừa ca 3 tiếng
     assert res['suggestions'][0] == {'date': later.isoformat(), 'time': '14:00'}
 
 
@@ -85,6 +102,7 @@ def test_booking_template_has_no_static_time_list_and_source_before_confirm():
     with open('app/templates/customer/appointment_create.html', encoding='utf-8') as f:
         html = f.read()
     select = re.search(r'<select id="appointmentTime".*?</select>', html, re.S).group(0)
+    assert 'id="slotPicker"' in html
     assert re.findall(r'<option value="(\d\d:\d\d)"', select) == []
     # Lựa chọn dùng buổi gói nằm ở bước 1, trước nút "Xác nhận đặt lịch".
     assert html.index('id="bookingTreatments"') < html.index('id="step2"') < html.index('Xác nhận đặt lịch')
@@ -98,3 +116,30 @@ def test_booking_js_guards_stale_slot_responses_and_api_errors():
     assert 'version !== slotRequestVersion' in body
     assert 'data-retry-slots' in body and 'hết chỗ' in body
     assert 'Lỗi kiểm tra lịch (không phải do kín lịch)' in js
+
+
+def test_manager_with_technician_position_takes_bookings(app, client, slot_data):
+    """Tài khoản quản lý nhưng chức vụ "Kỹ thuật viên" (như hiện trong ca làm) vẫn nhận khách; lễ tân thì không."""
+    from app.models import NhanVien, ChucVu
+    with app.app_context():
+        ktv = ChucVu(tencv='Kỹ thuật viên', dongiagio=100000)
+        reception_role = ChucVu(tencv='Lễ tân', dongiagio=80000)
+        db.session.add_all([ktv, reception_role]); db.session.flush()
+        manager_ktv = NhanVien(hoten='Quản lý kiêm KTV', taikhoan='ql_ktv', matkhau='x', macv=ktv.macv, role='manager', trangthai=True)
+        reception = NhanVien(hoten='Lễ tân', taikhoan='le_tan_x', matkhau='x', macv=reception_role.macv, role='letan', trangthai=True)
+        db.session.add_all([manager_ktv, reception]); db.session.flush()
+        day = slot_data['day'] + timedelta(days=2)
+        shift = CaLam(ngay=day, giobatdau=time(7), gioketthuc=time(19))
+        db.session.add(shift); db.session.flush()
+        db.session.execute(nhanvien_calam.insert().values(manv=reception.manv, maca=shift.maca))
+        db.session.commit()
+        ids = (manager_ktv.manv, shift.maca)
+    r = client.get(f"/api/appointments/available-slots?date={day}&madv_list={slot_data['s60']}").json
+    assert r['day_status'] == 'no_technician'  # chỉ có lễ tân
+    with app.app_context():
+        db.session.execute(nhanvien_calam.insert().values(manv=ids[0], maca=ids[1]))
+        db.session.commit()
+    r = client.get(f"/api/appointments/available-slots?date={day}&madv_list={slot_data['s60']}").json
+    assert r['day_status'] == 'ok' and r['slots'][0]['time'] == '07:00'
+    staff = client.post('/api/appointments/available-staff', json={'ngaygio': f'{day}T09:00', 'madv_list': [slot_data['s60']]}).json['staff']
+    assert [s['manv'] for s in staff if s['available']] == [ids[0]]

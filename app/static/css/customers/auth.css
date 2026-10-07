@@ -431,3 +431,4 @@ img {
         font-size: 20px;
     }
 }
+.auth-logo img { width: 45px; object-fit: cover; border-radius: 8px; }

@@ -359,7 +359,7 @@ async function loadStaff() {
     try {
         const response = await fetch('/api/admin/staff/list-all', { headers: getAuthHeaders(false) });
         const data = await response.json(); 
-        allStaff = Array.isArray(data) ? data.filter(s => s.role === 'staff') : []; 
+        allStaff = Array.isArray(data) ? data.filter(s => s.role === 'staff' || s.chucvu === 'Kỹ thuật viên') : [];  // cùng tiêu chí với server 
     } catch (error) {
         console.error('Lỗi tải nhân viên:', error);
         allStaff = [];

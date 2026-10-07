@@ -411,6 +411,7 @@ async function loadTimeSlots() {
             .map(slot => `<option value="${slot.time}" ${slot.available ? '' : 'disabled'}>${slot.time}${slot.available ? '' : ' – hết chỗ'}</option>`)
             .join('');
         timeSelect.disabled = false;
+        renderSlotPicker(data.slots, open.some(slot => slot.time === previous) ? previous : '');
 
         if (open.some(slot => slot.time === previous)) {
             timeSelect.value = previous;
@@ -420,19 +421,24 @@ async function loadTimeSlots() {
 
         if (status) {
             if (open.length) {
-                status.textContent = `${open.length} khung giờ còn trống cho ${data.duration_minutes} phút dịch vụ.`;
+                status.textContent = `${open.length} khung giờ còn trống · dịch vụ ${data.duration_minutes} phút.`;
             } else {
                 const suggestions = data.suggestions || [];
-                status.innerHTML = `<p>Ngày này đã hết chỗ cho ${data.duration_minutes} phút dịch vụ.</p>` + (suggestions.length
-                    ? `<p>Gợi ý gần nhất:</p><div class="slot-suggestions">${suggestions.map(s =>
+                // Phân biệt rõ: chưa có KTV làm việc / đã kín lịch / giờ hôm nay đã qua.
+                const reason = {
+                    no_technician: `Ngày ${formatViDate(date)} chưa có kỹ thuật viên làm việc nên chưa nhận đặt lịch.`,
+                    past: 'Các khung giờ còn lại của hôm nay đã qua.',
+                    too_long: `Ca làm ngày ${formatViDate(date)} không đủ ${data.duration_minutes} phút cho các dịch vụ đã chọn. Hãy chọn ngày khác hoặc bớt dịch vụ.`,
+                    full: `Ngày ${formatViDate(date)} đã kín lịch cho ${data.duration_minutes} phút dịch vụ.`,
+                }[data.day_status] || `Ngày ${formatViDate(date)} không còn khung giờ phù hợp.`;
+                status.innerHTML = `<p class="slot-reason">${reason}</p>` + (suggestions.length
+                    ? `<p>Ngày gần nhất còn chỗ:</p><div class="slot-suggestions">${suggestions.map(s =>
                         `<button type="button" class="btn btn-outline" data-suggest-date="${s.date}" data-suggest-time="${s.time}">${formatViDate(s.date)} · ${s.time}</button>`).join('')}</div>`
-                    : '<p>Không còn chỗ trong 14 ngày tới. Vui lòng liên hệ spa.</p>');
+                    : '<p>Spa chưa mở lịch làm việc cho 14 ngày tới. Vui lòng liên hệ spa để được hỗ trợ.</p>');
                 status.querySelectorAll('[data-suggest-date]').forEach(button => button.onclick = async () => {
                     dateInput.value = button.dataset.suggestDate;
                     await loadTimeSlots();
-                    timeSelect.value = button.dataset.suggestTime;
-                    loadAvailableStaff();
-                    updateSummary();
+                    chooseSlot(button.dataset.suggestTime);
                 });
             }
         }
@@ -443,12 +449,44 @@ async function loadTimeSlots() {
         // Lỗi kết nối/API không được báo là "đã bận".
         timeSelect.innerHTML = '<option value="">-- Chưa tải được giờ --</option>';
         timeSelect.disabled = false;
+        renderSlotPicker([], '');
         if (status) {
             status.innerHTML = `<p class="slot-error">Không tải được khung giờ: ${escapeText(error.message)}</p><button type="button" class="btn btn-outline" data-retry-slots>Thử lại</button>`;
             status.querySelector('[data-retry-slots]').onclick = () => loadTimeSlots();
         }
         updateSummary();
     }
+}
+
+// Nút chọn giờ chia theo buổi; giờ đã qua không hiện, giờ kín lịch hiện mờ "Kín".
+function renderSlotPicker(slots, selected) {
+    const picker = document.getElementById('slotPicker');
+    if (!picker) return;
+    const visible = slots.filter(slot => slot.reason !== 'past');
+    if (!visible.length) { picker.innerHTML = ''; return; }
+    const groups = [['Sáng', s => s.time < '12:00'], ['Chiều', s => s.time >= '12:00' && s.time < '17:00'], ['Tối', s => s.time >= '17:00']];
+    picker.innerHTML = groups.map(([name, test]) => {
+        const items = visible.filter(test);
+        if (!items.length) return '';
+        return `<div class="slot-group"><span class="slot-group-name">${name}</span><div class="slot-grid">${items.map(slot => `
+            <button type="button" class="slot-chip ${slot.time === selected ? 'is-selected' : ''}" data-slot="${slot.time}"
+                role="radio" aria-checked="${slot.time === selected}" ${slot.available ? '' : 'disabled aria-disabled="true"'}>
+                ${slot.time}${slot.available ? '' : '<small>Kín</small>'}</button>`).join('')}</div></div>`;
+    }).join('');
+    picker.querySelectorAll('[data-slot]:not([disabled])').forEach(button => button.onclick = () => chooseSlot(button.dataset.slot));
+}
+
+function chooseSlot(time) {
+    const timeSelect = document.getElementById('appointmentTime');
+    if (!timeSelect || ![...timeSelect.options].some(o => o.value === time && !o.disabled)) return;
+    timeSelect.value = time;
+    document.querySelectorAll('#slotPicker [data-slot]').forEach(b => {
+        const on = b.dataset.slot === time;
+        b.classList.toggle('is-selected', on);
+        b.setAttribute('aria-checked', String(on));
+    });
+    loadAvailableStaff();
+    updateSummary();
 }
 
 // ==================== LOAD AVAILABLE STAFF ====================
@@ -868,5 +906,6 @@ window.changePage = changePage;
 window.showAllServices = showAllServices;
 window.loadAvailableStaff = loadAvailableStaff; // <-- SỬA LỖI 4: Thêm dòng này
 window.loadTimeSlots = loadTimeSlots;
+window.chooseSlot = chooseSlot;
 
 })();

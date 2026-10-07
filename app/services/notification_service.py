@@ -366,6 +366,30 @@ def register_commands(app):
         'Process due care jobs (one-shot). Use notification-worker for continuous processing.'
         click.echo(process_jobs(batch_size))
 
+    @app.cli.command('retry-failed-notifications')
+    @click.option('--hours', default=48, type=click.IntRange(1, 720), help='Chỉ lấy job tạo trong N giờ gần đây')
+    @click.option('--type', 'job_types', multiple=True, help='Giới hạn loại job (vd. post_care, review_request)')
+    @click.option('--yes', is_flag=True, help='Thực sự đưa lại vào hàng đợi (mặc định chỉ liệt kê)')
+    def retry_failed_notifications(hours, job_types, yes):
+        """Đưa email lỗi (vd. do RESEND_API_KEY hỏng) trở lại hàng đợi sau khi đã sửa cấu hình.
+        Worker gửi lại với cùng idempotency key nên Resend không gửi trùng thư đã nhận."""
+        since = datetime.utcnow() - timedelta(hours=hours)
+        query = NotificationJob.query.filter(NotificationJob.status == 'failed', NotificationJob.created_at >= since)
+        if job_types:
+            query = query.filter(NotificationJob.type.in_(job_types))
+        jobs = query.order_by(NotificationJob.id).all()
+        for job in jobs:
+            click.echo(f'#{job.id} {job.type} lich #{job.malh} -> {email_service.masked_recipient(job.payload_json.get("to"))} ({(job.last_error or "")[:60]})')
+        if not yes:
+            click.echo(f'{len(jobs)} job loi. Them --yes de gui lai.')
+            return
+        now = datetime.utcnow()
+        for job in jobs:
+            job.status, job.attempts, job.first_attempt_at = 'pending', 0, None
+            job.scheduled_at, job.last_error, job.processing_at = now, None, None
+        db.session.commit()
+        click.echo(f'Da dua {len(jobs)} job vao hang doi; worker se gui o chu ky ke tiep.')
+
     @app.cli.command('auto-cancel-no-shows')
     @click.option('--grace-minutes', default=None, type=click.IntRange(1, 1440))
     def auto_cancel_no_shows_command(grace_minutes):
@@ -405,6 +429,18 @@ def register_commands(app):
         click.echo(f'RESEND_API_KEY configured: {"yes" if configured else "no"}')
         if not configured:
             raise click.ClickException('RESEND_API_KEY is not configured for notification worker.')
+        # Có khóa chưa đủ: hỏi Resend để phát hiện khóa đã bị thu hồi (lỗi 401 "API key is invalid").
+        try:
+            import requests
+            check = requests.get('https://api.resend.com/domains', timeout=10,
+                                 headers={'Authorization': f'Bearer {email_service.configured_api_key()}'})
+            if check.status_code in (400, 401, 403):
+                click.echo('[notification-worker] CANH BAO: Resend tu choi RESEND_API_KEY (khoa sai hoac da bi thu hoi). '
+                           'Email se KHONG gui duoc cho den khi cap nhat khoa moi trong .env roi khoi dong lai.')
+            elif check.ok:
+                click.echo('[notification-worker] RESEND_API_KEY hop le.')
+        except Exception as exc:  # mất mạng: không chặn worker
+            click.echo(f'[notification-worker] Khong kiem tra duoc Resend: {type(exc).__name__}')
         current_app.logger.setLevel(logging.INFO)
         click.echo(f'Notification worker started. interval={interval}s batch_size={batch_size} appointment={appointment_id or "all"}')
         click.echo('[notification-worker] Nhan Ctrl+C de dung.')

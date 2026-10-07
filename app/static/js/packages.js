@@ -74,10 +74,13 @@
         },5000);
         if(window.LoyaltyPayment) await LoyaltyPayment.mount(panel.querySelector('[data-package-loyalty]'),base,purchase.makh,reload);
     }
-    function customerLoggedIn() {
-        const page=document.querySelector('[data-package-page="customer"]');
-        const token=window.CustomerAuth?window.CustomerAuth.getAccessToken():localStorage.getItem('access_token');
-        return page?.dataset.loggedIn==='1' && !!token;
+    // Đăng nhập = có access token. Phiên server còn nhưng mất token (hết hạn, xóa storage) → khôi phục từ phiên,
+    // tránh vòng lặp: hiện hộp đăng nhập → /auth/login thấy phiên hợp lệ → trả về trang gói mà không mua được.
+    async function customerLoggedIn() {
+        const auth=window.CustomerAuth;
+        let token=auth?auth.getAccessToken():localStorage.getItem('access_token');
+        if(!token && auth) token=await auth.restoreAccessToken();
+        return !!token;
     }
     // Giống trang đặt lịch: yêu cầu đăng nhập, sau đó quay lại trang gói và tiếp tục mua đúng gói đã chọn.
     function requireLogin(id) {
@@ -95,7 +98,7 @@
         modal.onclick=e=>{if(e.target===modal)close();};
     }
     async function buy(id) {
-        if(!customerLoggedIn()) return requireLogin(id);
+        if(!(await customerLoggedIn())) return requireLogin(id);
         try {
             // Khách mua online chỉ thanh toán VietQR (bán tiền mặt do nhân viên tạo tại quầy).
             const result=await api(`/api/packages/${id}/purchase`,'POST',{payment_method:'vietqr'});
@@ -117,7 +120,7 @@
             document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{b.disabled=true;buy(Number(b.dataset.buy)).finally(()=>b.disabled=false);});
             // Vừa đăng nhập xong từ hộp "Vui lòng đăng nhập": tiếp tục mua gói đã chọn.
             const resume=Number(new URLSearchParams(location.search).get('buy'));
-            if(resume>0 && customerLoggedIn() && packages.some(p=>p.magoi===resume)){
+            if(resume>0 && packages.some(p=>p.magoi===resume) && await customerLoggedIn()){
                 history.replaceState(null,'',location.pathname);
                 await buy(resume);
             }

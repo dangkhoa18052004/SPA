@@ -870,3 +870,32 @@
 .payment-option small { color: #7a7266; }
 .payment-option.is-disabled { opacity: 0.55; cursor: not-allowed; }
 .payment-choice-note { margin: 6px 0 0; font-size: 13px; color: #7a7266; }
+
+
+/* ==================== CHỌN GIỜ BẰNG NÚT (theo buổi) ==================== */
+.slot-label { display: block; font-weight: 600; margin-bottom: 10px; }
+.slot-select-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.slot-picker { display: flex; flex-direction: column; gap: 12px; }
+.slot-group-name { display: block; font-size: 13px; font-weight: 600; color: #7a7266; margin-bottom: 6px; }
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
+.slot-chip {
+    min-height: 44px;
+    border: 1.5px solid #e2d9c8;
+    border-radius: 10px;
+    background: #fff;
+    font: inherit;
+    font-weight: 600;
+    color: #3D5A45;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.1;
+}
+.slot-chip:hover:not([disabled]) { border-color: #C9A961; }
+.slot-chip:focus-visible { outline: 3px solid #C9A961; outline-offset: 2px; }
+.slot-chip.is-selected { background: #C9A961; border-color: #C9A961; color: #fff; }
+.slot-chip[disabled] { background: #f4f2ee; color: #b5ada0; border-style: dashed; cursor: not-allowed; }
+.slot-chip small { font-size: 10px; font-weight: 500; }
+.slot-reason { font-weight: 600; color: #8a6d1d; }

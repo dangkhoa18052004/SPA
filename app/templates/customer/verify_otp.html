@@ -21,14 +21,14 @@
             <div class="auth-form-container">
                 <div class="auth-logo">
                     <a href="/">
-                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Bin Spa">
+                        <img src="{{ url_for('static', filename='images/logo.jpg') }}" alt="Logo Bin Spa">
                         <span>Bin spa</span>
                     </a>
                 </div>
                 
                 <h2>Nhập mã OTP</h2>
                 <p style="text-align: center; color: #666; margin-bottom: 30px;">
-                    Mã OTP đã được gửi đến email <strong>{{ email }}</strong>
+                    Mã OTP đã được gửi đến email <strong id="otpEmail">{{ email or 'bạn đã đăng ký' }}</strong>
                 </p>
                 
                 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -70,6 +70,15 @@
         </div>
     </div>
     
-    <script src="{{ url_for('static', filename='js/customers/auth.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/auth.js', v='1.2') }}"></script>
+    <script>
+        // Phiên server không có email (vd. mở lại trang): dùng email đã lưu khi đăng ký trong tab này.
+        (function () {
+            var el = document.getElementById('otpEmail');
+            var saved = null;
+            try { saved = sessionStorage.getItem('otp_email'); } catch (e) {}
+            if (el && saved && {{ 'false' if email else 'true' }}) el.textContent = saved;
+        })();
+    </script>
 </body>
 </html>

@@ -32,5 +32,5 @@ def test_purchase_api_still_requires_login(app, client):
 def test_js_requires_login_and_resumes_purchase():
     with open('app/static/js/packages.js', encoding='utf-8') as f:
         js = f.read()
-    assert 'if(!customerLoggedIn()) return requireLogin(id);' in js
+    assert 'if(!(await customerLoggedIn())) return requireLogin(id);' in js and 'restoreAccessToken()' in js
     assert "back.searchParams.set('buy',id)" in js and "get('buy')" in js

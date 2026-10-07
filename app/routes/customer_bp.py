@@ -49,7 +49,7 @@ def register_page():
 
 @customer_bp.route('/auth/verify-otp')
 def verify_otp_page():
-    email = session.get('registration_email', 'your-email@example.com') 
+    email = session.get('registration_email')  # None: JS lấy từ sessionStorage (otp_email)
     return render_template('customer/verify_otp.html', email=email)
 
 @customer_bp.route('/auth/forgot-password')

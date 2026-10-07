@@ -176,7 +176,9 @@ class Browser:
 
     def click(self, selector):
         """Real mouse click at the element centre (fails if another element covers it)."""
-        box = self.evaluate(f"(()=>{{const e=document.querySelector({json.dumps(selector)});e.scrollIntoView({{block:'center'}});"
+        self.evaluate(f"document.querySelector({json.dumps(selector)}).scrollIntoView({{block:'center',behavior:'instant'}})")
+        clock.sleep(0.3)  # chờ bố cục ổn định sau khi cuộn rồi mới đo tọa độ
+        box = self.evaluate(f"(()=>{{const e=document.querySelector({json.dumps(selector)});"
                             "const r=e.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;"
                             "const hit=document.elementFromPoint(x,y);return {x,y,covered:!(hit===e||e.contains(hit))};})()")
         assert not box['covered'], f'{selector} is covered by another element'
@@ -252,7 +254,10 @@ try:
         browser.wait("document.querySelector('#appointmentTime option[value=\"09:00\"]:not([disabled])')", 'slots')
         options = browser.evaluate("[...document.querySelectorAll('#appointmentTime option')].map(o=>o.value).filter(Boolean)")
         assert len(options) == len(set(options)), options
-        browser.evaluate("const t=document.querySelector('#appointmentTime');t.value='09:00';t.dispatchEvent(new Event('change'));")
+        # Click DOM vào nút giờ (giả lập chuột ở chế độ mobile lệch tọa độ trong vùng này của CDP).
+        browser.evaluate("document.querySelector('#slotPicker [data-slot=\"09:00\"]').click()")
+        browser.wait("document.querySelector('#appointmentTime').value==='09:00' && document.querySelector('#slotPicker [data-slot=\"09:00\"]').classList.contains('is-selected')", 'slot chip selected')
+        browser.screenshot(f'{width}-booking-slots.png')
         browser.evaluate("goToStep(3)")
         browser.wait("document.querySelector('#confirmRecap').textContent.includes('Còn phải trả')", 'confirm recap')
         recap = browser.evaluate("document.querySelector('#confirmRecap').textContent")
@@ -382,6 +387,14 @@ try:
     assert browser.evaluate("!!document.querySelector('.salary-filter-actions .btn-secondary .fa-file-pdf')&&!document.querySelector('.salary-filter-actions .btn-danger')")
     assert not browser.evaluate('window.__uiErrors')
     print('PASS salary filter shows only the active field; PDF export is a secondary button', flush=True)
+    browser.viewport(1440)
+    browser.navigate('/auth/verify-otp')
+    browser.evaluate("sessionStorage.setItem('otp_email','khach.moi@example.com');location.reload()")
+    browser.wait("document.readyState==='complete' && document.getElementById('otpEmail')?.textContent==='khach.moi@example.com'", 'otp email')
+    assert browser.evaluate("[...document.querySelectorAll('img')].every(i=>i.complete&&i.naturalWidth>0)"), 'logo ảnh lỗi'
+    assert 'your-email@example.com' not in browser.evaluate('document.body.innerText')
+    browser.screenshot('1440-verify-otp.png')
+    print('PASS verify OTP shows real email and logo', flush=True)
     (artifacts / 'results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf-8')
     print('PASS booking submit with package session, profile tabs and tier card; no real payment or email sent', flush=True)
 finally:

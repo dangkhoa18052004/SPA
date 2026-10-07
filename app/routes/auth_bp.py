@@ -128,7 +128,8 @@ def register():
                 db.session.commit()
                 
                 send_email(email, "Xác nhận tài khoản", f"Mã OTP kích hoạt tài khoản: {otp_code}. Hiệu lực 10 phút.")
-                return jsonify({"success": True, "message": "SĐT này đang chờ xác thực. Mã OTP mới đã được gửi đến email của bạn."}), 200
+                session['registration_email'] = email  # trang nhập OTP hiển thị đúng email vừa đăng ký
+                return jsonify({"success": True, "message": "SĐT này đang chờ xác thực. Mã OTP mới đã được gửi đến email của bạn.", "email": email}), 200
             except Exception as e:
                 db.session.rollback()
                 current_app.logger.error(f"Lỗi gửi lại OTP khi register: {e}")
@@ -176,8 +177,9 @@ def register():
         """
 
         send_email(email, email_subject, email_body)
+        session['registration_email'] = email  # trang nhập OTP hiển thị đúng email vừa đăng ký
 
-        return jsonify({"success": True, "message": "Đăng ký thành công, vui lòng kiểm tra email để xác nhận OTP"}), 201
+        return jsonify({"success": True, "message": "Đăng ký thành công, vui lòng kiểm tra email để xác nhận OTP", "email": email}), 201
         
     except Exception as e:
         db.session.rollback()

@@ -595,33 +595,11 @@ function closeQuickView(e) {
     if (modal) modal.classList.remove('show');
 }
 
-// ==================== NIGHT SPA DARK MODE ====================
+// ==================== GIAO DIỆN ====================
+// Đã bỏ chế độ tối: luôn dùng giao diện sáng và xóa lựa chọn tối cũ còn lưu trong trình duyệt.
 function initTheme() {
-    const savedTheme = localStorage.getItem('spa_theme');
-    const themeIcon = document.getElementById('themeIcon');
-    
-    if (savedTheme === 'dark') {
-        document.body.classList.add('dark-theme');
-        if (themeIcon) themeIcon.className = 'fas fa-sun';
-    } else {
-        document.body.classList.remove('dark-theme');
-        if (themeIcon) themeIcon.className = 'fas fa-moon';
-    }
-}
-
-function toggleTheme() {
-    const themeIcon = document.getElementById('themeIcon');
-    if (document.body.classList.contains('dark-theme')) {
-        document.body.classList.remove('dark-theme');
-        localStorage.setItem('spa_theme', 'light');
-        if (themeIcon) themeIcon.className = 'fas fa-moon';
-        if (window.Toast) Toast.show('info', 'Giao diện', 'Đã chuyển sang chế độ Ban Ngày ☀️');
-    } else {
-        document.body.classList.add('dark-theme');
-        localStorage.setItem('spa_theme', 'dark');
-        if (themeIcon) themeIcon.className = 'fas fa-sun';
-        if (window.Toast) Toast.show('info', 'Giao diện', 'Đã bật chế độ Đêm Spa thư giãn 🌙');
-    }
+    document.body.classList.remove('dark-theme');
+    try { localStorage.removeItem('spa_theme'); } catch (e) { /* bỏ qua */ }
 }
 
 function formatPrice(price) {

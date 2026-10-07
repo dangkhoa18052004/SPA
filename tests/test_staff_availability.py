@@ -489,34 +489,42 @@ def test_12_no_staff_available_returns_clear_error_and_no_appointment_created(
         assert LichHen.query.count() == initial_count
 
 
-@pytest.mark.parametrize("role,active", [
-    ("letan", True), ("manager", True), ("admin", True), ("staff", False),
+@pytest.mark.parametrize("role,active,position,eligible", [
+    # Quy tắc: nhận khách khi vai trò 'staff' HOẶC chức vụ "Kỹ thuật viên" (như hiện ở ca làm), và đang hoạt động.
+    ("letan", True, "Lễ tân", False), ("manager", True, "Quản lý", False), ("admin", True, "Quản lý", False),
+    ("staff", False, "Kỹ thuật viên", False),
+    ("manager", True, "Kỹ thuật viên", True),
 ])
-def test_non_eligible_staff_with_covering_shift_are_excluded(
-    app, client, availability_data, role, active
+def test_shift_eligibility_follows_role_or_technician_position(
+    app, client, availability_data, role, active, position, eligible
 ):
-    """Having a shift must not bypass the role/active requirements."""
+    """Có ca chưa đủ: phải là kỹ thuật viên (vai trò staff hoặc chức vụ KTV) và đang hoạt động."""
     with app.app_context():
+        cv = ChucVu.query.filter_by(tencv=position).first()
+        if cv is None:
+            cv = ChucVu(tencv=position, dongiagio=100000)
+            db.session.add(cv); db.session.flush()
         tech = db.session.get(NhanVien, availability_data["tech2_id"])
         tech.role = role
         tech.trangthai = active
+        tech.macv = cv.macv
         db.session.execute(nhanvien_calam.insert().values(
             manv=tech.manv, maca=availability_data["shift_id"]
         ))
         db.session.commit()
 
+    expected = [availability_data["tech1_id"]] + ([availability_data["tech2_id"]] if eligible else [])
     slot = datetime.combine(availability_data["test_date"], time(9, 0))
     res = client.post("/api/appointments/available-staff", json={
         "ngaygio": slot.isoformat(), "madv_list": [availability_data["sv_45_id"]],
     })
     assert res.status_code == 200
-    assert [s["manv"] for s in res.get_json()["staff"]] == [availability_data["tech1_id"]]
+    assert sorted(s["manv"] for s in res.get_json()["staff"]) == sorted(expected)
     public_staff = client.get("/api/staff").get_json()["staff"]
-    assert availability_data["tech2_id"] not in {s["manv"] for s in public_staff}
+    assert (availability_data["tech2_id"] in {s["manv"] for s in public_staff}) is eligible
     with app.app_context():
         best, candidates = appointment_service.find_available_staff(slot, [availability_data["sv_45_id"]])
-        assert best.manv == availability_data["tech1_id"]
-        assert [s["manv"] for s in candidates] == [availability_data["tech1_id"]]
+        assert sorted(s["manv"] for s in candidates) == sorted(expected)
 
 
 @pytest.mark.parametrize("day_offset,hour,minute,service_keys,expected", [

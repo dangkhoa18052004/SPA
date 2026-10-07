@@ -5,6 +5,7 @@ from ..decorators import roles_required
 from werkzeug.security import generate_password_hash
 from ..services.upload_service import InvalidUploadError, save_validated_image
 from ..services import review_service
+from ..services.appointment_service import technician_clause
 
 staff_manage_bp = Blueprint("staff_manage", __name__)
 
@@ -146,8 +147,7 @@ def get_staff_for_booking():
             ChucVu, NhanVien.macv == ChucVu.macv
         ).filter(
             NhanVien.trangthai == True,
-            NhanVien.role == 'staff',
-            ChucVu.tencv == 'Kỹ thuật viên' 
+            technician_clause(),
         ).order_by(NhanVien.hoten).all()
         
         result = []

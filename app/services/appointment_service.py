@@ -15,6 +15,7 @@ from ..models import (
     LichHen,
     ChiTietLichHen,
     NhanVien,
+    ChucVu,
     KhachHang,
     DichVu,
     CaLam,
@@ -145,9 +146,23 @@ def calculate_total_duration(madv_list):
     return total_minutes if total_minutes > 0 else 60
 
 
+TECHNICIAN_POSITION = 'Kỹ thuật viên'
+
+
+def technician_clause():
+    """Ai được nhận khách: vai trò tài khoản 'staff' HOẶC chức vụ "Kỹ thuật viên" (như hiển thị ở ca làm).
+    Nhờ vậy quản lý kiêm kỹ thuật viên được xếp ca vẫn nhận lịch; lễ tân/quản lý thuần thì không."""
+    position_ids = db.session.query(ChucVu.macv).filter(ChucVu.tencv == TECHNICIAN_POSITION)
+    return or_(NhanVien.role == 'staff', NhanVien.macv.in_(position_ids))
+
+
+def is_technician(staff):
+    return bool(staff) and (staff.role == 'staff' or bool(staff.chucvu and staff.chucvu.tencv == TECHNICIAN_POSITION))
+
+
 def get_staff_working_at(start_dt, duration_minutes):
     """
-    Lấy danh sách nhân viên kỹ thuật viên (trangthai=True, role='staff')
+    Lấy danh sách kỹ thuật viên đang hoạt động (role 'staff' hoặc chức vụ Kỹ thuật viên)
     có ca làm việc bao phủ trọn vẹn khung giờ [start_dt, start_dt + duration].
     """
     if isinstance(start_dt, str):
@@ -166,7 +181,7 @@ def get_staff_working_at(start_dt, duration_minutes):
         CaLam, CaLam.maca == nhanvien_calam.c.maca
     ).filter(
         NhanVien.trangthai == True,
-        NhanVien.role == 'staff',
+        technician_clause(),
         CaLam.ngay == target_date,
         CaLam.giobatdau <= start_time,
         CaLam.gioketthuc >= end_time
@@ -225,7 +240,7 @@ def check_staff_availability(manv, start_dt, duration_minutes, exclude_malh=None
     if not staff.trangthai:
         return False, [], AVAILABILITY_REASON_INACTIVE
 
-    if staff.role != 'staff':
+    if not is_technician(staff):
         return False, [], AVAILABILITY_REASON_INVALID
 
     end_dt = start_dt + timedelta(minutes=duration_minutes)
@@ -975,20 +990,34 @@ def assign_staff_to_appointment(appointment_id, manv):
     }
 
 
-SLOT_FIRST = time(7, 30)
-SLOT_LAST = time(18, 30)
 SLOT_STEP_MINUTES = 30
 
 
-def slot_times():
-    """Các giờ bắt đầu hợp lệ trong ngày (07:30 → 18:30, bước 30 phút), không trùng lặp."""
-    current = datetime.combine(date.min, SLOT_FIRST)
-    last = datetime.combine(date.min, SLOT_LAST)
-    times = []
-    while current <= last:
-        times.append(current.time())
-        current += timedelta(minutes=SLOT_STEP_MINUTES)
-    return times
+def technician_shifts(target_date, manv=None):
+    """Ca làm trong ngày của kỹ thuật viên đang hoạt động – chỉ họ nhận khách (xem technician_clause)."""
+    query = db.session.query(CaLam.giobatdau, CaLam.gioketthuc).join(
+        nhanvien_calam, CaLam.maca == nhanvien_calam.c.maca
+    ).join(NhanVien, NhanVien.manv == nhanvien_calam.c.manv).filter(
+        CaLam.ngay == target_date, technician_clause(), NhanVien.trangthai.is_(True))
+    if manv:
+        query = query.filter(NhanVien.manv == manv)
+    return query.all()
+
+
+def slot_times(target_date=None, duration=60, manv=None):
+    """Giờ bắt đầu hợp lệ trong ngày, bước 30 phút, nằm trọn trong ca làm của kỹ thuật viên.
+    Không có ca nào → danh sách rỗng (spa chưa mở lịch ngày đó)."""
+    times = set()
+    for start, end in technician_shifts(target_date, manv) if target_date else []:
+        current = datetime.combine(target_date, start)
+        if current.minute % SLOT_STEP_MINUTES:  # làm tròn lên mốc :00/:30
+            current += timedelta(minutes=SLOT_STEP_MINUTES - current.minute % SLOT_STEP_MINUTES)
+        current = current.replace(second=0, microsecond=0)
+        last_start = datetime.combine(target_date, end) - timedelta(minutes=duration)
+        while current <= last_start:
+            times.add(current.time())
+            current += timedelta(minutes=SLOT_STEP_MINUTES)
+    return sorted(times)
 
 
 def _slot_available(slot_dt, duration, manv=None):
@@ -998,17 +1027,15 @@ def _slot_available(slot_dt, duration, manv=None):
                for staff in get_staff_working_at(slot_dt, duration))
 
 
-def get_available_slots(target_date, madv=None, manv=None, madv_list=None):
+def day_availability(target_date, madv=None, manv=None, madv_list=None):
     """
-    Khung giờ trong ngày cho tổng thời lượng các dịch vụ đã chọn.
-    - madv_list (ưu tiên) hoặc madv: tính tổng thời lượng; không có → 60 phút.
-    - reason: 'past' | 'unavailable' | 'available'.
-    - Có manv: xét riêng nhân viên đó; không có: cần ít nhất 1 KTV có ca phủ hết và không trùng lịch.
+    Khung giờ trong ngày cho tổng thời lượng các dịch vụ đã chọn, theo ca làm thật của kỹ thuật viên.
+    - slot.reason: 'past' | 'full' (KTV có ca nhưng kín lịch) | 'available'.
+    - status ngày: 'ok' | 'no_technician' (chưa có KTV nào có ca) | 'too_long' (ca ngắn hơn dịch vụ) | 'full' | 'past'.
     Server vẫn kiểm tra lại khi tạo lịch; đây chỉ là gợi ý cho giao diện.
     """
     if isinstance(target_date, str):
         target_date = datetime.strptime(target_date, "%Y-%m-%d").date()
-
     ids = madv_list if madv_list else ([madv] if madv else [])
     duration = calculate_total_duration(ids)
     try:
@@ -1016,17 +1043,32 @@ def get_available_slots(target_date, madv=None, manv=None, madv_list=None):
     except (ValueError, TypeError):
         manv_int = None
 
+    now = vn_now()
     slots = []
-    now = datetime.now()
-    for slot_time in slot_times():
+    for slot_time in slot_times(target_date, duration, manv_int):
         slot_dt = datetime.combine(target_date, slot_time)
         if slot_dt < now:
             available, reason = False, "past"
         else:
             available = _slot_available(slot_dt, duration, manv_int)
-            reason = "available" if available else "unavailable"
+            reason = "available" if available else "full"
         slots.append({"time": slot_time.strftime("%H:%M"), "available": available, "reason": reason})
-    return slots
+
+    if not slots:
+        # Có ca nhưng không ca nào đủ dài cho tổng thời lượng → 'too_long'; không có ca → 'no_technician'.
+        status = "too_long" if technician_shifts(target_date, manv_int) else "no_technician"
+    elif any(s["available"] for s in slots):
+        status = "ok"
+    elif all(s["reason"] == "past" for s in slots):
+        status = "past"
+    else:
+        status = "full"
+    return {"slots": slots, "status": status, "duration": duration}
+
+
+def get_available_slots(target_date, madv=None, manv=None, madv_list=None):
+    """Danh sách khung giờ (giữ tương thích): xem day_availability để biết lý do theo ngày."""
+    return day_availability(target_date, madv=madv, manv=manv, madv_list=madv_list)["slots"]
 
 
 def suggest_next_slots(after_date, madv_list=None, manv=None, days=14, limit=3):

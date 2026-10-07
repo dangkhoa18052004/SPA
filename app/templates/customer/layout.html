@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/style.css', v='5.9') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/style.css', v='6.0') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/toast.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -33,11 +33,6 @@
             </div>
 
             <div class="nav-right">
-                <!-- Theme Toggle (Night Spa Dark Mode) -->
-                <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Chế độ Đêm Spa thư giãn">
-                    <i class="fas fa-moon" id="themeIcon"></i>
-                </button>
-
                 <!-- Language Selector -->
                 <div class="language-selector">
                     <button class="lang-btn" id="langBtn">
@@ -207,7 +202,7 @@
 
     <script src="{{ url_for('static', filename='js/customers/auth-session.js', v='1.0') }}"></script>
     <script src="{{ url_for('static', filename='js/loyalty-payment.js', v='2.2') }}"></script>
-    <script src="{{ url_for('static', filename='js/customers/main.js', v='6.0') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/main.js', v='6.1') }}"></script>
     <script src="{{ url_for('static', filename='js/ai_chat.js', v='1.0') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
