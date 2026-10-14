@@ -5,7 +5,6 @@ const serviceId = urlParts[urlParts.length - 1];
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     loadServiceDetail();
-    loadRelatedServices();
 });
 
 // ==================== LOAD SERVICE DETAIL ====================
@@ -18,6 +17,7 @@ async function loadServiceDetail() {
         
         if (data.success) {
             displayServiceDetail(data.service);
+            window.CustomerRecommendations?.track('view_service', {madv: Number(serviceId)});
         } else {
             showError('Không tìm thấy dịch vụ');
         }
@@ -118,68 +118,6 @@ function displayServiceDetail(service) {
 }
 
 // ==================== LOAD RELATED SERVICES ====================
-async function loadRelatedServices() {
-    try {
-        const response = await fetch('/api/services');
-        const data = await response.json();
-        
-        if (data.success) {
-            // Filter out current service and get 3 random services
-            const relatedServices = data.services
-                .filter(s => s.madv != serviceId)
-                .sort(() => Math.random() - 0.5)
-                .slice(0, 3);
-            
-            displayRelatedServices(relatedServices);
-        }
-    } catch (error) {
-        console.error('Error loading related services:', error);
-    }
-}
-
-// ==================== DISPLAY RELATED SERVICES ====================
-function displayRelatedServices(services) {
-    const grid = document.getElementById('relatedServicesGrid');
-    
-    if (services.length === 0) {
-        grid.innerHTML = '<p style="text-align: center; color: #999;">Không có dịch vụ liên quan</p>';
-        return;
-    }
-    
-    grid.innerHTML = services.map(service => `
-        <div class="service-card" onclick="window.location.href='/services/${service.madv}'">
-            <div class="service-image-container">
-                <img src="${service.anhdichvu ? 'data:image/jpeg;base64,' + service.anhdichvu : '/static/images/default-service.jpg'}" 
-                     alt="${service.tendv}" 
-                     class="service-image"
-                     onerror="this.src='/static/images/default-service.jpg'">
-            </div>
-            <div class="service-content">
-                <h3 class="service-name">${service.tendv}</h3>
-                <p class="service-description">${service.mota || 'Dịch vụ chất lượng cao'}</p>
-                <div class="service-meta">
-                    <div class="service-price">${formatPrice(service.gia)}</div>
-                    ${service.thoiluong ? `
-                        <div class="service-duration">
-                            <i class="fas fa-clock"></i>
-                            <span>${service.thoiluong}p</span>
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="service-actions">
-                    <a href="/appointments/create?service=${service.madv}" class="btn btn-outline" onclick="event.stopPropagation()">
-                        Đặt lịch
-                    </a>
-                    <button class="btn btn-outline" onclick="event.stopPropagation(); window.location.href='/services/${service.madv}'">
-                        Chi tiết
-                    </button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-// ==================== UTILITY FUNCTIONS ====================
 function formatPrice(price) {
     return new Intl.NumberFormat('vi-VN', { 
         style: 'currency', 

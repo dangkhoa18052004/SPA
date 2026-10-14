@@ -477,6 +477,7 @@ function translateDOM(lang) {
 
 // ==================== SERVICES ====================
 async function loadServices() {
+    if (window.location.pathname !== '/') return;
     try {
         const response = await fetch('/api/services', {
             headers: getAuthHeaders(false)
@@ -550,6 +551,7 @@ function openQuickView(serviceId) {
     if (!service) return;
 
     const modal = document.getElementById('quickViewModal');
+    window.CustomerRecommendations?.track('view_service', {madv: Number(serviceId)});
     const body = document.getElementById('quickViewBody');
     if (!modal || !body) return;
 

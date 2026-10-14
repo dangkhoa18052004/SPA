@@ -33,6 +33,7 @@ MARKERS = [
     ("20261005_0014", "table", "commission_entry", None),
     ("20261005_0015", "column", "loyalty_config", "tier_thresholds"),
     ("20261005_0016", "table", "ai_booking_draft", None),
+    ("20261007_0017", "table", "customer_behavior", None),
 ]
 
 

@@ -55,6 +55,14 @@ class ChucVu(db.Model):
     nhanviens = db.relationship('NhanVien', back_populates='chucvu', lazy=True)
 
 # bảng dịch vụ
+class DanhMucDichVu(db.Model):
+    __tablename__ = 'danhmucdichvu'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    slug = db.Column(db.String(80), nullable=False, unique=True)
+    active = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+
+
 class DichVu(db.Model):
     __tablename__ = 'dichvu'
     madv = db.Column(db.Integer, primary_key=True)
@@ -69,6 +77,26 @@ class DichVu(db.Model):
     # Chính sách hoa hồng KTV: số tiền cố định ưu tiên hơn phần trăm; cả hai trống = 0đ.
     commission_percent = db.Column(db.Numeric(5, 2), nullable=True)
     commission_fixed = db.Column(db.Numeric(12, 2), nullable=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('danhmucdichvu.id'), nullable=True, index=True)
+    category = db.relationship('DanhMucDichVu')
+
+
+class CustomerBehavior(db.Model):
+    __tablename__ = 'customer_behavior'
+    id = db.Column(db.Integer, primary_key=True)
+    makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), nullable=False)
+    madv = db.Column(db.Integer, db.ForeignKey('dichvu.madv'), nullable=True)
+    magoi = db.Column(db.Integer, db.ForeignKey('goidichvu.magoi'), nullable=True)
+    action = db.Column(db.String(30), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    source = db.Column(db.String(20), nullable=False, default='frontend')
+    # A unique time bucket for browsing, or a business reference for backend events.
+    dedupe_key = db.Column(db.String(160), nullable=False, unique=True)
+    __table_args__ = (
+        db.Index('ix_behavior_customer_time', 'makh', 'created_at'),
+        db.CheckConstraint('(madv IS NOT NULL AND magoi IS NULL) OR (madv IS NULL AND magoi IS NOT NULL)', name='ck_behavior_target'),
+        db.CheckConstraint("action IN ('view_service','click_service','select_service','book_service','complete_service','view_package','purchase_package','favorite')", name='ck_behavior_action'),
+    )
 
 class AppointmentStatus:
     PENDING = 'pending'
@@ -127,6 +155,7 @@ class AppointmentStatus:
 # bảng lịch hẹn
 class LichHen(db.Model):
     __tablename__ = 'lichhen'
+    __table_args__ = (db.Index('ix_lichhen_customer_date', 'makh', 'ngaygio'),)
     malh = db.Column(db.Integer, primary_key=True)
     ngaygio = db.Column(db.DateTime, nullable=False, index=True)
     trangthai = db.Column(db.String(50), default=AppointmentStatus.PENDING, index=True)
@@ -155,6 +184,7 @@ class ChiTietLichHen(db.Model):
 # bảng hóa đơn
 class HoaDon(db.Model):
     __tablename__ = 'hoadon'
+    __table_args__ = (db.Index('ix_hoadon_customer_date', 'makh', 'ngaylap'),)
     mahd = db.Column(db.Integer, primary_key=True)
     ngaylap = db.Column(db.DateTime, default=datetime.utcnow)
     tongtien = db.Column(db.Numeric(12, 2), nullable=False)

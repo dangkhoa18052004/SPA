@@ -162,3 +162,19 @@ def test_downgrade_to_baseline_and_upgrade_again(tmp_path, make_app):
     with engine.connect() as c:
         assert c.execute(text('SELECT version_num FROM alembic_version')).scalar() == _head()
     engine.dispose()
+
+
+def test_recommendation_migration_preserves_uncategorized_legacy_services(tmp_path, make_app):
+    from app.extensions import db
+    url = f"sqlite:///{(tmp_path / 'recommendation-upgrade.db').as_posix()}"
+    application = make_app(url)
+    _cli(application, 'upgrade', '20261005_0016')
+    with application.app_context():
+        with db.engine.begin() as conn:
+            conn.execute(text("INSERT INTO dichvu (madv, tendv, gia, active) VALUES (90, 'Dịch vụ cũ', 300000, 1)"))
+    _cli(application, 'upgrade')
+    with application.app_context():
+        with db.engine.connect() as conn:
+            assert conn.execute(text('SELECT tendv, gia, category_id FROM dichvu WHERE madv = 90')).one() == ('Dịch vụ cũ', 300000, None)
+            assert conn.execute(text('SELECT COUNT(*) FROM danhmucdichvu')).scalar() == 7
+            assert conn.execute(text('SELECT COUNT(*) FROM customer_behavior')).scalar() == 0

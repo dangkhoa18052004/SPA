@@ -53,6 +53,7 @@ function logout() {
 // ====== KHỞI TẠO (CẬP NHẬT) ======
 document.addEventListener('DOMContentLoaded', function() {
     loadServices();
+    loadServiceCategories();
     
     // Gán sự kiện cho modal Thêm/Sửa (ảnh preview, submit)
     document.getElementById('service-image').addEventListener('change', previewServiceImage);
@@ -111,6 +112,18 @@ function previewServiceImage(e) {
     } else {
         previewContainer.style.display = 'none';
     }
+}
+
+async function loadServiceCategories() {
+    try {
+        const response = await fetch('/api/admin/service-categories', {headers: getAuthHeaders(false)});
+        if (!response.ok) return;
+        const data = await response.json();
+        const selector = document.getElementById('service-category');
+        for (const category of data.categories) selector.add(new Option(category.name, category.id));
+        const service = allServices.find(s => s.madv === Number(document.getElementById('service-id').value));
+        if (service) selector.value = service.category_id ?? '';
+    } catch (error) { console.error('Không thể tải danh mục dịch vụ', error); }
 }
 
 // ====== TẢI DANH SÁCH DỊCH VỤ (CẬP NHẬT) ======
@@ -322,6 +335,7 @@ async function editService(id) {
     
     document.getElementById('modal-title').textContent = 'Sửa dịch vụ';
     document.getElementById('service-id').value = service.madv;
+    document.getElementById('service-category').value = service.category_id ?? '';
     document.getElementById('service-name').value = service.tendv;
     document.getElementById('service-price').value = service.gia;
     document.getElementById('service-duration').value = service.thoiluong || '';
@@ -363,6 +377,7 @@ async function handleSaveService(e) {
     
     const formData = new FormData();
     formData.append('tendv', name);
+    formData.append('category_id', document.getElementById('service-category').value);
     formData.append('gia', parseFloat(price));
     if (duration) formData.append('thoiluong', parseInt(duration));
     if (desc) formData.append('mota', desc);

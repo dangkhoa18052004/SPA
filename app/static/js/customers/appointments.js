@@ -122,6 +122,7 @@ async function applyBookingContext() {
             panel.innerHTML=`<h4>Dịch vụ khả dụng trong gói của bạn</h4><p>${esc(treatment.tengoi)}</p>${available.map(i=>`<p>${i.source_type==='gift'?'🎁 ':''}${esc(i.tendv)} · Còn ${i.available_sessions} buổi <button type="button" class="btn btn-outline" data-booking-item="${i.id}">Đặt dịch vụ này</button></p>`).join('')}`;
             const choose = item => {
                 selectedServices=[item.madv];
+                window.CustomerRecommendations?.track('select_service', {madv: item.madv});
                 PackageCare.chooseBookingItem(treatment,item);
                 filteredServices=allServices.filter(s=>s.madv===item.madv);
                 currentPage=1;displayServicesInForm(filteredServices);addViewAllServicesButton();
@@ -149,6 +150,7 @@ async function applyBookingContext() {
         const service=allServices.find(s=>s.madv===serviceId);
         if(!service){notice('Dịch vụ đã ngừng hoạt động hoặc không tồn tại. Vui lòng chọn dịch vụ khác.');return;}
         selectedServices=[serviceId];filteredServices=[service];currentPage=1;
+        window.CustomerRecommendations?.track('select_service', {madv: serviceId});
         displayServicesInForm(filteredServices);addViewAllServicesButton();
     }
 }
@@ -287,6 +289,7 @@ function toggleServiceSelection(serviceId) {
         selectedServices.splice(index, 1);
     } else {
         selectedServices.push(serviceId);
+        window.CustomerRecommendations?.track('select_service', {madv: serviceId});
     }
 
     const card = document.querySelector(`[data-service-id="${serviceId}"]`);

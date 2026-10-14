@@ -115,6 +115,7 @@
             const options=await api('/api/packages/payment-options');
             const result=await api(id?`/api/packages/${id}`:'/api/packages');
             const packages=(result.packages || [result.package]).filter(p=>p.active && p.customer_sale_enabled);
+            if (id && packages.length) window.CustomerRecommendations?.track('view_package', {magoi: Number(id)});
             document.getElementById('packageList').innerHTML=packages.length?packages.map(p=>packageHtml(p)+
                 `<div class="package-card-actions">${!id?`<a class="btn btn-secondary" href="/packages/${p.magoi}">Xem chi tiết</a>`:''}<p class="package-pay-method"><i class="fas fa-qrcode" aria-hidden="true"></i> Thanh toán chuyển khoản VietQR</p>${options.vietqr_available?`<button type="button" class="btn btn-primary" data-buy="${p.magoi}">Mua gói</button>`:'<button type="button" class="btn btn-primary" disabled title="VietQR đang tạm ngưng">Tạm ngưng bán online</button>'}</div></article>`).join(''):'Chưa có gói dịch vụ đang bán.';
             document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{b.disabled=true;buy(Number(b.dataset.buy)).finally(()=>b.disabled=false);});

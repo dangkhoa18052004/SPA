@@ -1,0 +1,27 @@
+.related-recommendations-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    align-items: stretch;
+}
+.recommendation-type {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--primary-green, #3d5a45);
+    color: #fff;
+    font-size: .8rem;
+    margin-bottom: 8px;
+}
+.related-recommendations-grid .package-card-body > .recommendation-type {
+    margin-right: 8px;
+}
+.related-recommendations-grid .service-card {
+    display: flex;
+    flex-direction: column;
+}
+.related-recommendations-grid .service-content {
+    flex: 1;
+}
+.related-recommendations-grid .service-image-container,
+.related-recommendations-grid .package-cover {
+    height: 210px;
+}

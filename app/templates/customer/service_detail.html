@@ -4,7 +4,11 @@
 
 {% block title %}Chi tiết dịch vụ - Bin Spa{% endblock %}
 
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/reviews.css') }}">{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reviews.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/related-recommendations.css') }}">
+{% endblock %}
 {% block content %}
     <section class="breadcrumb-section">
         <div class="container">
@@ -24,16 +28,17 @@
     </section>
 
     <section class="service-reviews-section"><div class="container"><h2>Đánh giá từ khách hàng</h2><div data-service-reviews><div class="review-summary" data-stats></div><div class="review-list" data-list>Đang tải...</div><div class="review-pagination" data-pages></div></div></div></section>
-    <section class="related-services-section">
+    <section id="relatedRecommendations" class="related-services-section" hidden>
         <div class="container">
-            <h2 class="section-title">Các dịch vụ liên quan</h2>
-            <div class="services-grid" id="relatedServicesGrid">
+            <h2 class="section-title">Có thể bạn cũng quan tâm</h2>
+            <div class="services-grid related-recommendations-grid" data-related-items>
                 </div>
         </div>
     </section>
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/packages.js') }}?v=1.5"></script>
 <script src="{{ url_for('static', filename='js/reviews.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/customers/service-detail.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/service-detail.js') }}?v=2.0"></script>
 {% endblock %}

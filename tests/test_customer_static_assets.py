@@ -12,7 +12,7 @@ def test_customer_pages_static_assets(app, client):
         db.session.add(package)
         db.session.commit()
         package_id = package.magoi
-    pages = ["/", "/services", "/profile", "/appointments/create", "/packages", f"/packages/{package_id}"]
+    pages = ["/", "/services", "/services/1", "/profile", "/appointments/create", "/packages", f"/packages/{package_id}"]
     adapter = app.url_map.bind("localhost")
     for page in pages:
         response = client.get(page)

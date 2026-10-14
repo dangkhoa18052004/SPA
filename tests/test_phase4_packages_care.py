@@ -344,8 +344,12 @@ def test_migration_additive_preserves_existing_service(app,phase4_temp_dir):
     migration=importlib.util.module_from_spec(spec);spec.loader.exec_module(migration)
     old=MetaData()
     new_names={'goidichvu','goidichvuitem','goidichvupurchase','thelieutrinh','thelieutrinhitem','lieutrinhusage','notificationjob'}
+    excluded=set(new_names)
     for table in db.metadata.sorted_tables:
-        if table.name not in new_names:table.to_metadata(old)
+        # Later models referencing package tables cannot exist in this pre-package fixture.
+        if any(fk.column.table.name in excluded for fk in table.foreign_keys):
+            excluded.add(table.name)
+        if table.name not in excluded:table.to_metadata(old)
     old.tables['dichvu']._columns.remove(old.tables['dichvu'].c.post_care_instructions)
     engine=create_engine(f'sqlite:///{phase4_temp_dir / "migration.sqlite"}')
     try:

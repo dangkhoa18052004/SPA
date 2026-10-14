@@ -6,7 +6,7 @@ Dùng chung cho Customer Booking, Admin Management, và AI Assistant.
 
 import re
 from datetime import datetime, date, time, timedelta
-import threading
+from html import escape
 from flask import current_app
 from sqlalchemy import func, and_, or_
 
@@ -22,7 +22,6 @@ from ..models import (
     nhanvien_calam,
     AppointmentStatus,
 )
-from .email_service import send_email
 
 
 # ==========================================
@@ -66,57 +65,45 @@ class NoStaffAvailableError(AppointmentConflictError):
 # ==========================================
 # ASYNC EMAIL HELPERS
 # ==========================================
-def _send_async_email(app, recipient, subject, html_content):
-    """Chạy background thread gửi email để không block request."""
-    with app.app_context():
-        try:
-            send_email(recipient, subject, html_content)
-            current_app.logger.info(f"Đã gửi email thành công tới {recipient}")
-        except Exception as e:
-            current_app.logger.error(f"Lỗi khi gửi email: {e}")
-
-
 def send_appointment_confirmation_email_async(customer_email, customer_name, appointment_data):
-    """Gửi email xác nhận đặt lịch hẹn."""
-    if not customer_email:
+    """Persist confirmation for the worker. The booking caller owns commit/rollback."""
+    if not (customer_email or '').strip():
         return
-    try:
-        app = current_app._get_current_object()
-        subject = f"🌸 Bin Spa - Xác nhận đặt lịch hẹn #{appointment_data['malh']}"
-        start_dt = appointment_data.get("start_dt")
-        end_time_str = appointment_data.get("end_time_str", "")
-        services_html = "".join([
-            f"<tr><td style='padding: 8px; border-bottom: 1px solid #eee;'>{s['tendv']}</td>"
-            f"<td style='padding: 8px; border-bottom: 1px solid #eee; text-align: right;'>{s['thoiluong']} phút</td></tr>"
-            for s in appointment_data.get("services", [])
-        ])
+    from .notification_service import enqueue
+    appointment = db.session.get(LichHen, appointment_data['malh'])
+    if appointment is None:
+        raise AppointmentServiceError('Không tìm thấy lịch hẹn để tạo email xác nhận')
+    subject = f"🌸 Bin Spa - Xác nhận đặt lịch hẹn #{appointment_data['malh']}"
+    start_dt = appointment_data.get("start_dt")
+    end_time_str = appointment_data.get("end_time_str", "")
+    services_html = "".join([
+        f"<tr><td style='padding: 8px; border-bottom: 1px solid #eee;'>{escape(s['tendv'])}</td>"
+        f"<td style='padding: 8px; border-bottom: 1px solid #eee; text-align: right;'>{s['thoiluong']} phút</td></tr>"
+        for s in appointment_data.get("services", [])
+    ])
 
-        html_content = f"""
-        <p>Xin chào <strong>{customer_name}</strong>,</p>
-        <p>Cảm ơn bạn đã đặt lịch tại <strong>Bin Spa</strong>. Dưới đây là thông tin lịch hẹn của bạn:</p>
-        <div style="background: #faf8f5; padding: 15px; border-radius: 8px; margin: 15px 0;">
-            <p><strong>Mã lịch hẹn:</strong> #{appointment_data['malh']}</p>
-            <p><strong>Ngày:</strong> {start_dt.strftime('%d/%m/%Y')}</p>
-            <p><strong>Giờ:</strong> {start_dt.strftime('%H:%M')} - {end_time_str}</p>
-            <p><strong>Kỹ thuật viên:</strong> {appointment_data.get('staff_name', 'Được chỉ định bởi Spa')}</p>
-            <p><strong>Trạng thái:</strong> <span style="color: #28a745; font-weight: bold;">{AppointmentStatus.to_vietnamese(appointment_data.get('trangthai', 'confirmed'))}</span></p>
-        </div>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
-            <thead>
-                <tr style="background: #f1ebd9;">
-                    <th style="padding: 8px; text-align: left;">Dịch vụ</th>
-                    <th style="padding: 8px; text-align: right;">Thời lượng</th>
-                </tr>
-            </thead>
-            <tbody>{services_html}</tbody>
-        </table>
-        <p style="margin-top: 20px;">Trân trọng,<br><strong>Bin Spa</strong></p>
-        """
-        thr = threading.Thread(target=_send_async_email, args=[app, customer_email, subject, html_content])
-        thr.daemon = True
-        thr.start()
-    except Exception as e:
-        current_app.logger.error(f"Lỗi khởi tạo gửi mail xác nhận: {e}")
+    html_content = f"""
+    <p>Xin chào <strong>{escape(customer_name or 'Quý khách')}</strong>,</p>
+    <p>Cảm ơn bạn đã đặt lịch tại <strong>Bin Spa</strong>. Dưới đây là thông tin lịch hẹn của bạn:</p>
+    <div style="background: #faf8f5; padding: 15px; border-radius: 8px; margin: 15px 0;">
+        <p><strong>Mã lịch hẹn:</strong> #{appointment_data['malh']}</p>
+        <p><strong>Ngày:</strong> {start_dt.strftime('%d/%m/%Y')}</p>
+        <p><strong>Giờ:</strong> {start_dt.strftime('%H:%M')} - {end_time_str}</p>
+        <p><strong>Kỹ thuật viên:</strong> {escape(appointment_data.get('staff_name') or 'Được chỉ định bởi Spa')}</p>
+        <p><strong>Trạng thái:</strong> <span style="color: #28a745; font-weight: bold;">{AppointmentStatus.to_vietnamese(appointment_data.get('trangthai', 'confirmed'))}</span></p>
+    </div>
+    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+        <thead>
+            <tr style="background: #f1ebd9;">
+                <th style="padding: 8px; text-align: left;">Dịch vụ</th>
+                <th style="padding: 8px; text-align: right;">Thời lượng</th>
+            </tr>
+        </thead>
+        <tbody>{services_html}</tbody>
+    </table>
+    <p style="margin-top: 20px;">Trân trọng,<br><strong>Bin Spa</strong></p>
+    """
+    return enqueue(appointment, 'booking_confirmation', datetime.utcnow(), subject, html_content, 'confirmation')
 
 
 # ==========================================
@@ -521,11 +508,39 @@ def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, s
         reserve_usages(new_appointment, [] if package_usages is None else package_usages,
                        require_item_id=booking_source == 'admin')
         sync_appointment_jobs(new_appointment)
+        from .recommendation_service import record_business_event
+        for madv in madv_ids:
+            record_business_event(customer_id, 'book_service', new_appointment.malh, madv=madv)
         prepaid_invoice = None
         if prepay:
             # Khách chọn thanh toán ngay: hóa đơn chờ thanh toán tạo cùng transaction với lịch hẹn.
             from .prepay_service import create_prepaid_invoice
             prepaid_invoice = create_prepaid_invoice(new_appointment)
+
+        # 6. Gửi email xác nhận
+        assigned_staff = NhanVien.query.get(assigned_manv) if assigned_manv else None
+        end_time_dt = start_dt + timedelta(minutes=total_duration)
+        appointment_data = {
+            'malh': new_appointment.malh,
+            'ngaygio': new_appointment.ngaygio,
+            'start_dt': start_dt,
+            'end_time_str': end_time_dt.strftime('%H:%M'),
+            'trangthai': new_appointment.trangthai,
+            'staff_name': assigned_staff.hoten if assigned_staff else "Chưa chỉ định",
+            'services': [{
+                'madv': s.madv,
+                'tendv': s.tendv,
+                'thoiluong': s.thoiluong if s.thoiluong else 60,
+                'gia': float(s.gia)
+            } for s in services]
+        }
+
+        if customer.email:
+            send_appointment_confirmation_email_async(
+                customer.email,
+                customer.hoten,
+                appointment_data
+            )
         db.session.commit()
     except AppointmentValidationError:
         db.session.rollback()
@@ -534,31 +549,6 @@ def create_appointment(customer_id, madv_list, start_dt, manv=None, note=None, s
         db.session.rollback()
         current_app.logger.error(f"Lỗi database khi tạo lịch hẹn: {e}", exc_info=True)
         raise AppointmentServiceError("Lỗi hệ thống khi lưu lịch hẹn. Vui lòng thử lại sau!", status_code=500)
-
-    # 6. Gửi email xác nhận
-    assigned_staff = NhanVien.query.get(assigned_manv) if assigned_manv else None
-    end_time_dt = start_dt + timedelta(minutes=total_duration)
-    appointment_data = {
-        'malh': new_appointment.malh,
-        'ngaygio': new_appointment.ngaygio,
-        'start_dt': start_dt,
-        'end_time_str': end_time_dt.strftime('%H:%M'),
-        'trangthai': new_appointment.trangthai,
-        'staff_name': assigned_staff.hoten if assigned_staff else "Chưa chỉ định",
-        'services': [{
-            'madv': s.madv,
-            'tendv': s.tendv,
-            'thoiluong': s.thoiluong if s.thoiluong else 60,
-            'gia': float(s.gia)
-        } for s in services]
-    }
-
-    if customer.email:
-        send_appointment_confirmation_email_async(
-            customer.email,
-            customer.hoten,
-            appointment_data
-        )
 
     return {
         "success": True,
@@ -707,6 +697,10 @@ def change_appointment_services(appointment_id, madv_list, user_id=None, role='c
             reserve_usages(apt, package_usages, require_item_id=role != 'customer')
         db.session.expire(apt, ['chitiet'])
         prepay_service.sync_after_service_change(apt)
+        from .recommendation_service import record_business_event
+        for madv in new_ids:
+            if madv not in old_ids:
+                record_business_event(apt.makh, 'book_service', apt.malh, madv=madv)
         set_system_note(apt, 'Đổi dịch vụ', f"{vn_now():%H:%M %d/%m/%Y}"
                         f"{' bởi ' + actor_name if actor_name else ''}: {', '.join(names[m] for m in new_ids)}")
         sync_appointment_jobs(apt)
@@ -921,6 +915,9 @@ def update_appointment_status(appointment_id, new_status, user_id=None, role='st
         if norm_status == AppointmentStatus.COMPLETED:
             transition_usages(apt.malh, 'consumed')
             commission_service.record_for_appointment(apt)
+            from .recommendation_service import record_business_event
+            for detail in apt.chitiet:
+                record_business_event(apt.makh, 'complete_service', apt.malh, madv=detail.madv)
         elif norm_status == AppointmentStatus.CANCELLED:
             transition_usages(apt.malh, 'released')
             from . import prepay_service

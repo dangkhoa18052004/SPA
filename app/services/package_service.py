@@ -163,6 +163,8 @@ def activate_package_purchase(purchase):
             regular_price_snapshot=Decimal(item['regular_unit_price_snapshot'])))
     db.session.add(record)
     db.session.flush()
+    from .recommendation_service import record_business_event
+    record_business_event(purchase.makh, 'purchase_package', purchase.id, magoi=purchase.magoi)
     return record
 
 

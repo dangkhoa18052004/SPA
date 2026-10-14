@@ -1,12 +1,30 @@
 from flask import Blueprint, request, jsonify, current_app, g
 from ..extensions import db
-from ..models import DichVu
+from ..models import DichVu, DanhMucDichVu
 from ..decorators import roles_required 
 import base64
 from ..services.upload_service import read_validated_image, InvalidUploadError
 from ..services import commission_service
 
 service_manage_bp = Blueprint("service_manage", __name__)
+
+
+@service_manage_bp.route('/service-categories', methods=['GET'])
+@roles_required('admin', 'manager')
+def service_categories():
+    return jsonify(success=True, categories=[dict(id=c.id, name=c.name, slug=c.slug)
+        for c in DanhMucDichVu.query.filter_by(active=True).order_by(DanhMucDichVu.name).all()])
+
+
+def category_value(raw):
+    if raw is None or raw == '':
+        return None
+    if not isinstance(raw, str) or not raw.isdigit() or not 0 < int(raw) <= 2147483647:
+        raise ValueError('Danh mục dịch vụ không hợp lệ')
+    category = db.session.get(DanhMucDichVu, int(raw))
+    if not category or not category.active:
+        raise ValueError('Danh mục dịch vụ không tồn tại hoặc đã ngừng hoạt động')
+    return category.id
 
 @service_manage_bp.route("/services", methods=["GET"])
 @roles_required('admin', 'manager', 'staff', 'letan')
@@ -23,6 +41,7 @@ def get_services_admin():
             "mota": s.mota,
             "post_care_instructions": s.post_care_instructions or "",
             "active": s.active,
+            "category_id": s.category_id,
             "anhdichvu": base64.b64encode(s.anhdichvu).decode('utf-8') if s.anhdichvu else None,
             **({
                 "commission_percent": str(s.commission_percent) if s.commission_percent is not None else None,
@@ -58,6 +77,7 @@ def create_service():
             return jsonify({"msg": "Thiếu tên dịch vụ hoặc giá"}), 400
 
         new_service = DichVu(
+            category_id=category_value(request.form.get('category_id')),
             tendv=tendv, 
             gia=gia, 
             thoiluong=thoiluong, 
@@ -76,6 +96,9 @@ def create_service():
         db.session.add(new_service)
         db.session.commit()
         return jsonify({"msg": "Thêm dịch vụ thành công", "madv": new_service.madv}), 201
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify(msg=str(e)), 400
     except InvalidUploadError as e:
         db.session.rollback()
         return jsonify(msg=str(e)), 400
@@ -93,6 +116,8 @@ def update_service(madv):
 
     try:
         # Sử dụng request.form
+        if 'category_id' in request.form:
+            service.category_id = category_value(request.form['category_id'])
         if 'tendv' in request.form:
             service.tendv = request.form.get("tendv")
         if 'gia' in request.form:
@@ -127,6 +152,9 @@ def update_service(madv):
 
         db.session.commit()
         return jsonify({"msg": "Cập nhật dịch vụ thành công"}), 200
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify(msg=str(e)), 400
     except InvalidUploadError as e:
         db.session.rollback()
         return jsonify(msg=str(e)), 400

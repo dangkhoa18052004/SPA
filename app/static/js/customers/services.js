@@ -1,6 +1,7 @@
 // Global variables
 let servicesPageAllServices = [];  
 let servicesPageFilteredServices = [];
+const servicesPageDefaultOrder = new Map();
 let currentCategory = 'all';
 
 // Service categories mapping - Đã đặt ở GLOBAL SCOPE
@@ -62,17 +63,19 @@ async function loadAllServices() {
     try {
         showSkeletonLoading();
         
-        const response = await fetch('/api/services');
+        const response = await (window.CustomerAuth ? window.CustomerAuth.fetch('/api/services') : fetch('/api/services'));
+        if (!response.ok) throw new Error('Services unavailable');
         const data = await response.json();
         
         console.log('Services API Response:', data);
         
         if (data.success && data.services) {
             servicesPageAllServices = data.services;
-            servicesPageFilteredServices = [...servicesPageAllServices];
+            servicesPageDefaultOrder.clear();
+            servicesPageAllServices.forEach((s, index) => servicesPageDefaultOrder.set(s.madv, index));
             
             console.log(`Loaded ${servicesPageAllServices.length} services`);
-            displayServices(servicesPageFilteredServices);
+            filterServices();
         } else {
             showError('Không thể tải danh sách dịch vụ');
         }
@@ -103,7 +106,7 @@ function displayServices(services) {
     if (noResults) noResults.style.display = 'none';
     
     servicesGrid.innerHTML = services.map(service => {
-        const category = detectServiceCategory(service.tendv, service.mota);
+        const category = servicePageCategory(service);
         const categoryLabel = getCategoryLabel(category);
         
         console.log(`Service: ${service.tendv} -> Category: ${category}`);
@@ -149,40 +152,20 @@ function displayServices(services) {
 }
 
 // ==================== FILTER BY CATEGORY ====================
+function servicePageCategory(service) {
+    const slug = service.category_slug;
+    if (slug) return ({acne: 'facial', 'body-care': 'body'})[slug] || slug;
+    // Preserve the existing visual filter for legacy rows without a category FK.
+    // Recommendation scoring itself always uses the persisted category.
+    return detectServiceCategory(service.tendv, service.mota);
+}
+
 function filterByCategory(category) {
-    console.log(`Filtering by category: ${category}`);
     currentCategory = category;
-    
-    // Update active filter button
     document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
+        btn.classList.toggle('active', btn.getAttribute('onclick') === `filterByCategory('${category}')`);
     });
-    
-    // Find and activate the clicked button
-    const clickedBtn = event.target.closest('.filter-btn');
-    if (clickedBtn) {
-        clickedBtn.classList.add('active');
-    }
-    
-    // Filter services
-    if (category === 'all') {
-        servicesPageFilteredServices = [...servicesPageAllServices];
-    } else {
-        servicesPageFilteredServices = servicesPageAllServices.filter(service => {
-            const detectedCategory = detectServiceCategory(service.tendv, service.mota);
-            return detectedCategory === category;
-        });
-    }
-    
-    console.log(`Filtered to ${servicesPageFilteredServices.length} services`);
-    
-    // Apply search filter if there's a search term
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput && searchInput.value.trim()) {
-        filterServices();
-    } else {
-        displayServices(servicesPageFilteredServices);
-    }
+    filterServices();
 }
 
 // Get category label
@@ -200,61 +183,27 @@ function getCategoryLabel(category) {
 
 // ==================== SEARCH FILTER ====================
 function filterServices() {
-    const searchInput = document.getElementById('searchInput');
-    if (!searchInput) return;
-    
-    const searchTerm = searchInput.value.toLowerCase().trim();
-    
-    console.log(`Searching for: "${searchTerm}"`);
-    
-    // Start with category filtered services
-    let filtered = currentCategory === 'all' 
-        ? [...servicesPageAllServices]
-        : servicesPageAllServices.filter(service => {
-            const category = detectServiceCategory(service.tendv, service.mota);
-            return category === currentCategory;
-        });
-    
-    // Apply search term
-    if (searchTerm) {
-        filtered = filtered.filter(service => 
-            service.tendv.toLowerCase().includes(searchTerm) ||
-            (service.mota && service.mota.toLowerCase().includes(searchTerm))
-        );
-    }
-    
-    servicesPageFilteredServices = filtered;
-    console.log(`Search result: ${servicesPageFilteredServices.length} services`);
+    const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+    // Filter candidates first. Scores are independent of candidate membership, so
+    // restricting the server order produces exactly the same personalized ranking.
+    servicesPageFilteredServices = servicesPageAllServices.filter(service =>
+        (currentCategory === 'all' || servicePageCategory(service) === currentCategory) &&
+        (!searchTerm || service.tendv.toLowerCase().includes(searchTerm) ||
+            (service.mota || '').toLowerCase().includes(searchTerm)));
+    const sort = document.getElementById('sortSelect')?.value || 'default';
+    const comparators = {
+        'name-asc': (a, b) => a.tendv.localeCompare(b.tendv, 'vi'),
+        'name-desc': (a, b) => b.tendv.localeCompare(a.tendv, 'vi'),
+        'price-asc': (a, b) => Number(a.gia) - Number(b.gia),
+        'price-desc': (a, b) => Number(b.gia) - Number(a.gia),
+        'default': (a, b) => servicesPageDefaultOrder.get(a.madv) - servicesPageDefaultOrder.get(b.madv)
+    };
+    servicesPageFilteredServices.sort(comparators[sort] || comparators.default);
     displayServices(servicesPageFilteredServices);
 }
 
-// ==================== SORT SERVICES ====================
 function sortServices() {
-    const sortSelect = document.getElementById('sortSelect');
-    if (!sortSelect) return;
-    
-    const sortValue = sortSelect.value;
-    console.log(`Sorting by: ${sortValue}`);
-    
-    switch (sortValue) {
-        case 'name-asc':
-            servicesPageFilteredServices.sort((a, b) => a.tendv.localeCompare(b.tendv, 'vi'));
-            break;
-        case 'name-desc':
-            servicesPageFilteredServices.sort((a, b) => b.tendv.localeCompare(a.tendv, 'vi'));
-            break;
-        case 'price-asc':
-            servicesPageFilteredServices.sort((a, b) => parseFloat(a.gia) - parseFloat(b.gia));
-            break;
-        case 'price-desc':
-            servicesPageFilteredServices.sort((a, b) => parseFloat(b.gia) - parseFloat(a.gia));
-            break;
-        default:
-            // Default order (by ID)
-            servicesPageFilteredServices.sort((a, b) => a.madv - b.madv);
-    }
-    
-    displayServices(servicesPageFilteredServices);
+    filterServices();
 }
 
 // ==================== VIEW SERVICE DETAIL ====================

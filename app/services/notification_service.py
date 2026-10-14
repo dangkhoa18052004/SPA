@@ -308,6 +308,9 @@ def process_jobs(batch_size=50, now=None, appointment_id=None):
             valid = apt.trangthai == AppointmentStatus.CONFIRMED
         elif job.type == NO_SHOW_JOB:
             valid = apt.trangthai == AppointmentStatus.CANCELLED
+        elif job.type == 'booking_confirmation':
+            valid = apt.trangthai in (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED,
+                AppointmentStatus.IN_PROGRESS, AppointmentStatus.COMPLETED)
         else:
             valid = apt.trangthai == AppointmentStatus.COMPLETED
         if not valid or (job.type.startswith('appointment_reminder') and apt.ngaygio - timedelta(hours=7) <= now):

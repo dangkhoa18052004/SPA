@@ -6,6 +6,8 @@ from pathlib import Path
 from sqlalchemy import create_engine, text, inspect
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 
 @pytest.fixture(params=['sqlite', 'postgresql'])
@@ -65,13 +67,13 @@ def test_flask_db_upgrade_from_existing_head(migration_engine, monkeypatch):
     with engine.begin() as c:
         for sql in ['CREATE TABLE khachhang (makh INTEGER PRIMARY KEY)',
             'CREATE TABLE nhanvien (manv INTEGER PRIMARY KEY)',
-            'CREATE TABLE lichhen (malh INTEGER PRIMARY KEY, manv INTEGER REFERENCES nhanvien(manv))',
+            'CREATE TABLE lichhen (malh INTEGER PRIMARY KEY, manv INTEGER REFERENCES nhanvien(manv), makh INTEGER REFERENCES khachhang(makh), ngaygio DATETIME)',
             'CREATE TABLE dichvu (madv INTEGER PRIMARY KEY)',
             'CREATE TABLE luong (maluong INTEGER PRIMARY KEY)',
-            'CREATE TABLE hoadon (mahd INTEGER PRIMARY KEY, tongtien NUMERIC NOT NULL)',
+            'CREATE TABLE hoadon (mahd INTEGER PRIMARY KEY, tongtien NUMERIC NOT NULL, makh INTEGER REFERENCES khachhang(makh), ngaylap DATETIME)',
             'CREATE TABLE goidichvu (magoi INTEGER PRIMARY KEY, active BOOLEAN NOT NULL)',
             'CREATE TABLE goidichvupurchase (id INTEGER PRIMARY KEY, amount NUMERIC NOT NULL)',
-            'INSERT INTO hoadon VALUES (1,500000)', 'INSERT INTO goidichvupurchase VALUES (1,1200000)']:
+            'INSERT INTO hoadon (mahd,tongtien) VALUES (1,500000)', 'INSERT INTO goidichvupurchase VALUES (1,1200000)']:
             c.execute(text(sql))
     application=create_app(dict(TESTING=True,APP_ENV='testing',SQLALCHEMY_DATABASE_URI='sqlite://',
         SECRET_KEY='migration-test',JWT_SECRET_KEY='migration-test-secret'))
@@ -84,7 +86,9 @@ def test_flask_db_upgrade_from_existing_head(migration_engine, monkeypatch):
     result=runner.invoke(args=['db','upgrade'])
     assert result.exit_code==0,result.output
     with engine.connect() as c:
-        assert c.execute(text('SELECT version_num FROM alembic_version')).scalar()=='20261005_0016'
+        config = Config('migrations/alembic.ini')
+        config.set_main_option('script_location', 'migrations')
+        assert c.execute(text('SELECT version_num FROM alembic_version')).scalar()==ScriptDirectory.from_config(config).get_current_head()
         assert c.execute(text('SELECT payable_amount FROM hoadon')).scalar()==500000
     with application.app_context():
         db.session.remove();db.engine.dispose()
