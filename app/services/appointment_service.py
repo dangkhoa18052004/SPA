@@ -798,6 +798,10 @@ def auto_cancel_no_shows(now=None, grace_minutes=None, limit=200):
             if prepay_service.on_appointment_cancelled(apt) == 'refund':
                 set_system_note(apt, 'Cần hoàn tiền', f"{now:%H:%M %d/%m/%Y}: khách đã thanh toán trước")
             set_system_note(apt, 'Tự động hủy', f"{now:%H:%M %d/%m/%Y}: khách không đến sau {grace_minutes} phút")
+            if current_app.config.get('BI_REPORTS_ENABLED'):
+                from ..models import AppointmentOutcome
+                if not db.session.get(AppointmentOutcome, apt.malh):
+                    db.session.add(AppointmentOutcome(malh=apt.malh, outcome='no_show'))
             # Chỉ báo email cho lịch vừa lỡ; lịch tồn đọng lâu ngày chỉ hủy, tránh gửi thư cho lịch đã cũ.
             max_age = current_app.config.get('NO_SHOW_EMAIL_MAX_AGE_HOURS', NO_SHOW_EMAIL_MAX_AGE_HOURS)
             if apt.ngaygio >= now - timedelta(hours=max_age):

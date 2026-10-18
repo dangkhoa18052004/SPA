@@ -1,3 +1,4 @@
+from ..services.staff_security_service import step_up_required
 from flask import Blueprint, request, jsonify, current_app, render_template, make_response
 from ..extensions import db
 from ..models import Luong, NhanVien, CaLam, nhanvien_calam, BangLuongChiTiet, ChucVu
@@ -10,8 +11,24 @@ from decimal import Decimal
 
 salary_manage_bp = Blueprint("salary_manage", __name__)
 
+
+@salary_manage_bp.before_request
+def protect_legacy_payroll():
+    if current_app.config.get('PAYROLL_V2_ENABLED'):
+        from flask_jwt_extended import verify_jwt_in_request
+        from ..decorators import get_current_user
+        verify_jwt_in_request()
+        actor, actor_type = get_current_user()
+        if actor_type != 'staff' or not actor or not actor.trangthai:
+            return jsonify(msg='Cần tài khoản nhân viên đang hoạt động'), 403
+        if actor.role == 'manager' and request.method == 'GET':
+            return jsonify(msg='Dùng bảng lương theo cơ sở tại /admin/operations/payroll'), 403
+    if current_app.config.get('PAYROLL_V2_ENABLED') and request.method in {'POST', 'PUT', 'DELETE'}:
+        return jsonify(msg='Bảng lương mới đã bật. Dùng /admin/operations/payroll để duyệt và lưu bản chốt.'), 409
+
 @salary_manage_bp.route("/salaries/calculate", methods=["POST"])
 @roles_required('admin', 'manager')
+@step_up_required
 def calculate_salaries():
     """ Tổng hợp lương ca, hoa hồng, thưởng và khấu trừ vào Bảng Lương Tháng. """
     data = request.get_json()
@@ -143,6 +160,7 @@ def get_all_salaries():
 # === API MỚI: ĐIỀU CHỈNH LƯƠNG/THƯỞNG/PHẠT CỦA CA (NGÀY) ===
 @salary_manage_bp.route("/salaries/daily/<int:id_chitiet>", methods=["PUT"])
 @roles_required('admin', 'manager')
+@step_up_required
 def adjust_daily_salary(id_chitiet):
     """ API mới để sửa thưởng/phạt cho một bản ghi lương chi tiết. """
     
@@ -189,6 +207,7 @@ def adjust_daily_salary(id_chitiet):
 # === API CŨ: ĐIỀU CHỈNH LƯƠNG THÁNG (GIỮ NGUYÊN) ===
 @salary_manage_bp.route("/salaries/<int:maluong>", methods=["PUT"])
 @roles_required('admin', 'manager')
+@step_up_required
 def adjust_monthly_salary(maluong):
     """ Hàm này chỉ điều chỉnh Thưởng/Khấu trừ ở cấp độ Tháng (ghi đè). """
     salary = Luong.query.get(maluong)
@@ -214,6 +233,7 @@ def adjust_monthly_salary(maluong):
 # === API XUẤT PDF (CẬP NHẬT) ===
 @salary_manage_bp.route("/salaries/export-pdf", methods=["GET"])
 @roles_required('admin', 'manager')
+@step_up_required
 def export_salaries_pdf():
     try:
         filter_type = request.args.get('filter_type', 'month')

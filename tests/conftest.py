@@ -18,6 +18,14 @@ from app.models import (
 )
 
 
+@pytest.fixture(autouse=True)
+def staff_security_requires_test_opt_in(monkeypatch):
+    # Custom app factories must not inherit an enabled local .env feature flag.
+    # MFA tests enable it explicitly with their own encryption key.
+    from app.config import Config
+    monkeypatch.setattr(Config, 'STAFF_SECURITY_ENABLED', False)
+
+
 @pytest.fixture()
 def app():
     upload_folder = os.path.join(os.getcwd(), "tests", "runtime_uploads")
@@ -41,6 +49,28 @@ def app():
         "PACKAGE_CUSTOMER_CASH_ENABLED": True,
         # Không gọi SePay thật trong test; test đồng bộ tự bật và mock.
         "SEPAY_POLL_ENABLED": False,
+        "ATTENDANCE_ENABLED": False,
+        "ATTENDANCE_SIMPLE_MODE": False,
+        "ATTENDANCE_BRANCH_ID": 0,
+        "PAYROLL_V2_ENABLED": False,
+        "EMPLOYEE_PORTAL_ENABLED": False,
+        "BUSINESS_PORTAL_ENABLED": False,
+        "ADMIN_BOOKING_REACT_ENABLED": False,
+        "ADMIN_BILLING_REACT_ENABLED": False,
+        "ADMIN_CATALOG_REACT_ENABLED": False,
+        "ADMIN_PEOPLE_REACT_ENABLED": False,
+        "ADMIN_CARE_REACT_ENABLED": False,
+        "CUSTOMER_BOOKING_REACT_ENABLED": False,
+        "CRM_ENABLED": False,
+        "CUSTOMER_CONSENT_ENABLED": False,
+        "PERSONALIZATION_ENABLED": True,
+        "RECOMMENDATION_METRICS_ENABLED": False,
+        "BI_REPORTS_ENABLED": False,
+        "OBSERVABILITY_ENABLED": False,
+        "AUTH_RATE_LIMIT_ENABLED": False,
+        "AI_CHAT_JOBS_ENABLED": False,
+        "STAFF_SECURITY_ENABLED": False,
+        "STAFF_MFA_ENCRYPTION_KEY": "",
     })
 
     with application.app_context():

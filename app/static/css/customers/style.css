@@ -85,9 +85,10 @@ h1, h2, h3, h4, .brand-font {
     align-items: center;
     gap: 10px;
     font-size: 24px;
-    color: var(--white);
+    color: var(--primary-green);
     font-weight: 600;
     transition: color 0.3s ease;
+    text-decoration: none;
 }
 
 .navbar.scrolled .nav-logo {
@@ -105,7 +106,7 @@ h1, h2, h3, h4, .brand-font {
 }
 
 .nav-link {
-    color: var(--white);
+    color: var(--text-dark);
     text-decoration: none;
     font-size: 14px;
     font-weight: 500;
@@ -150,8 +151,8 @@ h1, h2, h3, h4, .brand-font {
 
 .lang-btn {
     background: transparent;
-    border: 1px solid var(--white);
-    color: var(--white);
+    border: 1px solid var(--primary-green);
+    color: var(--text-dark);
     padding: 8px 15px;
     border-radius: 5px;
     cursor: pointer;
@@ -215,8 +216,8 @@ h1, h2, h3, h4, .brand-font {
 
 .user-btn {
     background: transparent;
-    border: 1px solid var(--white);
-    color: var(--white);
+    border: 1px solid var(--primary-green);
+    color: var(--text-dark);
     padding: 8px 15px;
     border-radius: 5px;
     cursor: pointer;

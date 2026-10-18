@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
 from ..models import Hoithoai, KhachHang, NhanVien
 from ..services import chat_service
+import re
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/api/chat")
 
@@ -10,6 +11,8 @@ def get_current_user_from_jwt():
     """Helper function to get current user from JWT token"""
     identity = get_jwt_identity()
     
+    if not isinstance(identity, str) or ':' not in identity or not identity.split(':', 1)[1].isdigit():
+        return None, None
     if identity.startswith("customer:"):
         user_id = int(identity.split(":")[1])
         user = KhachHang.query.get(user_id)
@@ -35,6 +38,8 @@ def get_my_conversations():
             "success": True,
             "conversations": conversations
         }), 200
+    except PermissionError as e:
+        return jsonify(success=False, message=str(e)), 403
     except Exception as e:
         current_app.logger.error(f"Lỗi khi lấy hội thoại: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Lỗi hệ thống"}), 500
@@ -45,7 +50,7 @@ def get_my_conversations():
 def start_conversation():
     user, user_type = get_current_user_from_jwt()
     
-    if not user or user_type != 'customer':
+    if not user or user_type != 'customer' or user.trangthai != 'active':
         return jsonify({"success": False, "message": "Chỉ khách hàng mới có thể tạo cuộc trò chuyện"}), 403
     
     try:
@@ -87,11 +92,16 @@ def get_conversation_messages(maht):
 def send_message(maht):
     """Gửi tin nhắn mới."""
     user, user_type = get_current_user_from_jwt()
-    data = request.get_json()
-    noidung = data.get("noidung")
+    data = request.get_json(silent=True)
+    noidung = data.get('noidung') if isinstance(data, dict) else None
     
-    if not noidung:
-        return jsonify({"success": False, "message": "Nội dung không được trống"}), 400
+    # The existing customer service picker embeds raster photos in SERVICE_CARD/IMG messages.
+    # Keep those working while bounding plain text and the total encoded image size.
+    rich_image = (isinstance(noidung, str) and len(noidung) <= 4_000_000 and
+        re.fullmatch(r'\[(?:SERVICE_CARD:\d+\|[^|\r\n]+\|[\d.]+\|\d+\||IMG:)data:image/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+\]\s*[\s\S]{0,5000}', noidung.strip()))
+    if not isinstance(noidung, str) or not noidung.strip() or len(noidung) > 5000 and not rich_image:
+        return jsonify({"success": False, "message": "Tin nhắn cần có nội dung và tối đa 5000 ký tự"}), 400
+    noidung = noidung.strip()
     
     try:
         # Kiểm tra quyền và lấy hội thoại

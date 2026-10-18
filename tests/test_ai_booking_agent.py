@@ -288,3 +288,27 @@ def test_overloaded_model_falls_back(ai_app, app, client, customer_auth_headers,
     r = chat(client, customer_auth_headers, 'Xin chào')
     assert r.status_code == 200 and 'dự phòng' in r.json['reply']
     assert calls[-1] == 'backup-model' and len(calls) == 3
+
+
+def test_chat_deadline_bounds_retries_across_provider_calls(ai_app, app, client, monkeypatch):
+    clock, calls = [0], []
+    monkeypatch.setattr(ai_service.time, 'monotonic', lambda: clock[0])
+    def slow_post(url, **kwargs):
+        calls.append(kwargs['timeout'])
+        clock[0] += 23
+        raise ai_service.requests.Timeout()
+    monkeypatch.setattr(ai_service.requests, 'post', slow_post)
+    response = client.post('/api/ai/chat', json={'message': 'Spa có dịch vụ gì?'})
+    assert response.status_code == 504
+    assert len(calls) == 1 and sum(calls[0]) <= 22
+    with app.app_context():
+        assert LichHen.query.count() == 0
+
+
+def test_invalid_provider_json_is_a_controlled_error(ai_app, client, monkeypatch):
+    class Response:
+        status_code = 200
+        def json(self): raise ValueError('invalid JSON')
+    monkeypatch.setattr(ai_service.requests, 'post', lambda *a, **k: Response())
+    response = client.post('/api/ai/chat', json={'message': 'Xin chào'})
+    assert response.status_code == 502 and response.json['success'] is False

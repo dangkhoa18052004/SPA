@@ -38,11 +38,19 @@
                 <li><a href="#invoices" class="menu-link" data-section="invoices"><i class="fas fa-receipt" aria-hidden="true"></i> Hóa đơn</a></li>
                 <li><a href="#reviews" class="menu-link" data-section="reviews"><i class="fas fa-star" aria-hidden="true"></i> Đánh giá</a></li>
                 <li><a href="#info" class="menu-link" data-section="info"><i class="fas fa-user" aria-hidden="true"></i> Tài khoản</a></li>
+                {% if config.get('CRM_ENABLED') or config.get('CUSTOMER_CONSENT_ENABLED') %}<li><a href="#communication" class="menu-link" data-section="communication"><i class="fas fa-bell" aria-hidden="true"></i> Thông báo & quyền riêng tư</a></li>{% endif %}
             </ul>
         </div>
         
         <!-- Main Content -->
         <div class="profile-content">
+            {% if config.get('CRM_ENABLED') or config.get('CUSTOMER_CONSENT_ENABLED') %}<section class="profile-section communication-preferences" id="communication-section"><h2 class="section-title">Thông báo & quyền riêng tư</h2><p>Chọn email bạn muốn nhận từ Bin Spa. Bạn có thể thay đổi lựa chọn bất cứ lúc nào.</p>
+            <form id="communicationPreferences"><fieldset disabled><legend>Email chăm sóc</legend>
+              <label><input type="checkbox" name="reminders"><span><strong>Nhắc lịch hẹn</strong><small>Nhắc trước 24 giờ và 2 giờ cho lịch đã xác nhận.</small></span></label>
+              <label><input type="checkbox" name="post_care"><span><strong>Dặn dò sau dịch vụ</strong><small>Nhận hướng dẫn chăm sóc sau khi hoàn thành buổi hẹn.</small></span></label>
+              <label><input type="checkbox" name="review_requests"><span><strong>Mời chia sẻ đánh giá</strong><small>Nhận lời mời đánh giá trải nghiệm tại spa.</small></span></label>
+              <label><input type="checkbox" name="personalization"><span><strong>Cá nhân hóa dịch vụ</strong><small>Sắp xếp dịch vụ theo quan tâm và lịch sử của bạn. Khi tắt, hệ thống ngừng ghi tương tác cá nhân hóa và xóa các lượt xem/nhấp đã lưu. Lịch hẹn và giao dịch vẫn nằm trong hồ sơ của bạn.</small></span></label>
+            </fieldset><p>Email xác nhận đặt/hủy lịch và bảo mật tài khoản phục vụ giao dịch của bạn. Các lựa chọn trên dành cho email chăm sóc.</p><button type="submit" class="btn btn-primary" disabled>Lưu lựa chọn</button> <button type="button" class="btn btn-outline" id="reloadCommunicationPreferences" hidden>Tải lại lựa chọn</button><p id="communicationStatus" role="status" aria-live="polite"></p></form></section>{% endif %}
             <div class="profile-section loyalty-page" id="loyalty-section">
                 <h2 class="section-title">Điểm thưởng</h2><p id="customerLoyaltyMessage" role="status" aria-live="polite"></p>
                 <div id="loyaltyBalance" class="loyalty-cards loyalty-wallet">Đang tải...</div>
@@ -199,4 +207,5 @@
 <script src="{{ url_for('static', filename='js/customers/profile.js', v='1.6') }}"></script>
 <script src="{{ url_for('static', filename='js/packages.js', v='1.2') }}"></script>
 <script src="{{ url_for('static', filename='js/customers/loyalty.js', v='2.4') }}"></script>
+{% if config.get('CRM_ENABLED') or config.get('CUSTOMER_CONSENT_ENABLED') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/communication-preferences.css') }}"><script src="{{ url_for('static', filename='js/customers/communication-preferences.js') }}"></script>{% endif %}
 {% endblock %}

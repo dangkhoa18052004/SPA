@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, current_app
 from ..models import DichVu
+from ..services.recommendation_metrics import measure
 
 service_bp = Blueprint("service", __name__)
 
@@ -20,6 +21,7 @@ def service_reviews(service_id):
         return jsonify(success=False, message=error.message), error.status_code
 
 @service_bp.route("", methods=["GET"])
+@measure('catalog')
 def get_services():
     from flask import request
     from flask_jwt_extended import verify_jwt_in_request

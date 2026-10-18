@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ..decorators import customer_required, get_current_user
 from ..extensions import db
 from ..services.recommendation_service import Ranking, record_client_event, RecommendationError, get_related_recommendations
+from ..services.recommendation_metrics import measure
 
 recommendation_bp = Blueprint('recommendations', __name__, url_prefix='/api/recommendations')
 
@@ -33,6 +34,7 @@ def unavailable(error):
 
 
 @recommendation_bp.route('', methods=['GET'])
+@measure('home')
 def recommendations():
     verify_jwt_in_request(optional=True)
     user, kind = get_current_user()
@@ -53,6 +55,7 @@ def events():
 
 
 @recommendation_bp.route('/related/<int:service_id>', methods=['GET'])
+@measure('related')
 def related(service_id):
     verify_jwt_in_request(optional=True)
     user, kind = get_current_user()

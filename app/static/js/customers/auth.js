@@ -2,16 +2,13 @@
 function togglePassword() {
     const passwordInput = document.getElementById('matkhau');
     const eyeIcon = document.getElementById('eyeIcon');
-    
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        eyeIcon.classList.remove('fa-eye');
-        eyeIcon.classList.add('fa-eye-slash');
-    } else {
-        passwordInput.type = 'password';
-        eyeIcon.classList.remove('fa-eye-slash');
-        eyeIcon.classList.add('fa-eye');
-    }
+    const visible = passwordInput.type === 'password';
+    passwordInput.type = visible ? 'text' : 'password';
+    eyeIcon?.classList.toggle('fa-eye', !visible);
+    eyeIcon?.classList.toggle('fa-eye-slash', visible);
+    const button = passwordInput.closest('.password-input')?.querySelector('.toggle-password');
+    button?.setAttribute('aria-pressed', String(visible));
+    button?.setAttribute('aria-label', visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu');
 }
 
 // Auto-hide alerts after 5 seconds

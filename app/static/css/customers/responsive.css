@@ -113,7 +113,7 @@ textarea {
 
     .mobile-menu-btn {
         display: flex;
-        color: var(--white);
+        color: var(--text-dark);
     }
 
     .lang-btn,

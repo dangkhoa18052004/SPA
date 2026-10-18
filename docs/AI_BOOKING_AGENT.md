@@ -1,5 +1,7 @@
 # Giai đoạn 5 – Gemini AI booking agent và tóm tắt kinh doanh
 
+Cập nhật xử lý nền khi khách chuyển trang: [AI chat qua các trang](AI_CHAT_NAVIGATION.md). Bật cờ sau migration 0022 và chạy AI worker riêng; hợp đồng `/api/ai/chat` đồng bộ bên dưới vẫn được giữ.
+
 ## Cấu hình môi trường
 
 ```env

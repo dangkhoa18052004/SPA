@@ -178,3 +178,44 @@ def test_recommendation_migration_preserves_uncategorized_legacy_services(tmp_pa
             assert conn.execute(text('SELECT tendv, gia, category_id FROM dichvu WHERE madv = 90')).one() == ('Dịch vụ cũ', 300000, None)
             assert conn.execute(text('SELECT COUNT(*) FROM danhmucdichvu')).scalar() == 7
             assert conn.execute(text('SELECT COUNT(*) FROM customer_behavior')).scalar() == 0
+
+
+def test_operations_downgrade_and_upgrade_preserve_business_rows(db_url, make_app):
+    from app.extensions import db
+    from app.models import DichVu
+    application = make_app(db_url)
+    _cli(application, 'upgrade')
+    with application.app_context():
+        with db.engine.begin() as conn:
+            result = conn.execute(DichVu.__table__.insert().values(tendv='Dịch vụ giữ nguyên', gia=300000, active=True))
+            service_id = result.inserted_primary_key[0]
+    _cli(application, 'downgrade', '20261007_0017')
+    with application.app_context():
+        with db.engine.connect() as conn:
+            assert 'attendance_session' not in inspect(conn).get_table_names()
+            assert 'branch_id' not in {c['name'] for c in inspect(conn).get_columns('calam')}
+            assert conn.execute(text('SELECT tendv, gia FROM dichvu WHERE madv=:id'), {'id': service_id}).one() == ('Dịch vụ giữ nguyên', 300000)
+    _cli(application, 'upgrade')
+    with application.app_context():
+        with db.engine.connect() as conn:
+            assert 'attendance_session' in inspect(conn).get_table_names()
+            assert conn.execute(text('SELECT tendv, gia FROM dichvu WHERE madv=:id'), {'id': service_id}).one() == ('Dịch vụ giữ nguyên', 300000)
+
+
+def test_release_migration_roundtrip_preserves_business_data(db_url, make_app):
+    from app.extensions import db
+    application = make_app(db_url)
+    _cli(application, 'upgrade', '20261015_0020')
+    with application.app_context():
+        with db.engine.begin() as conn:
+            conn.execute(text("INSERT INTO dichvu (madv, tendv, gia, active) VALUES (94, 'BI migration', 123456, true)"))
+    _cli(application, 'upgrade')
+    with application.app_context():
+        with db.engine.begin() as conn:
+            conn.execute(text("INSERT INTO worker_heartbeat (name,last_seen_at,status) VALUES ('notification','2026-10-15 00:00:00','ok')"))
+    _cli(application, 'downgrade', '20261015_0020')
+    with application.app_context():
+        with db.engine.connect() as conn:
+            assert 'worker_heartbeat' not in inspect(conn).get_table_names()
+            assert conn.execute(text('SELECT gia FROM dichvu WHERE madv=94')).scalar() == 123456
+    _cli(application, 'upgrade')

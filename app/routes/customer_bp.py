@@ -9,6 +9,7 @@ from flask import (
     url_for,
     request,
 )
+from ..ui_assets import portal_assets
 
 customer_bp = Blueprint('customer', __name__)
 
@@ -62,6 +63,10 @@ def reset_password_page():
 
 @customer_bp.route('/appointments/create')
 def appointment_create():
+    if current_app.config.get('CUSTOMER_BOOKING_REACT_ENABLED') and request.args.get('ui') != 'legacy':
+        assets = portal_assets('src/booking-main.tsx')
+        if assets:
+            return render_template('customer/booking_react.html', **assets)
     return render_template('customer/appointment_create.html')
 
 @customer_bp.route('/services')

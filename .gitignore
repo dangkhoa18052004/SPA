@@ -6,6 +6,7 @@ __pycache__/
 .Python
 .pytest_cache/
 .test-tmp/
+backups/
 tests/runtime_uploads/*
 !tests/runtime_uploads/.gitkeep
 tests/binspa-test-uploads-*/
@@ -54,3 +55,9 @@ uploads/**/*
 .DS_Store
 Thumbs.db
 tests/runtime_ui_improvements/
+
+# React portal build artifacts
+frontend/node_modules/
+app/static/portal/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

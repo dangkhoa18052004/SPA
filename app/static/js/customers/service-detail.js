@@ -34,7 +34,7 @@ function displayServiceDetail(service) {
     document.getElementById('serviceName').setAttribute('data-orig-vi', service.tendv);
     
     // Update page title
-    document.title = `${service.tendv} - Sà Spa`;
+    document.title = `${service.tendv} - Bin Spa`;
     
     const container = document.getElementById('serviceDetailContainer');
     
@@ -81,7 +81,7 @@ function displayServiceDetail(service) {
                 </div>
                 
                 <div class="service-detail-description">
-                    <p>${service.mota || 'Trải nghiệm dịch vụ chăm sóc sức khỏe và sắc đẹp cao cấp tại Sà Spa. Đội ngũ kỹ thuật viên chuyên nghiệp với nhiều năm kinh nghiệm sẽ mang đến cho bạn những phút giây thư giãn tuyệt vời nhất.'}</p>
+                    <p>${service.mota || 'Trải nghiệm dịch vụ chăm sóc sức khỏe và sắc đẹp cao cấp tại Bin Spa. Đội ngũ kỹ thuật viên chuyên nghiệp với nhiều năm kinh nghiệm sẽ mang đến cho bạn những phút giây thư giãn tuyệt vời nhất.'}</p>
                 </div>
                 
                 ${features.length > 0 ? `

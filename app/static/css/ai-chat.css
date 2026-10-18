@@ -66,6 +66,7 @@
 .ai-user { align-self: flex-end; background: #C9A961; color: #fff; border-bottom-right-radius: 4px; }
 .ai-bullet { display: block; padding-left: 4px; }
 .ai-error { color: #b42318; }
+.ai-progress { display: block; margin-top: 6px; font-size: 12px; line-height: 1.5; color: #566253; }
 
 .ai-typing { display: inline-flex; gap: 4px; }
 .ai-typing i { width: 7px; height: 7px; border-radius: 50%; background: #C9A961; animation: ai-dot 1s infinite ease-in-out; }

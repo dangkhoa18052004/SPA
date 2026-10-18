@@ -1,6 +1,7 @@
 import os
 from flask_cors import CORS
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, g
+from uuid import uuid4
 from werkzeug.exceptions import RequestEntityTooLarge
 from .config import Config, validate_production_config
 from .extensions import db, migrate, jwt, mail
@@ -11,12 +12,37 @@ def create_app(config_overrides=None):
     if config_overrides:
         app.config.update(config_overrides)
     validate_production_config(app.config)
+    hops = app.config.get('TRUSTED_PROXY_HOPS', 0)
+    if type(hops) is not int or not 0 <= hops <= 2:
+        raise RuntimeError('TRUSTED_PROXY_HOPS phải từ 0 đến 2, theo số proxy tin cậy thực tế.')
+    if hops:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=0, x_port=0, x_prefix=0)
+    if app.config.get('APP_ENV') == 'production' or str(app.config.get('RENDER') or '').lower() == 'true':
+        app.config['SESSION_COOKIE_SECURE'] = True
     app.config['MAIL_DEFAULT_SENDER'] = ('Bin Spa', app.config.get('MAIL_FROM'))
     CORS(app, supports_credentials=True, origins=['http://127.0.0.1:5000', 'http://localhost:5000', 'https://binspa.id.vn'])
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
     mail.init_app(app)
+
+    @app.before_request
+    def assign_request_id():
+        g.request_id = uuid4().hex
+
+    from .services.runtime_service import register_runtime
+    register_runtime(app)
+
+    @app.after_request
+    def operations_response_headers(response):
+        response.headers['X-Request-ID'] = g.get('request_id', uuid4().hex)
+        if request.blueprint == 'operations':
+            response.headers['Cache-Control'] = 'no-store'
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['Referrer-Policy'] = 'same-origin'
+            response.headers['Permissions-Policy'] = 'geolocation=(self)'
+        return response
 
     @app.errorhandler(RequestEntityTooLarge)
     def handle_file_too_large(_error):
@@ -40,6 +66,9 @@ def create_app(config_overrides=None):
     app.register_blueprint(dashboard_api_bp, url_prefix='/api/dashboard')
     app.register_blueprint(customer_bp, url_prefix='/')
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    from .routes.staff_security_bp import staff_security_bp, register_commands as register_security_commands
+    app.register_blueprint(staff_security_bp)
+    register_security_commands(app)
     app.register_blueprint(profile_bp, url_prefix="/api/profile")
     app.register_blueprint(chat_bp, url_prefix="/api/chat")
     app.register_blueprint(service_bp, url_prefix="/api/services")
@@ -59,6 +88,13 @@ def create_app(config_overrides=None):
     app.register_blueprint(ai_bp)
     from .routes.recommendation_bp import recommendation_bp
     app.register_blueprint(recommendation_bp)
+    from .routes.crm_bp import crm_bp
+    app.register_blueprint(crm_bp)
+    from .routes.release_bp import release_bp
+    app.register_blueprint(release_bp)
+    from .routes.operations_bp import operations_bp, register_commands as register_operations_commands
+    app.register_blueprint(operations_bp)
+    register_operations_commands(app)
     register_commands(app)
 
     # Đăng ký blueprints admin

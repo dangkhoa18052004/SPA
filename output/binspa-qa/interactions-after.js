@@ -1,0 +1,63 @@
+﻿async page => {
+  const checks=[],consoleErrors=[],exceptions=[];
+  const check=(name,passed,detail)=>checks.push({name,passed,detail});
+  const onError=e=>exceptions.push(e.message);
+  const onConsole=m=>{if(m.type()==='error'&&!m.text().includes('ERR_BLOCKED_BY_CLIENT')&&!m.text().includes('401'))consoleErrors.push(m.text());};
+  page.on('pageerror',onError);page.on('console',onConsole);
+  for(const width of [1920,1366,768,390]){
+    await page.setViewportSize({width,height:width===390?844:width===768?1024:1080});
+    await page.goto('https://127.0.0.1:5000/auth/login',{waitUntil:'domcontentloaded'});
+    const button=page.getByRole('button',{name:'Hiện mật khẩu',exact:true});
+    const box=await button.boundingBox();
+    check('password_target_'+width,box?.width>=43.9&&box?.height>=43.9,box&&{width:box.width,height:box.height});
+    await page.locator('#matkhau').fill('sample-password');
+    await button.click();
+    check('show_password_'+width,await page.locator('#matkhau').getAttribute('type')==='text'&&await page.getByRole('button',{name:'Ẩn mật khẩu',exact:true}).getAttribute('aria-pressed')==='true');
+    await page.getByRole('button',{name:'Ẩn mật khẩu',exact:true}).press('Enter');
+    check('hide_password_keyboard_'+width,await page.locator('#matkhau').getAttribute('type')==='password');
+    await page.locator('#matkhau').fill('');
+    await page.locator('#loginForm button[type=submit]').click();
+    check('empty_login_validation_'+width,await page.locator('#taikhoan').evaluate(e=>e.validity.valueMissing));
+    await page.screenshot({path:'output/binspa-qa/login-'+width+'-after.png',animations:'disabled'});
+  }
+  await page.goto('https://127.0.0.1:5000/services',{waitUntil:'domcontentloaded'});
+  await page.locator('.service-card').first().waitFor();
+  const initial=await page.locator('.service-card').count();
+  await page.getByRole('button',{name:'Massage',exact:true}).click();
+  check('category_filter',await page.locator('.service-card').count()>0&&await page.locator('.service-card').count()<initial);
+  await page.getByRole('button',{name:'Tất cả',exact:true}).click();
+  await page.locator('#searchInput').fill('zzzz-notfound');await page.locator('#searchInput').press('a');
+  check('search_empty_state',await page.locator('#noResults').isVisible());
+  await page.locator('#searchInput').fill('');await page.locator('#searchInput').press('Backspace');
+  await page.locator('#sortSelect').selectOption('price-asc');
+  const prices=(await page.locator('.service-price').allTextContents()).map(v=>Number(v.replace(/\D/g,'')));
+  check('sort_price',prices.length===initial&&prices.every((v,i)=>!i||prices[i-1]<=v));
+  await page.locator('#mobileMenuBtn').click();
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#navMenu')).opacity==='1');
+  check('mobile_menu_open',await page.locator('#mobileMenuBtn').getAttribute('aria-expanded')==='true');
+  await page.screenshot({path:'output/binspa-qa/mobile-menu-after.png',animations:'disabled'});
+  await page.keyboard.press('Escape');
+  check('mobile_menu_escape',await page.locator('#mobileMenuBtn').getAttribute('aria-expanded')==='false');
+  await page.locator('#userBtn').click();
+  await page.locator('#userDropdown a[href="/auth/login"]').click();
+  await page.locator('#loginForm').waitFor();
+  check('user_login_link',page.url().endsWith('/auth/login'));
+  await page.goto('https://127.0.0.1:5000/appointments/create?service=3');
+  await page.locator('#root h2').waitFor();
+  await page.getByRole('link',{name:'Đăng nhập / Đăng ký',exact:true}).click();
+  check('booking_login_redirect',new URL(page.url()).searchParams.get('redirect')==='/appointments/create?service=3');
+  await page.goto('https://127.0.0.1:5000/');
+  await page.locator('.service-card').first().waitFor();
+  await page.getByRole('button',{name:'Xem nhanh',exact:true}).first().click();
+  check('quick_view_open',await page.locator('#quickViewModal').evaluate(e=>e.classList.contains('show')));
+  await page.locator('.quick-view-close').click();
+  check('quick_view_close',await page.locator('#quickViewModal').evaluate(e=>!e.classList.contains('show')));
+  await page.setViewportSize({width:1920,height:1080});
+  await page.evaluate(()=>scrollTo(0,0));
+  const colors=await page.evaluate(()=>({logo:getComputedStyle(document.querySelector('.nav-logo')).color,link:getComputedStyle(document.querySelector('.nav-link')).color,language:getComputedStyle(document.querySelector('.lang-btn')).color,background:getComputedStyle(document.querySelector('.navbar')).backgroundColor}));
+  check('header_dark_text',colors.link==='rgb(35, 39, 37)'&&colors.logo==='rgb(61, 90, 69)',colors);
+  await page.screenshot({path:'output/binspa-qa/home-header-after.png',animations:'disabled'});
+  page.off('pageerror',onError);page.off('console',onConsole);
+  return{checks,exceptions,consoleErrors};
+}
+

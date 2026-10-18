@@ -1,0 +1,17 @@
+﻿{
+    "browser":  {
+                    "browserName":  "chromium",
+                    "launchOptions":  {
+                                          "headless":  false,
+                                          "executablePath":  "C:/Program Files/Google/Chrome/Application/chrome.exe"
+                                      },
+                    "contextOptions":  {
+                                           "ignoreHTTPSErrors":  true,
+                                           "serviceWorkers":  "block",
+                                           "viewport":  {
+                                                            "width":  1920,
+                                                            "height":  1080
+                                                        }
+                                       }
+                }
+}

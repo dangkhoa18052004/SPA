@@ -479,7 +479,8 @@ function translateDOM(lang) {
 async function loadServices() {
     if (window.location.pathname !== '/') return;
     try {
-        const response = await fetch('/api/services', {
+        const fetcher = window.CustomerAuth ? window.CustomerAuth.fetch.bind(window.CustomerAuth) : fetch;
+        const response = await fetcher('/api/services', {
             headers: getAuthHeaders(false)
         });
         const data = await response.json();

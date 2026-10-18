@@ -1,0 +1,41 @@
+.care-mobile-tabs { display:none; }
+.care-toolbar { display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin-bottom:20px; }
+.care-toolbar .ant-input-search { max-width:340px; }
+.care-toolbar .ant-select { min-width:180px; }
+.care-section { margin-top:20px; }
+.care-text { white-space:pre-wrap; overflow-wrap:anywhere; }
+.care-list { display:grid; gap:14px; }
+.care-list .ant-card { min-width:0; }
+.care-list .card-head { flex-wrap:wrap; gap:8px; }
+.care-rule-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 20px; }
+.care-rule-grid .ant-input-number { width:100%; }
+.care-detail { display:grid; gap:12px; }
+.care-code { overflow-wrap:anywhere; font-size:16px; }
+.care-chat-grid { display:grid; grid-template-columns:300px minmax(0,1fr); gap:16px; align-items:start; }
+.care-conversations { display:flex; flex-direction:column; gap:8px; max-height:70vh; overflow:auto; }
+.care-conversation { text-align:left; border:1px solid #dbe3df; border-radius:10px; padding:12px; background:white; cursor:pointer; color:inherit; width:100%; }
+.care-conversation[aria-current=page] { border-color:#16675b; background:#edf5f2; }
+.care-conversation p { margin:5px 0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.care-messages { height:48vh; min-height:240px; overflow:auto; display:flex; flex-direction:column; gap:12px; padding:8px 4px; }
+.care-message { align-self:flex-start; background:#f3f5f4; padding:12px; border-radius:12px; max-width:88%; overflow-wrap:anywhere; white-space:pre-wrap; }
+.care-message.sent { align-self:flex-end; background:#e4f1eb; }
+.care-message img { max-width:100%; max-height:220px; object-fit:contain; }
+.care-message small { display:block; margin-top:6px; color:#52645d; }
+.care-compose { margin-top:14px; display:grid; gap:10px; }
+.care-chart-row { display:grid; grid-template-columns:minmax(100px,1fr) 2fr 55px; gap:12px; align-items:center; margin:12px 0; }
+.care-chart-row .ant-progress { margin:0; }
+.care-summary-facts { padding-left:20px; }
+.care-summary-facts li { margin-bottom:8px; }
+@media(max-width:767px) {
+ .care-tabs { display:none; }
+ .care-mobile-tabs { display:grid; gap:8px; margin-bottom:20px; }
+ .care-rule-grid { grid-template-columns:1fr; }
+ .care-chat-grid { grid-template-columns:1fr; }
+ .care-chat-grid.has-selection .care-chat-sidebar { display:none; }
+ .care-chat-grid:not(.has-selection) .care-chat-thread { display:none; }
+ .care-chat-back { display:inline-flex !important; }
+ .care-messages { height:32vh; min-height:180px; }
+ .care-chart-row { grid-template-columns:minmax(85px,1fr) 1fr 45px; gap:8px; }
+ .care-toolbar > * { max-width:100%; }
+}
+.care-chat-back { display:none; }

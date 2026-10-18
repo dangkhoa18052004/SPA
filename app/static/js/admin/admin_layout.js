@@ -74,6 +74,11 @@ function isTokenValid() {
  */
 function logout() {
     console.log('🚪 Logging out...');
+    const token = getAdminAuthToken();
+    if (token && window.BINSPA_FEATURES?.staffSecurity) {
+        fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin', keepalive: true,
+            headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    }
 
     // Clear all auth data
     localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -109,6 +114,11 @@ function hasRole(allowedRoles) {
  */
 // Sắp theo tần suất dùng: việc hằng ngày trước, danh mục/nhân sự/chăm sóc theo nhóm, trang cá nhân cuối.
 const MENU_ITEMS = {
+    security: { title: 'Bảo mật tài khoản', href: '/admin/security', icon: 'fa-shield-halved' },
+    reports: { title: 'Báo cáo & vận hành', href: '/admin/reports', icon: 'fa-chart-line' },
+    crm: { title: 'Chăm sóc khách hàng', href: '/admin/crm', icon: 'fa-heart' },
+    attendance: { title: 'Chấm công GPS', href: '/employee/attendance', icon: 'fa-location-dot' },
+    operations: { title: 'Công & lương', href: '/admin/operations', icon: 'fa-user-clock' },
     dashboard: { title: 'Tổng quan', href: '/admin/dashboard', icon: 'fa-tachometer-alt' },
     appointments: { title: 'Lịch hẹn', href: '/admin/appointments', icon: 'fa-calendar-alt' },
     invoices: { title: 'Hóa đơn', href: '/admin/invoices', icon: 'fa-file-invoice-dollar' },
@@ -125,44 +135,62 @@ const MENU_ITEMS = {
     reviews: { title: 'Đánh giá', href: '/admin/reviews', icon: 'fa-star' },
     chat: { title: 'Tin nhắn', href: '/admin/chat', icon: 'fa-comments' },
     my_schedule: { title: 'Lịch làm của tôi', href: '/admin/my-schedule', icon: 'fa-calendar-check' },
+    my_appointments: { title: 'Lịch hẹn của tôi', href: '/employee/appointments', icon: 'fa-calendar-day' },
     register_shift: { title: 'Đăng ký ca', href: '/admin/register-shift', icon: 'fa-calendar-plus' },
     my_salary: { title: 'Lương của tôi', href: '/admin/my-salary', icon: 'fa-money-bill-wave' },
     profile: { title: 'Trang cá nhân', href: '/admin/profile', icon: 'fa-user-cog' },
 };
 
-const menuItem = (key, overrides = {}) => ({ key, ...MENU_ITEMS[key], ...overrides });
+const menuItem = (key, overrides = {}) => ({ key, ...MENU_ITEMS[key],
+    ...(key === 'my_salary' && window.BINSPA_FEATURES?.employeePortal && window.BINSPA_FEATURES?.payrollV2
+        ? { title: 'Thu nhập của tôi', href: '/employee/income' } : {}), ...overrides });
 const menuGroup = title => ({ group: title });
 
 const MENU_CONFIG = {
     admin: [
         menuItem('dashboard'), menuItem('appointments'), menuItem('invoices'), menuItem('package_sales'), menuItem('customers'),
+        menuItem('operations'), menuItem('attendance'),
         menuGroup('Danh mục'), menuItem('services'), menuItem('packages'), menuItem('roles'),
         menuGroup('Nhân sự'), menuItem('staff'), menuItem('shifts'), menuItem('approve_shifts'), menuItem('salary'),
         menuGroup('Chăm sóc'), menuItem('loyalty'), menuItem('reviews'), menuItem('chat'),
-        menuGroup('Tài khoản'), menuItem('profile'),
+        menuGroup('Tài khoản'), menuItem('my_appointments'), menuItem('profile'),
     ],
 
     manager: [
+        menuItem('operations'), menuItem('attendance'),
         menuItem('dashboard'), menuItem('appointments'), menuItem('invoices'), menuItem('package_sales'), menuItem('customers'),
         menuGroup('Danh mục'), menuItem('packages'),
         menuGroup('Chăm sóc'), menuItem('loyalty'), menuItem('reviews'), menuItem('chat'),
-        menuGroup('Tài khoản'), menuItem('my_salary'), menuItem('profile'),
+        menuGroup('Tài khoản'), menuItem('my_appointments'), menuItem('my_salary'), menuItem('profile'),
     ],
 
     letan: [
+        menuItem('attendance'),
         menuItem('dashboard'), menuItem('appointments'), menuItem('invoices'), menuItem('package_sales'), menuItem('customers'),
         menuItem('loyalty', { title: 'Đổi quà / Tra mã', href: '/admin/loyalty?tab=redemptions' }),
         menuItem('chat'),
-        menuGroup('Của tôi'), menuItem('my_schedule'), menuItem('register_shift'), menuItem('my_salary'), menuItem('profile'),
+        menuGroup('Của tôi'), menuItem('my_appointments'), menuItem('my_schedule'), menuItem('register_shift'), menuItem('my_salary'), menuItem('profile'),
     ],
 
     staff: [
-        menuItem('dashboard'), menuItem('my_schedule'),
+        menuItem('attendance'),
+        menuItem('dashboard'), menuItem('my_appointments'), menuItem('my_schedule'),
         menuItem('packages', { title: 'Liệu trình khách hàng', href: '/admin/packages#treatments' }),
         menuItem('reviews', { title: 'Đánh giá của khách' }),
         menuGroup('Của tôi'), menuItem('register_shift'), menuItem('my_salary'), menuItem('profile'),
     ]
 };
+
+for (const role of ['admin', 'manager', 'letan', 'staff']) MENU_CONFIG[role].push(menuItem('security'));
+
+for (const role of ['admin', 'manager', 'letan']) {
+    const index = MENU_CONFIG[role].findIndex(item => item.key === 'customers');
+    MENU_CONFIG[role].splice(index + 1, 0, menuItem('crm'));
+}
+for (const role of ['admin', 'manager']) {
+    const index = MENU_CONFIG[role].findIndex(item => item.key === 'crm');
+    MENU_CONFIG[role].splice(index + 1, 0, menuItem('reports'));
+}
 
 /**
  * Xây dựng sidebar menu theo role
@@ -183,7 +211,11 @@ function buildSidebar() {
     }
 
     // Lấy menu items cho role
-    const menuItems = MENU_CONFIG[role] || [];
+    const menuItems = (MENU_CONFIG[role] || []).filter(item =>
+        (item.key !== 'security' || window.BINSPA_FEATURES?.staffSecurity) &&
+        (item.key !== 'reports' || window.BINSPA_FEATURES?.bi) &&
+        (item.key !== 'crm' || window.BINSPA_FEATURES?.crm) &&
+        (!['attendance', 'operations', 'my_appointments'].includes(item.key) || window.BINSPA_FEATURES?.employeePortal));
 
     if (menuItems.length === 0) {
         console.warn(`⚠️ No menu items defined for role: ${role}`);

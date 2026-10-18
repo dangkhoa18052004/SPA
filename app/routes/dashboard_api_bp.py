@@ -5,6 +5,7 @@ from ..decorators import roles_required
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, and_, extract
 from ..services import analytics_service
+from ..services.package_service import local_now
 
 dashboard_api_bp = Blueprint("dashboard_api", __name__)
 
@@ -14,7 +15,7 @@ dashboard_api_bp = Blueprint("dashboard_api", __name__)
 def get_dashboard_stats():
     """Lấy thống kê tổng quan KPI cho Admin/Manager."""
     try:
-        today = date.today()
+        today = local_now().date()
         kpis = analytics_service.get_kpi_cards(today)
 
         # 4. Thống kê tuần này
@@ -27,8 +28,8 @@ def get_dashboard_stats():
         # 7. Lịch hẹn sắp tới (24h tiếp theo)
         upcoming_appointments = LichHen.query.filter(
             and_(
-                LichHen.ngaygio >= datetime.now(),
-                LichHen.ngaygio <= datetime.now() + timedelta(hours=24),
+                LichHen.ngaygio >= local_now(),
+                LichHen.ngaygio <= local_now() + timedelta(hours=24),
                 LichHen.trangthai.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]),
             )
         ).count()
@@ -80,7 +81,7 @@ def get_dashboard_stats():
 def get_today_appointments():
     """Lấy danh sách lịch hẹn hôm nay."""
     try:
-        today = date.today()
+        today = local_now().date()
 
         appointments = (
             LichHen.query.filter(func.date(LichHen.ngaygio) == today)
@@ -120,7 +121,7 @@ def get_my_schedule_today():
     """Lấy lịch làm việc của nhân viên hôm nay."""
     try:
         staff = g.current_user
-        today = date.today()
+        today = local_now().date()
 
         appointments = (
             LichHen.query.filter(
@@ -161,7 +162,7 @@ def get_my_schedule_today():
 def get_letan_stats():
     """Thống kê đơn giản cho lễ tân."""
     try:
-        today = date.today()
+        today = local_now().date()
 
         today_appointments = LichHen.query.filter(
             func.date(LichHen.ngaygio) == today
@@ -196,7 +197,7 @@ def get_staff_stats():
     """Thống kê cho nhân viên."""
     try:
         staff = g.current_user
-        today = date.today()
+        today = local_now().date()
 
         today_schedule = LichHen.query.filter(
             LichHen.manv == staff.manv,

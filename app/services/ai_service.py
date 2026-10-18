@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timedelta
 
 import requests
-from flask import current_app
+from flask import current_app, g, has_app_context
 
 from ..extensions import db
 from ..models import AIBookingDraft, DichVu, NhanVien
@@ -84,11 +84,16 @@ def call_gemini(payload):
         raise AINotConfigured('Trợ lý AI chưa được cấu hình (thiếu GEMINI_API_KEY). Các chức năng khác vẫn hoạt động bình thường.')
     attempts = [model_name(), model_name()] + fallback_models()
     for index, model in enumerate(attempts):
+        remaining = getattr(g, 'ai_deadline', float('inf')) - time.monotonic() if has_app_context() else float('inf')
+        if remaining < 0.5:
+            raise AIUpstreamError('Trợ lý đang phản hồi chậm. Vui lòng thử lại hoặc dùng trang Đặt lịch.', 504)
+        budget = min(float(current_app.config.get('GEMINI_TIMEOUT', 30)), remaining)
+        connect = min(3, budget / 2)
         try:
             response = requests.post(
                 GEMINI_URL.format(model=model), json=payload,
                 headers={'x-goog-api-key': current_app.config['GEMINI_API_KEY'].strip(), 'Content-Type': 'application/json'},
-                timeout=current_app.config.get('GEMINI_TIMEOUT', 30))
+                timeout=(connect, max(0.1, budget - connect)))
         except requests.RequestException as error:
             current_app.logger.warning('[ai] Gemini request failed (%s): %s', model, type(error).__name__)
             if index + 1 < len(attempts):
@@ -108,7 +113,13 @@ def call_gemini(payload):
         if response.status_code in (401, 403):
             raise AINotConfigured('GEMINI_API_KEY không hợp lệ hoặc không có quyền dùng model đã cấu hình.')
         raise AIUpstreamError('Dịch vụ AI tạm thời không phản hồi, vui lòng thử lại sau.')
-    return response.json()
+    try:
+        result = response.json()
+        if not isinstance(result, dict):
+            raise ValueError()
+        return result
+    except ValueError:
+        raise AIUpstreamError('Dịch vụ AI trả phản hồi không hợp lệ. Vui lòng thử lại sau.')
 
 
 def _parts(response):

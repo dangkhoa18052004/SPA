@@ -41,6 +41,8 @@ def login_required(fn):
         
         if not user:
             return jsonify({"msg": "Token không hợp lệ hoặc người dùng không tồn tại"}), 401
+        if user_type == 'staff' and not user.trangthai:
+            return jsonify({"msg": "Tài khoản nhân viên đã bị vô hiệu hóa"}), 403
         
         # Lưu vào global context 'g' của Flask, để API có thể truy cập
         g.current_user = user

@@ -2,6 +2,8 @@
 
 ## Giới thiệu
 
+Nâng cấp chấm công GPS, cổng nhân viên React và bảng lương có phê duyệt: xem [hướng dẫn cấu hình và vận hành](docs/GPS_ATTENDANCE_PAYROLL.md). Các chức năng mới được bật bằng feature flag sau migration và đối soát.
+
 **SPA** là dự án xây dựng **web application quản lý spa** nhằm hỗ trợ số hóa các nghiệp vụ vận hành trong spa như quản lý khách hàng, nhân viên, dịch vụ, lịch hẹn, hóa đơn, thanh toán và theo dõi hoạt động kinh doanh.
 
 Hệ thống được phát triển chủ yếu bằng **Python Flask**, kết hợp với:
@@ -203,7 +205,7 @@ Database cũ chưa có bảng `alembic_version`: xem [hướng dẫn migration](
 6. Chạy ứng dụng
 python run.py
 
-Lệnh này chạy Flask web và notification-worker thành hai process riêng. Ctrl+C dừng cả hai.
+Lệnh này chạy Flask web, notification-worker và worker AI chat thành ba process riêng. Ctrl+C dừng các process con.
 `python run.py` tự khởi động tiến trình gửi email cùng website. Sau khi hoàn thành
 lịch hẹn, email dặn dò được xử lý tự động trong chu kỳ kế tiếp (khoảng 15 giây).
 `python run_dev.py` vẫn dùng được nếu cần tùy chỉnh chu kỳ hoặc giới hạn lịch thử.
@@ -212,6 +214,21 @@ kiểm tra job và thử email thật mà không xử lý các lịch hẹn khá
 
 Đặt lịch theo URL, tặng dịch vụ trong liệu trình và quản lý đánh giá:
 xem [báo cáo triển khai và kiểm thử](docs/BOOKING_GIFTS_REVIEWS.md).
+
+Dashboard theo vai trò và giao diện đặt lịch React:
+xem [giai đoạn 4 UI](docs/UI_PHASE4.md) để build, bật giao diện và kiểm thử.
+
+Chăm sóc khách hàng, quyền chọn nhận email và đo hiệu quả đề xuất:
+xem [giai đoạn 5 Recommendation và CRM](docs/RECOMMENDATION_CRM_PHASE5.md).
+
+AI vẫn trả lời khi khách chuyển trang, giữ lịch sử và bản nháp:
+xem [AI chat xử lý nền và phục hồi khi chuyển trang](docs/AI_CHAT_NAVIGATION.md).
+
+Báo cáo BI, giám sát vận hành, giới hạn đăng nhập, thử khôi phục và lỗi kết nối AI local:
+xem [BI và chuẩn bị phát hành giai đoạn 6](docs/BI_RELEASE_PHASE6.md).
+
+Xác thực hai bước khi duyệt công/lương, đổi quyền nhân viên và cấu hình quan trọng:
+xem [Bảo mật tài khoản và mã dự phòng](docs/STAFF_SECURITY_PHASE6.md).
 
 
 

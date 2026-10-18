@@ -18,7 +18,7 @@ from app.services import package_service
 root = Path(__file__).resolve().parents[1]
 artifacts = root / 'tests' / 'runtime_ui_improvements'
 artifacts.mkdir(exist_ok=True)
-app = create_app(dict(TESTING=True, APP_ENV='testing', SQLALCHEMY_DATABASE_URI='sqlite://', SECRET_KEY='ui',
+app = create_app(dict(TESTING=True, APP_ENV='testing', STAFF_SECURITY_ENABLED=False, SQLALCHEMY_DATABASE_URI='sqlite://', SECRET_KEY='ui',
                       JWT_SECRET_KEY='ui-test-secret-at-least-32-characters', VIETQR_BANK_ID='970416',
                       VIETQR_ACCOUNT_NO='27572201', VIETQR_ACCOUNT_NAME='DANG VAN KHOA', SEPAY_POLL_ENABLED=False,
                       GEMINI_API_KEY=''))

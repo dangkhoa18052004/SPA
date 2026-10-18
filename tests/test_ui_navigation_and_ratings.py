@@ -35,7 +35,7 @@ def test_admin_menu_order_follows_daily_tasks():
 def test_customer_profile_tabs_order_and_default():
     html = _read('app/templates/customer/profile.html')
     menu = html[html.index('<ul class="profile-menu"'):html.index('</ul>')]
-    assert re.findall(r'data-section="(\w+)"', menu) == ['appointments', 'treatments', 'loyalty', 'invoices', 'reviews', 'info']
+    assert re.findall(r'data-section="(\w+)"', menu) == ['appointments', 'treatments', 'loyalty', 'invoices', 'reviews', 'info', 'communication']
     assert 'data-goto-section="edit"' in html and 'data-goto-section="password"' in html
     assert 'class="profile-section active" id="appointments-section"' in html
     js = _read('app/static/js/customers/profile.js')

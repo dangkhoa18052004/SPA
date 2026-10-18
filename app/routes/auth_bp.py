@@ -365,7 +365,7 @@ def staff_login():
         "success": True,
         "message": "Đăng nhập thành công",
         "access_token": access_token,
-        "redirect_url": "/admin",
+        "redirect_url": "/admin/profile",
         "user": {
             "manv": staff.manv, 
             "hoten": staff.hoten, 
@@ -375,6 +375,20 @@ def staff_login():
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
+    if current_app.config.get('STAFF_SECURITY_ENABLED') and request.headers.get('Authorization'):
+        from flask_jwt_extended import verify_jwt_in_request
+        from flask_jwt_extended.exceptions import JWTExtendedException
+        from jwt.exceptions import PyJWTError
+        try:
+            verify_jwt_in_request(optional=True)
+        except (JWTExtendedException, PyJWTError):
+            pass  # An expired credential must not prevent clearing the browser session.
+        else:
+            if str(get_jwt_identity() or '').startswith('staff:'):
+                from ..security_models import StaffStepUp
+                from ..services.staff_security_service import token_key
+                StaffStepUp.query.filter_by(token_hash=token_key()).delete(synchronize_session=False)
+                db.session.commit()
     session.clear()
     current_app.logger.info("User logged out, session cleared")
     return jsonify({'success': True, 'message': 'Đăng xuất thành công'})

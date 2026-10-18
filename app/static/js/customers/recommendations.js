@@ -42,7 +42,7 @@
             if (!data.success) throw new Error('Recommendations unavailable');
             const items = data.items.filter(item => item.type === 'service' ? Number(item.madv) !== serviceId : item.type === 'package' && window.PackageCare);
             root.querySelector('[data-related-items]').innerHTML = items.map(item => item.type === 'service' ? serviceCard(item) :
-                window.PackageCare.packageHtml(item, '<span class="recommendation-type">Gói</span>') +
+                window.PackageCare.packageHtml(item, '<span class="recommendation-type">Gói</span>').replace('<article ', `<article data-package-id="${Number(item.magoi)}" `) +
                 `<div class="package-card-actions"><p>${escape(item.reason)}</p><a class="btn btn-primary" href="/packages/${item.magoi}">Xem gói</a></div></article>`).join('');
             root.hidden = !items.length;
         } catch (_) { root.hidden = true; }

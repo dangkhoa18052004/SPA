@@ -8,10 +8,18 @@ import pytz
 CSKH_ROLES = ['letan', 'manager', 'admin']
 VIETNAM_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
+
+def require_active(user, user_type):
+    if user is None or user_type not in ('staff', 'customer'):
+        raise PermissionError('Cần đăng nhập để xem hội thoại')
+    if user_type == 'staff' and not user.trangthai or user_type == 'customer' and user.trangthai != 'active':
+        raise PermissionError('Tài khoản đã ngừng hoạt động')
+
 def get_conversations_for_user(user, user_type):
     """
     Lấy danh sách hội thoại.
     """
+    require_active(user, user_type)
     convs_query = None
     conversations_list = []
     
@@ -85,6 +93,9 @@ def get_conversations_for_user(user, user_type):
                 "maht": conv.maht,
                 "customer_name": customer_name or "Khách vãng lai",
                 "customer_avatar": customer_avatar_file,
+                "assigned_staff_id": conv.manv,
+                "assigned_staff_name": (db.session.get(NhanVien, conv.manv).hoten
+                    if conv.manv and db.session.get(NhanVien, conv.manv) else None),
                 "last_message": conv.tin_nhan_cuoi_noi_dung,
                 "last_message_time": last_msg_time,
                 "unread_count": unread_count
@@ -97,6 +108,7 @@ def get_messages_for_conversation(conversation_id, user, user_type):
     Lấy tin nhắn.
     ✅ FIX: Convert timezone và đánh dấu đã đọc
     """
+    require_active(user, user_type)
     conversation = Hoithoai.query.get(conversation_id)
     if not conversation:
         raise PermissionError("Không tìm thấy hội thoại")
@@ -141,7 +153,8 @@ def get_messages_for_conversation(conversation_id, user, user_type):
                 "matn": msg.matn, 
                 "noidung": msg.noidung, 
                 "thoigian": vietnam_time.isoformat(),  
-                "is_from_staff": msg.nguoigui_manv is not None
+                "is_from_staff": msg.nguoigui_manv is not None,
+                "sender_staff_id": msg.nguoigui_manv,
             })
         else:
             messages.append({
@@ -157,7 +170,8 @@ def send_message_as_user(conversation, noidung, user, user_type):
     """
     Gửi tin nhắn.
     """
-    vietnam_now = datetime.now(VIETNAM_TZ)
+    # Database timestamps are UTC; both web clients convert to Vietnam time on read.
+    vietnam_now = datetime.utcnow()
     
     new_message = TinNhan(
         maht=conversation.maht, 

@@ -77,7 +77,8 @@
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
     <div id="toast-container"></div>
-    <script src="{{ url_for('static', filename='js/admin/admin_layout.js', v='2.3') }}"></script>
+    <script>window.BINSPA_FEATURES = {{ {'employeePortal': config.get('EMPLOYEE_PORTAL_ENABLED', false), 'payrollV2': config.get('PAYROLL_V2_ENABLED', false), 'crm': config.get('CRM_ENABLED', false), 'bi': config.get('BI_REPORTS_ENABLED', false), 'staffSecurity': config.get('STAFF_SECURITY_ENABLED', false)} | tojson }};</script>
+    <script src="{{ url_for('static', filename='js/admin/admin_layout.js', v='2.8') }}"></script>
     <script src="{{ url_for('static', filename='js/loyalty-payment.js', v='2.2') }}"></script>
     <script src="{{ url_for('static', filename='js/admin/invoice-receipt.js', v='2.1') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>

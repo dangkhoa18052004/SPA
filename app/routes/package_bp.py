@@ -69,7 +69,8 @@ def payment_options():
 
 @package_bp.route('/admin/package-sales')
 def package_sales_page():
-    return render_template('admin/package_sales.html')
+    from ..ui_assets import admin_portal_page
+    return admin_portal_page('Bán gói', 'ADMIN_BILLING_REACT_ENABLED') or render_template('admin/package_sales.html')
 
 
 @package_bp.route('/api/admin/packages/<int:package_id>/image', methods=['PUT'])
@@ -100,24 +101,29 @@ def package_page(package_id=None):
     return render_template('customer/packages.html', package_id=package_id)
 
 
+def _catalog_portal(title):
+    from ..ui_assets import admin_portal_page
+    return admin_portal_page(title, 'ADMIN_CATALOG_REACT_ENABLED')
+
+
 @package_bp.route('/admin/packages')
 def admin_package_page():
-    return render_template('admin/packages.html')
+    return _catalog_portal('Gói dịch vụ') or render_template('admin/packages.html')
 
 
 @package_bp.route('/admin/packages/new')
 def admin_package_create_page():
-    return render_template('admin/package_form.html', package_id=None, form_mode='create')
+    return _catalog_portal('Tạo gói dịch vụ') or render_template('admin/package_form.html', package_id=None, form_mode='create')
 
 
 @package_bp.route('/admin/packages/<int:package_id>')
 def admin_package_detail_page(package_id):
-    return render_template('admin/package_detail.html', package_id=package_id)
+    return _catalog_portal('Chi tiết gói dịch vụ') or render_template('admin/package_detail.html', package_id=package_id)
 
 
 @package_bp.route('/admin/packages/<int:package_id>/edit')
 def admin_package_edit_page(package_id):
-    return render_template('admin/package_form.html', package_id=package_id, form_mode='edit')
+    return _catalog_portal('Sửa gói dịch vụ') or render_template('admin/package_form.html', package_id=package_id, form_mode='edit')
 
 
 @package_bp.route('/api/packages')

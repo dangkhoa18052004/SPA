@@ -34,6 +34,12 @@ MARKERS = [
     ("20261005_0015", "column", "loyalty_config", "tier_thresholds"),
     ("20261005_0016", "table", "ai_booking_draft", None),
     ("20261007_0017", "table", "customer_behavior", None),
+    ("20261014_0018", "table", "attendance_session", None),
+    ("20261014_0019", "column", "attendance_adjustment", "request_kind"),
+    ("20261015_0020", "table", "customer_preference", None),
+    ("20261015_0021", "table", "report_export_audit", None),
+    ("20261015_0022", "table", "ai_chat_job", None),
+    ("20261015_0023", "table", "staff_mfa", None),
 ]
 
 

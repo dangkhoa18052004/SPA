@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="vi"><head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#16675b">
+  <title>Bin Spa · {{ portal_title|default('Ca làm và thu nhập') }}</title>
+  {% for stylesheet in portal_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='portal/' + stylesheet) }}">{% endfor %}
+</head><body><div id="root"></div>
+<noscript>Cần bật JavaScript để xem ca làm và chấm công.</noscript>
+{% if portal_ready %}<script type="module" src="{{ url_for('static', filename='portal/' + portal_entry) }}"></script>
+{% else %}<main style="font-family:system-ui;padding:32px"><h1>Cổng nhân viên đang được chuẩn bị</h1><p>Vui lòng sử dụng trang lịch ca hiện tại.</p><a href="/admin/my-schedule">Lịch làm của tôi</a></main>{% endif %}
+</body></html>

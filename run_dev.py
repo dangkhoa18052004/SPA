@@ -1,4 +1,4 @@
-"""Run the web server and notification worker as two supervised processes."""
+"""Supervise the web server, notification worker and independent AI chat worker."""
 import argparse
 import os
 from pathlib import Path
@@ -41,7 +41,8 @@ def run(interval=15, appointment_id=None):
               'notification-worker', '--interval', str(interval)]
     if appointment_id is not None:
         worker += ['--appointment-id', str(appointment_id)]
-    commands = [('worker', worker), ('web', [sys.executable, '-u', 'run.py', '--web-only'])]
+    chat_worker = [sys.executable, '-u', '-m', 'flask', '--app', 'wsgi:app', 'ai', 'chat-worker']
+    commands = [('worker', worker), ('ai', chat_worker), ('web', [sys.executable, '-u', 'run.py', '--web-only'])]
     options = dict(cwd=ROOT, env=dict(os.environ, PYTHONUNBUFFERED='1'))
     if os.name == 'nt':
         options['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP

@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/responsive.css', v='1.1') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/ai-chat.css', v='1.0') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ai-chat.css', v='1.1') }}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
     <!-- Navigation Bar -->
@@ -201,10 +201,11 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/customers/auth-session.js', v='1.0') }}"></script>
-    <script src="{{ url_for('static', filename='js/customers/recommendations.js', v='2.0') }}"></script>
+    {% if config.get('RECOMMENDATION_METRICS_ENABLED') %}<script src="{{ url_for('static', filename='js/customers/recommendation-metrics.js') }}"></script>{% endif %}
+    <script src="{{ url_for('static', filename='js/customers/recommendations.js', v='2.1') }}"></script>
     <script src="{{ url_for('static', filename='js/loyalty-payment.js', v='2.2') }}"></script>
-    <script src="{{ url_for('static', filename='js/customers/main.js', v='6.2') }}"></script>
-    <script src="{{ url_for('static', filename='js/ai_chat.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/main.js', v='6.3') }}"></script>
+    <script src="{{ url_for('static', filename='js/ai_chat.js', v='1.2') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

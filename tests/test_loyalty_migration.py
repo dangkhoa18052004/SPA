@@ -67,10 +67,11 @@ def test_flask_db_upgrade_from_existing_head(migration_engine, monkeypatch):
     with engine.begin() as c:
         for sql in ['CREATE TABLE khachhang (makh INTEGER PRIMARY KEY)',
             'CREATE TABLE nhanvien (manv INTEGER PRIMARY KEY)',
-            'CREATE TABLE lichhen (malh INTEGER PRIMARY KEY, manv INTEGER REFERENCES nhanvien(manv), makh INTEGER REFERENCES khachhang(makh), ngaygio DATETIME)',
+            'CREATE TABLE calam (maca INTEGER PRIMARY KEY, ngay DATE, giobatdau TIME, gioketthuc TIME)',
+            'CREATE TABLE lichhen (malh INTEGER PRIMARY KEY, manv INTEGER REFERENCES nhanvien(manv), makh INTEGER REFERENCES khachhang(makh), ngaygio TIMESTAMP)',
             'CREATE TABLE dichvu (madv INTEGER PRIMARY KEY)',
             'CREATE TABLE luong (maluong INTEGER PRIMARY KEY)',
-            'CREATE TABLE hoadon (mahd INTEGER PRIMARY KEY, tongtien NUMERIC NOT NULL, makh INTEGER REFERENCES khachhang(makh), ngaylap DATETIME)',
+            'CREATE TABLE hoadon (mahd INTEGER PRIMARY KEY, tongtien NUMERIC NOT NULL, makh INTEGER REFERENCES khachhang(makh), ngaylap TIMESTAMP)',
             'CREATE TABLE goidichvu (magoi INTEGER PRIMARY KEY, active BOOLEAN NOT NULL)',
             'CREATE TABLE goidichvupurchase (id INTEGER PRIMARY KEY, amount NUMERIC NOT NULL)',
             'INSERT INTO hoadon (mahd,tongtien) VALUES (1,500000)', 'INSERT INTO goidichvupurchase VALUES (1,1200000)']:

@@ -295,6 +295,10 @@ def get_all_appointments_admin():
             norm_status = AppointmentStatus.normalize(status)
             query = query.filter(LichHen.trangthai == norm_status)
 
+        customer_id = request.args.get("makh", type=int)
+        if customer_id:
+            query = query.filter(LichHen.makh == customer_id)
+
         appointments = (
             query.options(
                 joinedload(LichHen.khachhang),
@@ -324,6 +328,8 @@ def get_all_appointments_admin():
                 "malh": apt.malh,
                 "ngaygio": apt.ngaygio.isoformat(),
                 "khachhang_hoten": apt.khachhang.hoten if apt.khachhang else "N/A",
+                "makh": apt.makh,
+                "khachhang_sdt": apt.khachhang.sdt if apt.khachhang else None,
                 "dichvu_ten": dichvu_ten,
                 "nhanvien_hoten": nhanvien_ten,
                 "manv": apt.manv,

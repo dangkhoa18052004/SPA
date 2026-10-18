@@ -251,6 +251,7 @@ class CaLam(db.Model):
     giobatdau = db.Column(db.Time, nullable=False)
     gioketthuc = db.Column(db.Time, nullable=False)
     hesoluong = db.Column(db.Integer, default=1)
+    branch_id = db.Column(db.Integer, db.ForeignKey('branch.id'), nullable=True, index=True)
     sogio = db.Column(db.Numeric(10, 2), server_default=FetchedValue())    
     # Mối quan hệ Nhiều-Nhiều với NhanVien
     nhanvien = db.relationship('NhanVien', secondary=nhanvien_calam,
@@ -568,3 +569,13 @@ class AIBookingDraft(db.Model):
     expires_at = db.Column(db.DateTime, nullable=False)
     confirmed_at = db.Column(db.DateTime, nullable=True)
     __table_args__ = (db.CheckConstraint("status IN ('draft','confirmed','expired')", name='ck_ai_draft_status'),)
+
+# Import once so create_all and Alembic see the additive operations schema.
+from .operations_models import (Branch, BranchMembership, BranchGeoPolicy,
+    AttendanceEvent, AttendanceSession, AttendanceAdjustment, AttendancePeriod,
+    PayrollPeriod, PayrollLine, PayrollAdjustment, PayrollCommissionClaim, OperationsAudit)
+from .operations_models import PayrollCommissionDelta
+from .crm_models import CustomerPreference, CustomerPreferenceAudit, RecommendationImpression, RecommendationTiming
+from .release_models import AuthRateBucket, ReportExportAudit, WorkerHeartbeat, AppointmentOutcome
+from .ai_chat_models import AIChatJob
+from .security_models import StaffMFA, StaffRecoveryCode, StaffStepUp, StaffSecurityAudit

@@ -159,6 +159,9 @@ def build_post_care_html(appointment):
 # ---------------------------------------------------------------------------
 
 def enqueue(appointment, kind, scheduled_at, subject, body, suffix):
+    from .crm_service import notification_allowed
+    if not notification_allowed(appointment.makh, kind):
+        return None
     key = f'appointment:{appointment.malh}:{suffix}'
     existing = NotificationJob.query.filter_by(unique_key=key).first()
     if existing:
@@ -302,6 +305,13 @@ def process_jobs(batch_size=50, now=None, appointment_id=None):
             db.session.commit()
             continue
         apt = db.session.get(LichHen, job.malh) if job.malh else None
+        from .crm_service import notification_allowed
+        if not notification_allowed(job.makh, job.type):
+            job.status = 'cancelled'
+            job.last_error = 'Khách không đăng ký loại thông báo này'
+            result['cancelled'] += 1
+            db.session.commit()
+            continue
         if not apt:
             valid = False
         elif job.type.startswith('appointment_reminder'):
@@ -464,6 +474,7 @@ def register_commands(app):
             pass  # Windows khong ho tro SIGTERM day du
 
         while running:
+            cycle_ok = True
             try:
                 # Tự hủy lịch khách không đến (quá NO_SHOW_GRACE_MINUTES) trước khi gửi email trong outbox.
                 from .appointment_service import auto_cancel_no_shows
@@ -472,6 +483,7 @@ def register_commands(app):
                     click.echo(f'[notification-worker] no-show auto-cancelled={len(cancelled)}')
             except Exception as exc:
                 db.session.rollback()
+                cycle_ok = False
                 current_app.logger.error(f'[notification-worker] Loi tu huy lich: {exc}', exc_info=True)
             try:
                 # Đối soát tiền vào SePay khi webhook không tới (máy chủ nội bộ); chống trùng theo mã giao dịch.
@@ -481,17 +493,23 @@ def register_commands(app):
                     click.echo(f'[notification-worker] sepay-sync processed={synced}')
             except Exception as exc:
                 db.session.rollback()
+                cycle_ok = False
                 current_app.logger.error(f'[notification-worker] Loi dong bo SePay: {exc}', exc_info=True)
             try:
                 result = process_jobs(batch_size=batch_size) if appointment_id is None else process_jobs(
                     batch_size=batch_size, appointment_id=appointment_id)
+                if result['failed']:
+                    cycle_ok = False
                 if result['sent'] or result['failed'] or result['cancelled']:
                     click.echo(
                         '[notification-worker] sent={sent} failed={failed} cancelled={cancelled}'.format(**result)
                     )
             except Exception as exc:
                 db.session.rollback()
+                cycle_ok = False
                 current_app.logger.error(f'[notification-worker] Loi xu ly jobs: {exc}', exc_info=True)
+            from .runtime_service import heartbeat
+            heartbeat('ok' if cycle_ok else 'degraded')
             for _ in range(interval):
                 if not running:
                     break

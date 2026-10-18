@@ -16,10 +16,7 @@ document.getElementById('adminLoginForm').addEventListener('submit', async funct
         
         const result = await response.json();
         
-        console.log('Login response:', result);
-        
         if (result.success && result.access_token && result.user) {
-            console.log('Saving to localStorage...');
             
             localStorage.setItem('admin_token', result.access_token);
             localStorage.setItem('admin_role', result.user.role);
@@ -28,12 +25,10 @@ document.getElementById('adminLoginForm').addEventListener('submit', async funct
             const savedToken = localStorage.getItem('admin_token');
             const savedRole = localStorage.getItem('admin_role');
             
-            console.log('Token saved:', savedToken);
-            console.log('Role saved:', savedRole);
             
             if (savedToken && savedRole) {
                 console.log('Redirecting to dashboard...');
-                window.location.href = '/admin/profile';
+                window.location.href = result.redirect_url || '/admin/profile';
             } else {
                 console.error('Failed to save to localStorage!');
                 errorMessage.textContent = 'Lỗi lưu thông tin đăng nhập. Vui lòng thử lại.';

@@ -1,3 +1,4 @@
+from ..services.staff_security_service import step_up_required
 from flask import Blueprint, request, jsonify, current_app
 from ..extensions import db
 from ..models import ChucVu, NhanVien
@@ -17,6 +18,7 @@ def get_roles():
 
 @role_manage_bp.route("/roles", methods=["POST"])
 @roles_required('admin')
+@step_up_required
 def create_role():
 
     data = request.get_json(); tencv, dongiagio = data.get("tencv"), data.get("dongiagio")
@@ -30,6 +32,7 @@ def create_role():
 
 @role_manage_bp.route("/roles/<int:macv>", methods=["PUT"])
 @roles_required('admin')
+@step_up_required
 def update_role(macv):
 
     role = ChucVu.query.get(macv);
@@ -42,6 +45,7 @@ def update_role(macv):
 
 @role_manage_bp.route("/roles/<int:macv>", methods=["DELETE"])
 @roles_required('admin')
+@step_up_required
 def delete_role(macv):
 
     role = ChucVu.query.get(macv)

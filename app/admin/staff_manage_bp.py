@@ -1,3 +1,4 @@
+from ..services.staff_security_service import step_up_required, revoke_elevations
 from flask import Blueprint, request, jsonify, current_app
 from ..extensions import db
 from ..models import KhachHang, NhanVien, ChucVu
@@ -17,6 +18,7 @@ def save_staff_avatar(file):
 
 @staff_manage_bp.route("/staff/add", methods=["POST"])
 @roles_required('admin')
+@step_up_required
 def add_staff():
     # SỬA: Đổi từ get_json() sang request.form và request.files
     data = request.form
@@ -64,11 +66,13 @@ def add_staff():
 
 @staff_manage_bp.route("/staff/<int:manv>", methods=["PUT"])
 @roles_required('admin')
+@step_up_required
 def update_staff(manv):
     staff = NhanVien.query.get(manv)
     if not staff: return jsonify({"msg": "Không tìm thấy nhân viên"}), 404
     
     data = request.form
+    previous_access = (staff.role, staff.trangthai)
     
     new_taikhoan = data.get("taikhoan")
     if new_taikhoan and new_taikhoan != staff.taikhoan:
@@ -90,6 +94,8 @@ def update_staff(manv):
             
         if "trangthai" in data:
             staff.trangthai = data.get("trangthai").lower() == 'true'
+        if previous_access != (staff.role, staff.trangthai):
+            revoke_elevations(staff.manv)
 
         avatar_file = request.files.get('anhnhanvien')
         if avatar_file:
@@ -105,11 +111,13 @@ def update_staff(manv):
 
 @staff_manage_bp.route("/staff/<int:manv>", methods=["DELETE"])
 @roles_required('admin')
+@step_up_required
 def deactivate_staff(manv):
     staff = NhanVien.query.get(manv)
     if not staff: return jsonify({"msg": "Không tìm thấy nhân viên"}), 404
     try:
         staff.trangthai = False
+        revoke_elevations(staff.manv)
         db.session.commit()
         return jsonify({"msg": "Đã vô hiệu hóa tài khoản nhân viên thành công"}), 200
     except Exception as e:
@@ -127,7 +135,7 @@ def get_all_staff():
         result = [
             {"manv": nv.manv, "hoten": nv.hoten, "email": nv.email, "sdt": nv.sdt,
              "taikhoan": nv.taikhoan, "role": nv.role, "trangthai": nv.trangthai,
-             "chucvu": cv.tencv if cv else "N/A",
+             "chucvu": cv.tencv if cv else "N/A", "macv": nv.macv,
              "anhnhanvien": nv.anhnhanvien,
              "rating_average": ratings.get(nv.manv, {}).get("average"),
              "rating_count": ratings.get(nv.manv, {}).get("count", 0),

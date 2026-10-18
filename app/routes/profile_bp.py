@@ -151,6 +151,9 @@ def change_password():
     
     try:
         user.matkhau = generate_password_hash(new_password)
+        if user_type == 'staff':
+            from ..services.staff_security_service import revoke_elevations
+            revoke_elevations(user.manv)
         db.session.commit()
         return jsonify({"success": True, "message": "Đổi mật khẩu thành công!"}), 200
     except Exception as e:
@@ -164,9 +167,13 @@ def change_password():
 def get_my_salary_history():
     staff = g.current_user
     try:
-        salaries = Luong.query.filter_by(manv=staff.manv).order_by(Luong.nam.desc(), Luong.thang.desc()).all()
-        result = [{"maluong": s.maluong, "thang": s.thang, "nam": s.nam, "luongcoban": str(s.luongcoban), "hoahong": str(s.hoahong or 0), "thuong": str(s.thuong), "khautru": str(s.khautru), "tongluong": str(s.tongluong)} for s in salaries]
-        return jsonify({"success": True, "salaries": result}), 200
+        from ..services import payroll_service
+        salaries = payroll_service.legacy_salary_query(staff).all()
+        result = [{"maluong": s.maluong, "thang": s.thang, "nam": s.nam, "luongcoban": str(s.luongcoban or 0), "hoahong": str(s.hoahong or 0), "thuong": str(s.thuong or 0), "khautru": str(s.khautru or 0), "tongluong": str(s.tongluong or 0)} for s in salaries]
+        return jsonify({"success": True, "salaries": result,
+            "gps_payroll_enabled": bool(current_app.config.get('PAYROLL_V2_ENABLED')),
+            "cutover_date": current_app.config.get('PAYROLL_V2_CUTOVER_DATE') or None,
+            "income_url": "/employee/income"}), 200
     except Exception as e:
         current_app.logger.error(f"Lỗi khi lấy LS lương cá nhân: {e}")
         return jsonify({"success": False, "message": "Lỗi hệ thống"}), 500

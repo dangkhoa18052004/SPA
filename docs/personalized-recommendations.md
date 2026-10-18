@@ -1,5 +1,7 @@
 # Personalized Recommendation — sửa theo ngữ cảnh (2026-10-07)
 
+Phần bổ sung đo lường impression/click, feature flag, lựa chọn cá nhân hóa của khách và CRM được ghi tại [Giai đoạn 5](RECOMMENDATION_CRM_PHASE5.md). Công thức ranking dưới đây được giữ nguyên.
+
 ## Kết quả
 
 `/services` chỉ còn header, bộ lọc/tìm kiếm/sắp xếp và một grid dịch vụ.

@@ -12,6 +12,7 @@ from decimal import Decimal
 from sqlalchemy import func, and_, or_, extract
 
 from ..extensions import db
+from .package_service import local_now
 from ..models import (
     ThanhToan,
     HoaDon,
@@ -29,7 +30,7 @@ from ..models import (
 
 def _parse_date_range(from_date, to_date, default_days=30):
     """Helper chuyển đổi tham số from/to thành datetime boundaries."""
-    now = datetime.now()
+    now = local_now()
     if not to_date:
         to_d = now.date()
     elif isinstance(to_date, str):
@@ -420,7 +421,7 @@ def get_kpi_cards(target_date=None):
     2. Khách hàng mới tháng này: Lọc theo KhachHang.ngaytao trong tháng.
     """
     if not target_date:
-        today = date.today()
+        today = local_now().date()
     elif isinstance(target_date, str):
         today = datetime.strptime(target_date.strip()[:10], "%Y-%m-%d").date()
     elif isinstance(target_date, datetime):

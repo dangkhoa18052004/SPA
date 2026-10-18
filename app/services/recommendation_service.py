@@ -73,6 +73,9 @@ def record_client_event(customer_id, data, now=None):
         raise RecommendationError('Dịch vụ/gói không tồn tại hoặc đã ngừng bán', 404)
     # Serialize customer writes across workers; SQLite also obtains a write lock.
     KhachHang.query.filter_by(makh=customer_id).update({KhachHang.makh: KhachHang.makh}, synchronize_session=False)
+    from .crm_service import personalization_allowed
+    if not personalization_allowed(customer_id):
+        return False
     bucket = int((now - datetime(1970, 1, 1)).total_seconds()) // DEDUPE_SECONDS
     key = f'client:{customer_id}:{action}:{target_id}:{bucket}'
     if CustomerBehavior.query.filter_by(dedupe_key=key).first():
@@ -113,7 +116,8 @@ class Ranking:
     """One request computes catalog/profile/popularity once, then ranks both entity types."""
     def __init__(self, customer_id=None, now=None):
         self.now = now or datetime.utcnow()
-        self.customer_id = customer_id
+        from .crm_service import personalization_allowed
+        self.customer_id = customer_id if personalization_allowed(customer_id) else None
         self.services = {s.madv: s for s in DichVu.query.options(joinedload(DichVu.category), defer(DichVu.anhdichvu)).all()}
         self.category = defaultdict(float)
         self.booking = defaultdict(float)
@@ -123,7 +127,7 @@ class Ranking:
         self.owned_packages = set()
         self.package_views = defaultdict(float)
         self._popularity()
-        if customer_id is not None:
+        if self.customer_id is not None:
             self._profile()
         self.strategy = 'personalized' if self.has_signal else 'popular'
         self.scores = {s.madv: self._score(s) for s in self.services.values() if s.active}

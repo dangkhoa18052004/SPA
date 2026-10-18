@@ -152,6 +152,10 @@ img {
     position: relative;
 }
 
+.password-input input {
+    padding-right: 60px;
+}
+
 .toggle-password {
     position: absolute;
     right: 12px;
@@ -162,6 +166,30 @@ img {
     color: #666;
     cursor: pointer;
     font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+}
+
+.toggle-password svg {
+    width: 22px;
+    height: 22px;
+}
+
+.toggle-password .password-eye-slash {
+    display: none;
+}
+
+.toggle-password[aria-pressed="true"] .password-eye-slash {
+    display: block;
+}
+
+.toggle-password:focus-visible {
+    outline: 2px solid #3D5A45;
+    outline-offset: -2px;
+    border-radius: 6px;
 }
 
 .toggle-password:hover {

@@ -1,0 +1,12 @@
+.security-content { max-width: 880px; display: grid; gap: 24px; }
+.security-content h2 { font-size: 20px; margin: 0 0 12px; }
+.security-form { display: grid; gap: 16px; margin-top: 20px; }
+.security-form > label { display: grid; gap: 8px; max-width: 440px; font-weight: 500; }
+.security-form p { margin: 0; }
+.security-setup { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.security-setup > div { min-width: 0; max-width: 420px; }
+.security-setup .ant-qrcode { flex-shrink: 0; }
+.security-secret { font-family: monospace; overflow-wrap: anywhere; background: #f0f5f2; border-radius: 8px; padding: 12px; margin: 12px 0 !important; }
+.security-codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+.security-codes code { font-size: 15px; padding: 10px; background: #f0f5f2; border-radius: 8px; overflow-wrap: anywhere; }
+@media (max-width: 500px) { .security-codes { grid-template-columns: 1fr; } .security-setup { gap: 16px; } }

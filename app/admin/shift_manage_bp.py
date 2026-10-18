@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify, current_app, g
 from ..extensions import db
 from ..models import CaLam, NhanVien, DangKyCaLam, nhanvien_calam, ChucVu,BangLuongChiTiet, Luong
 from ..decorators import roles_required 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from .. import mail
 from sqlalchemy.orm import joinedload
@@ -13,11 +13,28 @@ from sqlalchemy import extract
 
 shift_manage_bp = Blueprint("shift_manage", __name__)
 
+from ..services import attendance_service as attendance
+
+
+@shift_manage_bp.errorhandler(attendance.OperationsError)
+def operations_error(error):
+    db.session.rollback()
+    return jsonify(msg=str(error), code=error.code), error.status
+
+
+def scope_shifts(query):
+    if current_app.config.get('ATTENDANCE_ENABLED') and g.current_user.role != 'admin':
+        ids = attendance.allowed_branches(g.current_user, g.current_user.role == 'manager')
+        return attendance.shifts_in_branches(query, ids)
+    return query
+
 def _calculate_and_save_daily_salary(nhanvien, calam):
     """
     Hàm helper: Tự động tính lương cho 1 ca làm và cập nhật lương tháng.
     (Đã sửa lỗi float/Decimal)
     """
+    if current_app.config.get('ATTENDANCE_ENABLED') and calam.branch_id:
+        return True  # GPS shifts become payable only through reviewed attendance.
     try:
         existing_daily_salary = BangLuongChiTiet.query.filter_by(maca=calam.maca, manv=nhanvien.manv).first()
         if existing_daily_salary:
@@ -122,7 +139,7 @@ def get_shifts():
         assignment_status = request.args.get("assignment")
 
         # KHẮC PHỤC: Bỏ joinedload ban đầu để tránh lỗi.
-        query = CaLam.query.order_by(CaLam.ngay.desc(), CaLam.giobatdau.desc())
+        query = scope_shifts(CaLam.query).order_by(CaLam.ngay.desc(), CaLam.giobatdau.desc())
 
         # 2. ÁP DỤNG LỌC THEO NGÀY (Giữ nguyên)
         if date_from_str:
@@ -170,6 +187,7 @@ def get_shifts():
             
             result.append({
                 "maca": s.maca, 
+                "branch_id": s.branch_id,
                 "ngay": s.ngay.isoformat(), 
                 "start_time": s.giobatdau.strftime('%H:%M'), 
                 "end_time": s.gioketthuc.strftime('%H:%M'),
@@ -205,10 +223,24 @@ def create_shifts():
             today = date.today()
             start_datetime = datetime.combine(today, start_time)
             end_datetime = datetime.combine(today, end_time)
+            if end_datetime <= start_datetime:
+                end_datetime += timedelta(days=1)
             duration = end_datetime - start_datetime
             so_gio = duration.total_seconds() / 3600.0
 
+            branch_id = info.get('branch_id')
+            if attendance.simple_mode() or (branch_id is None and current_app.config.get('ATTENDANCE_ENABLED')):
+                # One-branch spa: the shift page does not ask for a branch, so use the only one.
+                branch_id = attendance.default_branch_id() if not attendance.simple_mode() else attendance.fixed_branch_id()
+            if branch_id is not None:
+                attendance.integer(branch_id, 'Mã cơ sở', 1)
+                attendance.require_branch(g.current_user, branch_id, True)
+                attendance.lock_branch(branch_id)
+                attendance.ensure_unlocked(branch_id, ngay_dt)
+            elif current_app.config.get('ATTENDANCE_ENABLED') and g.current_user.role != 'admin':
+                raise attendance.OperationsError('Cần chọn cơ sở cho ca', 400)
             new_shift = CaLam(
+                branch_id=branch_id,
                 ngay=ngay_dt, 
                 giobatdau=start_time, 
                 gioketthuc=end_time,
@@ -221,6 +253,8 @@ def create_shifts():
         return jsonify({"msg": f"Đã tạo thành công {len(shifts_to_process)} ca làm mới."}), 201
     except Exception as e:
         db.session.rollback()
+        if isinstance(e, attendance.OperationsError):
+            raise
         current_app.logger.error(f"Lỗi khi tạo ca làm: {e}")
         return jsonify({"msg": str(e)}), 500
     
@@ -233,6 +267,8 @@ def update_shift(maca):
     shift = CaLam.query.get(maca)
     if not shift:
         return jsonify({"msg": "Không tìm thấy ca làm"}), 404
+
+    attendance.protect_shift(shift, g.current_user)
 
     data = request.get_json()
     
@@ -248,12 +284,18 @@ def update_shift(maca):
         if end_time_str:
             shift.gioketthuc = datetime.strptime(end_time_str, "%H:%M").time()
         # 3. Tính toán lại số giờ
-        if start_time_str and end_time_str:
+        if start_time_str or end_time_str:
             today = date.today()
             start_dt = datetime.combine(today, shift.giobatdau)
             end_dt = datetime.combine(today, shift.gioketthuc)
+            if end_dt <= start_dt:
+                end_dt += timedelta(days=1)
             duration = end_dt - start_dt
             shift.sogio = duration.total_seconds() / 3600.0
+        # Moving an unused shift must not add work into a period already locked.
+        attendance_branch = attendance.shift_branch_id(shift)
+        if attendance_branch:
+            attendance.ensure_unlocked(attendance_branch, shift.ngay)
         # 4. Lưu thay đổi
         db.session.commit()
         return jsonify({"msg": "Cập nhật ca làm thành công"}), 200
@@ -261,6 +303,8 @@ def update_shift(maca):
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Lỗi khi cập nhật ca làm {maca}: {e}")
+        if isinstance(e, attendance.OperationsError):
+            raise
         return jsonify({"msg": "Cập nhật thất bại"}), 500
 
 @shift_manage_bp.route("/shifts/<int:maca>", methods=["DELETE"])
@@ -269,6 +313,7 @@ def delete_shift(maca):
     """(Admin/Manager) Xóa một ca làm."""
     shift = CaLam.query.get(maca)
     if not shift: return jsonify({"msg": "Không tìm thấy ca làm"}), 404
+    attendance.protect_shift(shift, g.current_user)
     try:
         # Xóa đăng ký liên quan
         DangKyCaLam.query.filter_by(maca=maca).delete()
@@ -287,9 +332,9 @@ def delete_shift(maca):
 def get_pending_registrations():
     """(Admin/Manager) Xem danh sách các yêu cầu đăng ký ca làm đang chờ."""
     try:
-        pending_regs = db.session.query(DangKyCaLam).filter(
+        pending_regs = scope_shifts(db.session.query(DangKyCaLam).filter(
             DangKyCaLam.trangthai == 'pending'
-        ).join(NhanVien).join(CaLam).order_by(DangKyCaLam.ngaydangky.asc()).all()
+        ).join(NhanVien).join(CaLam)).order_by(DangKyCaLam.ngaydangky.asc()).all()
         result = []
         for reg in pending_regs:
             result.append({
@@ -318,6 +363,8 @@ def unassign_staff_from_shift():
     staff = NhanVien.query.get(manv)
     if not shift or not staff: 
         return jsonify({"msg": "Không tìm thấy ca làm hoặc nhân viên"}), 404
+
+    attendance.protect_shift(shift, g.current_user)
         
     try:
         # 1. Kiểm tra xem có gán không
@@ -375,6 +422,10 @@ def assign_staff_to_shift():
     
     if shift in staff.calam: 
         return jsonify({"msg": f"NV {manv} đã được gán vào ca {maca}."}), 409
+
+    attendance.protect_shift(shift, g.current_user)
+    if shift.branch_id:
+        attendance.require_branch(staff, shift.branch_id)
     
     try:
         staff.calam.append(shift)
@@ -407,6 +458,9 @@ def approve_shift_registration(reg_id):
         shift = CaLam.query.get(reg.maca)
         if not shift or not staff:
              return jsonify({"msg": "Không tìm thấy nhân viên hoặc ca làm liên quan"}), 404
+        attendance.protect_shift(shift, g.current_user)
+        if shift.branch_id:
+            attendance.require_branch(staff, shift.branch_id)
         reg.trangthai = 'approved'
         if shift not in staff.calam:
              staff.calam.append(shift)
@@ -423,6 +477,8 @@ def approve_shift_registration(reg_id):
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Lỗi khi phê duyệt ĐK ca: {e}")
+        if isinstance(e, attendance.OperationsError):
+            raise
         return jsonify({"msg": f"Phê duyệt thất bại: {e}"}), 500
     
 # API XEM LỊCH CỦA QUẢN LÝ / LỄ TÂN                
@@ -435,7 +491,7 @@ def get_all_schedules():
     try:
         start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date(); end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
         
-        all_shifts = CaLam.query.filter(CaLam.ngay.between(start_date, end_date)).order_by(CaLam.ngay, CaLam.giobatdau).all()
+        all_shifts = scope_shifts(CaLam.query.filter(CaLam.ngay.between(start_date, end_date))).order_by(CaLam.ngay, CaLam.giobatdau).all()
         
         schedule_by_date = {}
         for shift in all_shifts:
@@ -541,7 +597,7 @@ def get_my_schedule_list():
 
             results.append({
                 "ngay": ca.ngay.isoformat(),
-                "ten_ca": f"Ca #{ca.maca}",
+                "ten_ca": f"Ca #{ca.maca}", "maca": ca.maca,
                 "giobatdau": ca.giobatdau.strftime('%H:%M'),
                 "gioketthuc": ca.gioketthuc.strftime('%H:%M'),
                 "trangthai_code": "approved",
@@ -566,7 +622,7 @@ def get_my_schedule_list():
 
             results.append({
                 "ngay": reg.calam.ngay.isoformat(),
-                "ten_ca": f"Ca #{reg.calam.maca}",
+                "ten_ca": f"Ca #{reg.calam.maca}", "maca": reg.calam.maca, "reg_id": reg.id,
                 "giobatdau": reg.calam.giobatdau.strftime('%H:%M'),
                 "gioketthuc": reg.calam.gioketthuc.strftime('%H:%M'),
                 "trangthai_code": "pending",

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="vi"><head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Đặt lịch chăm sóc · Bin Spa</title>
+  <meta name="description" content="Chọn dịch vụ, sử dụng buổi liệu trình và đặt lịch chăm sóc tại Bin Spa.">
+  <meta name="theme-color" content="#425f49">
+  <link rel="canonical" href="{{ url_for('customer.appointment_create', _external=True) }}">
+  {% for stylesheet in portal_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='portal/' + stylesheet) }}">{% endfor %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ai-chat.css', v='1.1') }}">
+</head><body>
+<header class="booking-header"><a href="/" class="booking-brand"><span>B</span> Bin Spa</a><nav aria-label="Điều hướng"><a href="/services">Dịch vụ</a><a href="/profile#appointments">Lịch hẹn của tôi</a></nav></header>
+<main class="booking-page"><div class="booking-intro"><p class="booking-eyebrow">DÀNH MỘT CHÚT THỜI GIAN CHO BẢN THÂN</p><h1>Đặt lịch chăm sóc</h1><p>Chọn dịch vụ bạn yêu thích và thời gian thuận tiện.</p></div><div id="root"></div>
+<noscript>Cần bật JavaScript để đặt lịch. <a href="{{ url_for('customer.appointment_create', ui='legacy') }}">Mở màn đặt lịch trước đây</a>.</noscript></main>
+<footer class="booking-footer"><a href="/">Bin Spa</a><a href="/packages">Gói chăm sóc</a><a href="/profile">Tài khoản của tôi</a></footer>
+<script src="{{ url_for('static', filename='js/customers/auth-session.js', v='1.0') }}"></script>
+<script src="{{ url_for('static', filename='js/customers/recommendations.js', v='2.1') }}"></script>
+{% if config.get('RECOMMENDATION_METRICS_ENABLED') %}<script src="{{ url_for('static', filename='js/customers/recommendation-metrics.js') }}"></script>{% endif %}
+<script src="{{ url_for('static', filename='js/loyalty-payment.js', v='2.2') }}"></script>
+<script src="{{ url_for('static', filename='js/ai_chat.js', v='1.2') }}"></script>
+<script type="module" src="{{ url_for('static', filename='portal/' + portal_entry) }}"></script>
+</body></html>

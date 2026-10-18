@@ -8,6 +8,7 @@ from ..services import loyalty_service as service
 from ..services import loyalty_tier_service as tiers
 from ..routes.loyalty_bp import paginate, payload, request_key, validation, conflict, choice_arg, text_arg
 from sqlalchemy.exc import IntegrityError
+from ..ui_assets import admin_portal_page
 
 admin_loyalty_bp = Blueprint('admin_loyalty', __name__)
 admin_loyalty_bp.register_error_handler(service.LoyaltyError, validation)
@@ -21,7 +22,7 @@ def manager():
 
 @admin_loyalty_bp.route('/admin/loyalty')
 def page():
-    return render_template('admin/loyalty.html')
+    return admin_portal_page('Điểm thưởng và quà tặng', 'ADMIN_CARE_REACT_ENABLED') or render_template('admin/loyalty.html')
 
 
 @admin_loyalty_bp.route('/api/admin/loyalty/config', methods=['GET', 'PUT'])

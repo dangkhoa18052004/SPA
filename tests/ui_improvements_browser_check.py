@@ -32,7 +32,11 @@ from app.services import package_service, appointment_service, email_service
 root = Path(__file__).resolve().parents[1]
 artifacts = root / 'tests' / 'runtime_ui_improvements'
 artifacts.mkdir(exist_ok=True)
-app = create_app(dict(TESTING=True, APP_ENV='testing', SQLALCHEMY_DATABASE_URI='sqlite://',
+app = create_app(dict(TESTING=True, APP_ENV='testing', STAFF_SECURITY_ENABLED=False, SQLALCHEMY_DATABASE_URI='sqlite://',
+    BUSINESS_PORTAL_ENABLED=False, CUSTOMER_BOOKING_REACT_ENABLED=False,
+    # The fake Gemini below drives the direct /api/ai/chat path; queued jobs (which need the
+    # separate chat worker) are covered by ai_chat_navigation_browser_check.py. Do not inherit .env.
+    AI_CHAT_JOBS_ENABLED=False,
     SECRET_KEY='ui-test-only', JWT_SECRET_KEY='ui-test-secret-at-least-32-characters',
     VIETQR_BANK_ID='TESTBANK', VIETQR_ACCOUNT_NO='123456', VIETQR_ACCOUNT_NAME='TEST SPA'))
 appointment_service.send_appointment_confirmation_email_async = lambda *args: None
@@ -119,7 +123,17 @@ class QuietHandler(WSGIRequestHandler):
         pass
 
 
-server = make_server('127.0.0.1', 0, app, threaded=False, request_handler=QuietHandler)
+# sqlite:// shares one connection between the server and this script; a check from here must not
+# run (and roll back on teardown) while a request is still inside its transaction.
+db_lock = threading.Lock()
+
+
+def serve_locked(environ, start_response):
+    with db_lock:
+        return list(app(environ, start_response))
+
+
+server = make_server('127.0.0.1', 0, serve_locked, threaded=False, request_handler=QuietHandler)
 thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
 base = f'http://127.0.0.1:{server.server_port}'
 chrome = r'C:\Program Files\Google\Chrome\Application\chrome.exe'
@@ -136,7 +150,12 @@ class Browser:
             if portfile.exists():
                 break
             clock.sleep(.1)
-        port = int(portfile.read_text().splitlines()[0])
+        for _ in range(50):  # Chrome may still hold the file open while writing it (Windows)
+            try:
+                port = int(portfile.read_text().splitlines()[0])
+                break
+            except (PermissionError, IndexError, ValueError):
+                clock.sleep(.1)
         targets = json.load(urllib.request.urlopen(f'http://127.0.0.1:{port}/json'))
         target = next(t for t in targets if t['type'] == 'page')
         self.ws = websocket.create_connection(target['webSocketDebuggerUrl'], timeout=20)
@@ -278,7 +297,7 @@ try:
         before = LichHen.query.count()
     browser.click('#step3 button[type="submit"]')
     for _ in range(60):
-        with app.app_context():
+        with db_lock, app.app_context():
             if LichHen.query.count() == before + 1:
                 break
         clock.sleep(.1)

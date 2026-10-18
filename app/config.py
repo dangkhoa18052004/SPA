@@ -21,6 +21,12 @@ def _is_truthy(value):
 
 def validate_production_config(config):
     """Fail fast when production is missing security-critical settings."""
+    if config.get('STAFF_SECURITY_ENABLED'):
+        from cryptography.fernet import Fernet
+        try:
+            Fernet(str(config.get('STAFF_MFA_ENCRYPTION_KEY') or '').encode())
+        except (ValueError, TypeError):
+            raise RuntimeError('STAFF_MFA_ENCRYPTION_KEY phải là khóa Fernet hợp lệ khi bật bảo mật nhân viên.')
     is_production = (
         str(config.get("APP_ENV", "")).lower() == "production"
         or _is_truthy(config.get("RENDER"))
@@ -42,6 +48,35 @@ def validate_production_config(config):
         )
 
 class Config:
+    STAFF_SECURITY_ENABLED = _is_truthy(os.getenv('STAFF_SECURITY_ENABLED', 'false'))
+    STAFF_MFA_ENCRYPTION_KEY = os.getenv('STAFF_MFA_ENCRYPTION_KEY', '')
+    AI_CHAT_JOBS_ENABLED = _is_truthy(os.getenv('AI_CHAT_JOBS_ENABLED', 'false'))
+    ATTENDANCE_ENABLED = _is_truthy(os.getenv('ATTENDANCE_ENABLED', 'false'))
+    ATTENDANCE_SIMPLE_MODE = _is_truthy(os.getenv('ATTENDANCE_SIMPLE_MODE', 'false'))
+    ATTENDANCE_BRANCH_ID = int(os.getenv('ATTENDANCE_BRANCH_ID', '0'))
+    PAYROLL_V2_ENABLED = _is_truthy(os.getenv('PAYROLL_V2_ENABLED', 'false'))
+    EMPLOYEE_PORTAL_ENABLED = _is_truthy(os.getenv('EMPLOYEE_PORTAL_ENABLED', 'false'))
+    BUSINESS_PORTAL_ENABLED = _is_truthy(os.getenv('BUSINESS_PORTAL_ENABLED', 'false'))
+    # Lịch hẹn và khách hàng trên khung quản trị React (cần BUSINESS_PORTAL_ENABLED).
+    ADMIN_BOOKING_REACT_ENABLED = _is_truthy(os.getenv('ADMIN_BOOKING_REACT_ENABLED', 'false'))
+    # Hóa đơn và bán gói tại quầy trên khung quản trị React (cần BUSINESS_PORTAL_ENABLED).
+    ADMIN_BILLING_REACT_ENABLED = _is_truthy(os.getenv('ADMIN_BILLING_REACT_ENABLED', 'false'))
+    # Dịch vụ, gói dịch vụ và liệu trình khách trên khung quản trị React (cần BUSINESS_PORTAL_ENABLED).
+    ADMIN_CATALOG_REACT_ENABLED = _is_truthy(os.getenv('ADMIN_CATALOG_REACT_ENABLED', 'false'))
+    # Nhân viên, chức vụ, ca làm, đăng ký/duyệt ca, lịch cá nhân và lịch sử lương cũ trên khung React.
+    ADMIN_PEOPLE_REACT_ENABLED = _is_truthy(os.getenv('ADMIN_PEOPLE_REACT_ENABLED', 'false'))
+    ADMIN_CARE_REACT_ENABLED = _is_truthy(os.getenv('ADMIN_CARE_REACT_ENABLED', 'false'))
+    CUSTOMER_BOOKING_REACT_ENABLED = _is_truthy(os.getenv('CUSTOMER_BOOKING_REACT_ENABLED', 'false'))
+    CRM_ENABLED = _is_truthy(os.getenv('CRM_ENABLED', 'false'))
+    CUSTOMER_CONSENT_ENABLED = _is_truthy(os.getenv('CUSTOMER_CONSENT_ENABLED', 'false'))
+    PERSONALIZATION_ENABLED = _is_truthy(os.getenv('PERSONALIZATION_ENABLED', 'true'))
+    RECOMMENDATION_METRICS_ENABLED = _is_truthy(os.getenv('RECOMMENDATION_METRICS_ENABLED', 'false'))
+    BI_REPORTS_ENABLED = _is_truthy(os.getenv('BI_REPORTS_ENABLED', 'false'))
+    OBSERVABILITY_ENABLED = _is_truthy(os.getenv('OBSERVABILITY_ENABLED', 'false'))
+    AUTH_RATE_LIMIT_ENABLED = _is_truthy(os.getenv('AUTH_RATE_LIMIT_ENABLED', 'false'))
+    # Only set this behind a known, trusted proxy; never trust arbitrary X-Forwarded-*.
+    TRUSTED_PROXY_HOPS = int(os.getenv('TRUSTED_PROXY_HOPS', '0'))
+    PAYROLL_V2_CUTOVER_DATE = os.getenv('PAYROLL_V2_CUTOVER_DATE', '')
     # Sử dụng biến đã được kiểm tra và điều chỉnh tiền tố
     SQLALCHEMY_DATABASE_URI = DATABASE_URL 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
