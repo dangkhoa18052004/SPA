@@ -327,7 +327,7 @@ def test_email_transport_uses_idempotency_header(app,monkeypatch):
     class Response:
         def raise_for_status(self):pass
         def json(self):return {'id':'fake-email'}
-    monkeypatch.setattr(email_service.resend,'api_key','test-api-key')
+    monkeypatch.setenv('RESEND_API_KEY','test-api-key')
     monkeypatch.setattr(email_service.requests,'post',lambda *a,**kw:calls.append((a,kw)) or Response())
     with app.app_context():
         assert email_service.send_email('nobody@example.test','Test','<p>Test</p>',idempotency_key='appointment:1:review')

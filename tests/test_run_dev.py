@@ -66,6 +66,8 @@ def test_launcher_ctrl_c_stops_all_and_starts_one_worker_of_each_kind(monkeypatc
 
 
 def test_default_entrypoint_starts_supervisor(monkeypatch):
+    from app.config import Config
+    monkeypatch.setattr(Config, 'SQLALCHEMY_DATABASE_URI', 'sqlite://')
     import run as entrypoint
     monkeypatch.delenv('WERKZEUG_RUN_MAIN', raising=False)
     calls = []
@@ -76,6 +78,8 @@ def test_default_entrypoint_starts_supervisor(monkeypatch):
 
 
 def test_web_child_and_reloader_do_not_start_another_worker(monkeypatch):
+    from app.config import Config
+    monkeypatch.setattr(Config, 'SQLALCHEMY_DATABASE_URI', 'sqlite://')
     import run as entrypoint
     calls = []
     monkeypatch.setattr(run_dev, 'run', lambda: calls.append('supervisor') or 0)
