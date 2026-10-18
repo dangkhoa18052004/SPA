@@ -61,6 +61,8 @@ def app():
         "ADMIN_PEOPLE_REACT_ENABLED": False,
         "ADMIN_CARE_REACT_ENABLED": False,
         "CUSTOMER_BOOKING_REACT_ENABLED": False,
+        "CUSTOMER_PUBLIC_UI_ENABLED": False,
+        "CUSTOMER_ACCOUNT_REACT_ENABLED": False,
         "CRM_ENABLED": False,
         "CUSTOMER_CONSENT_ENABLED": False,
         "PERSONALIZATION_ENABLED": True,

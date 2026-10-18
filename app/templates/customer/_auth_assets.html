@@ -1,0 +1,5 @@
+{% if customer_ui_assets %}
+{% for stylesheet in customer_ui_assets.styles %}<link rel="stylesheet" href="{{ url_for('static', filename='portal/' + stylesheet) }}">{% endfor %}
+<link rel="icon" href="{{ url_for('static', filename='images/logo.jpg') }}">
+<script type="module" src="{{ url_for('static', filename='portal/' + customer_ui_assets.entry) }}"></script>
+{% endif %}

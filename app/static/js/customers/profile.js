@@ -27,9 +27,10 @@ function customerAuthFetch(input, options) {
 }
 
 // ==================== INIT ====================
+let profileReady = false;
 window.addEventListener('hashchange', () => {
     const section = location.hash.slice(1);
-    if (section && document.getElementById(`${section}-section`)) switchSection(section);
+    if (section && document.getElementById(`${section}-section`)) switchSection(section, true);
 });
 document.addEventListener('DOMContentLoaded', async function() {
     initMenuLinks();
@@ -63,7 +64,9 @@ async function initializeProfilePage() {
         return;
     }
 
-    await Promise.all([loadUserProfile(), loadUserAppointments()]);
+    await loadUserProfile();
+    profileReady = true;
+    loadProfileSection(document.querySelector('.profile-section.active')?.id.replace(/-section$/, '') || 'appointments');
 }
 
 // ==================== LOAD USER PROFILE ====================
@@ -116,6 +119,7 @@ function setDynamicProfileText(elementId, value) {
 }
 
 function displayUserInfo(user) {
+    window.CustomerAccount?.setProfile(user);
     setDynamicProfileText('userName', user.hoten || 'Chưa cập nhật');
     setDynamicProfileText('userEmail', user.email || 'Chưa cập nhật');
     
@@ -135,9 +139,9 @@ function displayUserInfo(user) {
     setDynamicProfileText('infoDiachi', user.diachi || 'Chưa cập nhật');
     
     // Edit form
-    document.getElementById('editHoten').value = user.hoten;
-    document.getElementById('editSdt').value = user.sdt || '';
-    document.getElementById('editDiachi').value = user.diachi || '';
+    if (document.getElementById('editHoten')) document.getElementById('editHoten').value = user.hoten;
+    if (document.getElementById('editSdt')) document.getElementById('editSdt').value = user.sdt || '';
+    if (document.getElementById('editDiachi')) document.getElementById('editDiachi').value = user.diachi || '';
 
     if (typeof window.changeLang === 'function') {
         window.changeLang(localStorage.getItem('spa_lang') || 'vi');
@@ -176,7 +180,8 @@ function initMenuLinks() {
 // Chỉnh sửa thông tin / đổi mật khẩu thuộc nhóm Tài khoản trên menu.
 const SECTION_MENU = { edit: 'info', password: 'info' };
 
-function switchSection(sectionName) {
+function switchSection(sectionName, fromHistory = false) {
+    if (!document.getElementById(`${sectionName}-section`)) return;
     document.querySelectorAll('.profile-section').forEach(section => {
         section.classList.remove('active');
     });
@@ -196,8 +201,15 @@ function switchSection(sectionName) {
         }
     });
     if (location.hash !== `#${sectionName}`) {
-        history.replaceState(null, '', `${location.pathname}${location.search}#${sectionName}`);
+        if (profileReady && !fromHistory) history.pushState(null, '', `${location.pathname}${location.search}#${sectionName}`);
+        else history.replaceState(null, '', `${location.pathname}${location.search}#${sectionName}`);
     }
+    if (profileReady) loadProfileSection(sectionName);
+}
+
+function loadProfileSection(sectionName) {
+    window.CustomerAccount?.showSection(sectionName);
+    document.dispatchEvent(new CustomEvent('customer:section', {detail: sectionName}));
     
     // Load data khi chuyển section
     if (sectionName === 'appointments') {
@@ -231,12 +243,6 @@ function initAvatarUpload() {
             return;
         }
         
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('avatarImg').src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-        
         const formData = new FormData();
         formData.append('file', file);
         
@@ -254,6 +260,8 @@ function initAvatarUpload() {
             
             if (data.success) {
                 showAlert('success', 'Cập nhật avatar thành công!');
+                await loadUserProfile();
+                if (typeof checkLoginStatus === 'function') await checkLoginStatus();
             } else {
                 showAlert('error', data.message || 'Upload avatar thất bại!');
             }
@@ -268,7 +276,7 @@ function initAvatarUpload() {
 function initForms() {
     // Edit profile form
     const editForm = document.getElementById('editProfileForm');
-    editForm.addEventListener('submit', async function(e) {
+    editForm?.addEventListener('submit', async function(e) {
         e.preventDefault();
         
         const data = {
@@ -301,7 +309,7 @@ function initForms() {
     
     // Change password form
     const passwordForm = document.getElementById('changePasswordForm');
-    passwordForm.addEventListener('submit', async function(e) {
+    passwordForm?.addEventListener('submit', async function(e) {
         e.preventDefault();
         
         const oldPassword = document.getElementById('oldPassword').value;
@@ -358,7 +366,8 @@ async function loadUserAppointments() {
         }
     } catch (error) {
         console.error('Error loading appointments:', error);
-        displayNoAppointments();
+        if (window.CustomerAccount) window.CustomerAccount.error('appointments', 'Không thể tải lịch hẹn. Vui lòng thử lại.');
+        else displayNoAppointments();
     }
 }
 
@@ -366,6 +375,7 @@ let myAppointments = [];
 
 function displayAppointments(appointments) {
     myAppointments = appointments;
+    if (window.CustomerAccount) { window.CustomerAccount.appointments(appointments); return; }
     const list = document.getElementById('appointmentsList');
     
     if (appointments.length === 0) {
@@ -431,6 +441,7 @@ function displayAppointments(appointments) {
 }
 
 function displayNoAppointments() {
+    if (window.CustomerAccount) { window.CustomerAccount.appointments([]); return; }
     const list = document.getElementById('appointmentsList');
     list.innerHTML = `
         <li style="text-align: center; padding: 40px; color: #999;">
@@ -443,8 +454,8 @@ function displayNoAppointments() {
     `;
 }
 
-async function cancelAppointment(id) {
-    if (!confirm('Bạn có chắc muốn hủy lịch hẹn này?')) return;
+async function cancelAppointment(id, confirmed = false) {
+    if (!confirmed && !confirm('Bạn có chắc muốn hủy lịch hẹn này?')) return;
     
     try {
         const response = await customerAuthFetch(`/api/appointments/${id}/cancel`, {
@@ -537,11 +548,13 @@ async function loadUserInvoices() {
         displayInvoices(invoices);
     } catch (error) {
         console.error('Error loading invoices:', error);
-        displayNoInvoices();
+        if (window.CustomerAccount) window.CustomerAccount.error('invoices', 'Không thể tải hóa đơn. Vui lòng thử lại.');
+        else displayNoInvoices();
     }
 }
 
 function displayInvoices(invoices) {
+    if (window.CustomerAccount) { window.CustomerAccount.invoices(invoices || []); return; }
     const list = document.getElementById('invoicesList');
     
     if (!invoices || invoices.length === 0) {
@@ -586,6 +599,7 @@ function displayInvoices(invoices) {
 }
 
 function displayNoInvoices() {
+    if (window.CustomerAccount) { window.CustomerAccount.invoices([]); return; }
     const list = document.getElementById('invoicesList');
     list.innerHTML = `
         <li style="text-align: center; padding: 40px; color: #999;">

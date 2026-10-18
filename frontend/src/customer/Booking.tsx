@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Card, Input, cn, selectClass } from './ui';
+import { Button, Card, Input, LoadingState, cn, selectClass } from './ui';
 import { customerApi, customerPost, CustomerApiError } from './api';
 import { availableBookingSlots, choices, initialSelection, isFutureBookingTime, localDate, money, subtotal } from './booking-model';
 import type { Booking, Service, Slots, Staff, Treatment, Usage } from './booking-model';
@@ -23,10 +23,11 @@ function useCustomerResource<T>(path: string, body?: unknown) {
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setState({ loading: true, error: '' });
-    (bodyKey ? customerPost<T>(path, JSON.parse(bodyKey)) : customerApi<T>(path)).then(data => { if (active) setState({ data, loading: false, error: '' }); })
+    customerApi<T>(path, { signal: controller.signal, ...(bodyKey ? { method: 'POST', body: bodyKey } : {}) }).then(data => { if (active) setState({ data, loading: false, error: '' }); })
       .catch(e => { if (active) setState({ loading: false, error: e.message }); });
-    return () => { active = false; };
+    return () => { active = false; controller.abort(); };
   }, [path, bodyKey, revision]);
   return { ...state, reload: () => setRevision(n => n + 1) };
 }
@@ -61,6 +62,9 @@ function TimeSelection({ selected, date, setDate, time, setTime, staff, setStaff
 }
 function StaffSelection({ selected, start, staff, setStaff, disabled }: { selected: number[]; start: string; staff: number | null; setStaff: (v: number | null) => void; disabled: boolean }) {
   const resource = useCustomerResource<{ staff: Staff[] }>('/api/appointments/available-staff', { madv_list: selected, ngaygio: start });
+  useEffect(() => {
+    if (staff !== null && resource.data && !resource.loading && !resource.error && !resource.data.staff.some(s => s.manv === staff && s.available)) setStaff(null);
+  }, [resource.data, resource.loading, resource.error, staff, setStaff]);
   return <section className="mt-7 border-t border-border pt-6"><h2 className="mb-3 text-lg font-semibold">Nhân viên phục vụ</h2>
     <label className="mb-4 flex min-h-11 items-center gap-3"><input disabled={disabled} type="radio" name="staff" checked={staff === null} onChange={() => setStaff(null)} />Để spa sắp xếp nhân viên phù hợp</label>
     {resource.loading ? <p role="status">Đang kiểm tra nhân viên…</p> : resource.error ? <Notice retry={resource.reload}>{resource.error}</Notice> : <div className="grid gap-3 sm:grid-cols-2">
@@ -183,7 +187,7 @@ export default function BookingPage() {
       else { sessionStorage.removeItem(pendingKey); setError((e as Error).message); if (sent) { setStep(2); setTime(''); } }
     } finally { setBusy(false); submitLock.current = false; }
   }
-  if (loading) return <Card><p role="status" className="animate-pulse">Đang tải dịch vụ và liệu trình…</p></Card>;
+  if (loading) return <LoadingState>Đang tải dịch vụ và liệu trình…</LoadingState>;
   if (guest) return <Card className="mx-auto max-w-xl text-center"><h2 className="mb-3 text-xl font-semibold">Đăng nhập để đặt lịch</h2><p className="mb-6 text-muted-foreground">Xem liệu trình hiện có và lưu lịch hẹn vào tài khoản của bạn.</p><Button asChild><a href={`/auth/login?redirect=${encodeURIComponent(location.pathname + location.search)}`}>Đăng nhập / Đăng ký</a></Button></Card>;
   if (!catalogue) return <Notice retry={() => setRevision(n => n + 1)}>{error || 'Chưa tải được danh sách dịch vụ.'}</Notice>;
   if (result) return <Card className="mx-auto max-w-2xl" data-testid="booking-success"><p className="mb-2 text-sm font-semibold text-primary">ĐÃ ĐẶT LỊCH</p><h2 className="mb-5 text-2xl font-semibold">Hẹn gặp bạn tại Bin Spa</h2>

@@ -27,8 +27,8 @@
                         <input type="file" id="avatarInput" accept="image/*">
                     </label>
                 </div>
-                <h3 id="userName">Loading...</h3>
-                <p id="userEmail" style="color: #888; word-break: break-all; overflow-wrap: anywhere;">Loading...</p>
+                <h3 id="userName">Đang tải…</h3>
+                <p id="userEmail" style="color: #888; word-break: break-all; overflow-wrap: anywhere;">Đang tải…</p>
             </div>
             
             <ul class="profile-menu" aria-label="Mục hồ sơ">
@@ -77,17 +77,17 @@
                 
                 <div class="info-group">
                     <span class="info-label">Họ và tên</span>
-                    <span class="info-value" id="infoHoten">Loading...</span>
+                    <span class="info-value" id="infoHoten">Đang tải…</span>
                 </div>
                 
                 <div class="info-group">
                     <span class="info-label">Email</span>
-                    <span class="info-value" id="infoEmail">Loading...</span>
+                    <span class="info-value" id="infoEmail">Đang tải…</span>
                 </div>
                 
                 <div class="info-group">
                     <span class="info-label">Số điện thoại</span>
-                    <span class="info-value" id="infoSdt">Loading...</span>
+                    <span class="info-value" id="infoSdt">Đang tải…</span>
                 </div>
                 
                 <div class="info-group">
@@ -108,6 +108,7 @@
                     Chỉnh sửa thông tin
                 </h2>
                 
+                {% if customer_account_enabled %}<div id="customer-edit-root"></div>{% else %}
                 <form id="editProfileForm">
                     <div class="form-group">
                         <label for="editHoten">Họ và tên</label>
@@ -133,8 +134,8 @@
                         </button>
                     </div>
                 </form>
+                {% endif %}
             </div>
-            
             <!-- Đổi mật khẩu -->
             <div class="profile-section" id="password-section">
                 <h2 class="section-title">
@@ -142,6 +143,7 @@
                     Đổi mật khẩu
                 </h2>
                 
+                {% if customer_account_enabled %}<div id="customer-password-root"></div>{% else %}
                 <form id="changePasswordForm">
                     <div class="form-group">
                         <label for="oldPassword">Mật khẩu cũ</label>
@@ -164,8 +166,8 @@
                         </button>
                     </div>
                 </form>
+                {% endif %}
             </div>
-            
             <!-- Lịch hẹn -->
             <div class="profile-section active" id="appointments-section">
                 <h2 class="section-title">
@@ -204,7 +206,7 @@
 <script src="{{ url_for('static', filename='js/admin/qrcode.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/reviews.js') }}"></script>
 <script src="{{ url_for('static', filename='js/change-services.js', v='1.0') }}"></script>
-<script src="{{ url_for('static', filename='js/customers/profile.js', v='1.6') }}"></script>
+<script src="{{ url_for('static', filename='js/customers/profile.js', v='1.7') }}"></script>
 <script src="{{ url_for('static', filename='js/packages.js', v='1.2') }}"></script>
 <script src="{{ url_for('static', filename='js/customers/loyalty.js', v='2.4') }}"></script>
 {% if config.get('CRM_ENABLED') or config.get('CUSTOMER_CONSENT_ENABLED') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/communication-preferences.css') }}"><script src="{{ url_for('static', filename='js/customers/communication-preferences.js') }}"></script>{% endif %}

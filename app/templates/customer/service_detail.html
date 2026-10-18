@@ -2,7 +2,8 @@
 
 {% block body_class %}is-subpage{% endblock %}
 
-{% block title %}Chi tiết dịch vụ - Bin Spa{% endblock %}
+{% block title %}{{ public_service.tendv if public_service else 'Chi tiết dịch vụ' }} - Bin Spa{% endblock %}
+{% block description %}{{ (public_service.mota or public_service.tendv)|truncate(160) if public_service else 'Xem thông tin dịch vụ và đặt lịch chăm sóc tại Bin Spa.' }}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/reviews.css') }}">

@@ -207,6 +207,7 @@ function initDropdowns() {
 
     const closeMobileMenu = () => {
         if (!mobileMenuBtn || !navMenu) return;
+        const restoreFocus = navMenu.classList.contains('show') && navMenu.contains(document.activeElement);
         navMenu.classList.remove('show');
         mobileMenuBtn.setAttribute('aria-expanded', 'false');
         mobileMenuBtn.setAttribute('aria-label', 'Open menu');
@@ -216,6 +217,7 @@ function initDropdowns() {
             icon.classList.add('fa-bars');
         }
         document.body.classList.remove('menu-open');
+        if (restoreFocus) mobileMenuBtn.focus();
     };
     
     if (mobileMenuBtn && navMenu) {
@@ -230,6 +232,13 @@ function initDropdowns() {
                 icon.classList.toggle('fa-times', isOpen);
             }
             document.body.classList.toggle('menu-open', isOpen);
+            if (isOpen && e.detail === 0) {
+                const firstLink = navMenu.querySelector('a');
+                firstLink?.focus({preventScroll:true});
+                if (document.activeElement !== firstLink) window.requestAnimationFrame(() => {
+                    if (navMenu.classList.contains('show')) firstLink?.focus({preventScroll:true});
+                });
+            }
         });
 
         navMenu.addEventListener('click', function(e) {
@@ -488,15 +497,23 @@ async function loadServices() {
         if (data.success && data.services) {
             allServices = data.services;
             displayServices(allServices.slice(0, 6));
-        }
+        } else throw new Error('Services unavailable');
     } catch (error) {
         console.error('Error loading services:', error);
+        const grid = document.getElementById('servicesGrid');
+        if (window.CustomerCatalog && grid) grid.innerHTML = '<div role="alert"><p>Chưa tải được dịch vụ. Vui lòng thử lại.</p><button type="button" class="btn btn-outline" onclick="loadServices()">Thử lại</button></div>';
     }
 }
 
 function displayServices(services) {
     const servicesGrid = document.getElementById('servicesGrid');
     if (!servicesGrid) return;
+
+    if (window.CustomerCatalog) {
+        servicesGrid.innerHTML = services.map(service => window.CustomerCatalog.serviceCard(service)).join('') || '<p role="status">Chưa có dịch vụ. Vui lòng quay lại sau.</p>';
+        if (typeof changeLang === 'function') changeLang(localStorage.getItem('spa_lang') || 'vi');
+        return;
+    }
     
     servicesGrid.innerHTML = services.map(service => {
         return `
@@ -616,9 +633,11 @@ function formatPrice(price) {
 function initSmoothScroll() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
+            const href = this.getAttribute('href');
+            if (!href || href === '#' || this.classList.contains('skip-link')) return;
+            const target = document.getElementById(href.slice(1));
             if (target) {
+                e.preventDefault();
                 target.scrollIntoView({
                     behavior: 'smooth',
                     block: 'start'
@@ -928,11 +947,13 @@ function updateUnreadBadge() {
 
 // ✅ FIX: Setup auto-refresh cho chat và unread count
 function setupChatRefresh() {
+    clearInterval(chatRefreshInterval);
     // Cập nhật unread count ngay lập tức
     updateUnreadCount();
     
     // Cập nhật unread count mỗi 10 giây
     chatRefreshInterval = setInterval(async () => {
+        if (document.hidden || !getAuthToken()) return;
         await updateUnreadCount();
         
         // Nếu chat đang mở và có conversation, refresh tin nhắn
@@ -942,6 +963,7 @@ function setupChatRefresh() {
         }
     }, 10000); // 10 giây
 }
+window.addEventListener('pagehide', () => { clearInterval(chatRefreshInterval); chatRefreshInterval = null; });
 
 // Setup chat input handler
 function setupChatInput() {
@@ -1031,7 +1053,7 @@ function initSpaMusic() {
 
     // Mặc định phát nhạc ngoại trừ khi người dùng chủ động TẮT ('false')
     const musicState = localStorage.getItem('spa_music_enabled');
-    const shouldPlay = musicState === null || musicState === 'true';
+    const shouldPlay = !document.body.classList.contains('customer-ui') && (musicState === null || musicState === 'true');
 
     if (shouldPlay) {
         audio.volume = 0.35; // Âm lượng 35% vừa phải
@@ -1106,6 +1128,11 @@ function filterServices(keyword, btn) {
 
 // ==================== LOGOUT ====================
 async function logout() {
+    clearInterval(chatRefreshInterval);
+    chatRefreshInterval = null;
+    currentConversationId = null;
+    unreadCount = 0;
+    sessionStorage.removeItem('binspa.pending-booking');
     if (window.CustomerAuth) {
         window.CustomerAuth.clearLocalSession();
     } else {

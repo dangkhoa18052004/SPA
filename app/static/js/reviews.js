@@ -126,7 +126,7 @@
         if(remove)removeReview(Number(remove.dataset.deleteReview));
     });
     document.addEventListener('DOMContentLoaded',async()=>{
-        if(document.getElementById('myReviews')){await loadMy();document.dispatchEvent(new CustomEvent('reviews-updated'));}
+        if(document.getElementById('myReviews')&&!document.getElementById('appointments-section')){await loadMy();document.dispatchEvent(new CustomEvent('reviews-updated'));}
         if(document.getElementById('reviewFilters')){const form=document.getElementById('reviewFilters');form.onchange=()=>{adminPage=1;loadAdmin();};form.onsubmit=event=>{event.preventDefault();adminPage=1;loadAdmin();};loadAdmin();}
         loadPublic();
     });

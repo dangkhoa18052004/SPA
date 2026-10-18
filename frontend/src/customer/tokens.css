@@ -1,0 +1,25 @@
+/* Shared customer tokens. No reset and no selectors affecting the staff portal. */
+.customer-ui, .customer-booking {
+  --customer-primary: #425f49;
+  --customer-on-primary: #fff;
+  --customer-background: #f7f7f2;
+  --customer-surface: #fff;
+  --customer-secondary: #edf1e9;
+  --customer-text: #2e3c30;
+  --customer-muted: #606e60;
+  --customer-border: #dce3d8;
+  --customer-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --customer-control-radius: 10px;
+  --customer-card-radius: 16px;
+  --customer-space-1: 4px;
+  --customer-space-2: 8px;
+  --customer-space-3: 12px;
+  --customer-space-4: 16px;
+  --customer-space-6: 24px;
+  --customer-space-8: 32px;
+  --customer-space-12: 48px;
+  --customer-space-16: 64px;
+  --customer-header-layer: 100;
+  --customer-actions-layer: 200;
+  --customer-dialog-layer: 1100;
+}

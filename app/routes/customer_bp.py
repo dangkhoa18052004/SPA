@@ -9,9 +9,18 @@ from flask import (
     url_for,
     request,
 )
-from ..ui_assets import portal_assets
+from ..ui_assets import portal_assets, customer_public_assets, customer_account_assets
 
 customer_bp = Blueprint('customer', __name__)
+
+
+@customer_bp.app_context_processor
+def customer_ui_context():
+    # Package pages belong to a separate blueprint but share the customer layout.
+    eligible = request.blueprint == 'customer' or request.endpoint == 'packages.package_page'
+    account = customer_account_assets() if request.endpoint == 'customer.profile' else None
+    assets = account if request.endpoint == 'customer.profile' else customer_public_assets() if eligible else None
+    return {'customer_ui_assets': assets, 'customer_account_enabled': bool(account)}
 
 @customer_bp.route('/')
 def index():
@@ -29,7 +38,16 @@ def google_verification():
 @customer_bp.route('/services/<int:service_id>')
 def service_detail_page(service_id):
     """Trang chi tiết dịch vụ - HTML page"""
-    return render_template('customer/service_detail.html')
+    service = None
+    if current_app.config.get('CUSTOMER_PUBLIC_UI_ENABLED') and request.args.get('ui') != 'legacy':
+        from sqlalchemy.exc import SQLAlchemyError
+        from ..models import DichVu
+        from ..extensions import db
+        try:
+            service = DichVu.query.filter_by(madv=service_id, active=True).first()
+        except SQLAlchemyError:
+            db.session.rollback()
+    return render_template('customer/service_detail.html', public_service=service)
 
 @customer_bp.route('/auth/login')
 def login_page():

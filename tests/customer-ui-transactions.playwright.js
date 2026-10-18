@@ -1,0 +1,42 @@
+async page => {
+  const base='http://127.0.0.1:5078';
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(base+'/__preview/session?customer=1');
+  await page.goto(base+'/appointments/create?service=1');
+  await page.getByTestId('booking-next').waitFor();
+  await page.getByTestId('booking-next').click();
+  const day=await page.evaluate(()=>{const d=new Date();d.setDate(d.getDate()+3);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;});
+  await page.getByTestId('booking-date').fill(day);
+  await page.locator('[data-slot="10:30"]').click();
+  await page.getByTestId('booking-next').click();
+  await page.getByTestId('booking-submit').waitFor();
+  let creates=0;
+  await page.route('**/api/appointments/create',async route=>{
+    creates++;
+    const response=await route.fetch();
+    if(response.status()!==201)throw new Error('Fixture create failed '+response.status());
+    await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'Fixture: response lost after server create'})});
+  });
+  await page.getByTestId('booking-submit').evaluate(button=>{button.click();button.click();});
+  await page.getByRole('heading',{name:'Kiểm tra kết quả đặt lịch'}).waitFor();
+  if(creates!==1)throw new Error('Duplicate create after double click');
+  await page.reload();
+  await page.getByRole('button',{name:'Kiểm tra lịch đã đặt',exact:true}).click();
+  await page.getByTestId('booking-success').waitFor();
+  if(creates!==1)throw new Error('Pending reconciliation retried create');
+  await page.unroute('**/api/appointments/create');
+  await page.goto(base+'/profile#invoices');
+  await page.locator('#invoicesList .ant-table').waitFor();
+  await page.route('**/api/payment/invoices/1/generate-qr',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({qrCodeUrl:'/static/images/default-package.svg',accountName:'TÀI KHOẢN KIỂM THỬ',accountNo:'TEST123',bank:'TESTBANK',description:'TEST HD000001',amount:'150000'})}));
+  await page.locator('#invoicesList').getByRole('button',{name:'Tiếp tục thanh toán',exact:true}).first().click();
+  await page.locator('#customerLoyaltyPayment [data-pay]').click();
+  await page.getByRole('button',{name:'Sao chép số tài khoản'}).waitFor();
+  await page.screenshot({path:'.test-tmp/customer-ui/payment-pending.png'});
+  await page.keyboard.press('Escape');
+  await page.locator('#customerLoyaltyPayment').waitFor({state:'detached'});
+  const invoice=await page.evaluate(async()=>await (await window.CustomerAuth.fetch('/api/payment/invoices/1')).json());
+  if(invoice.trangthai!=='Chưa thanh toán')throw new Error('Closing QR changed payment state');
+  await page.unroute('**/api/payment/invoices/1/generate-qr');
+  if(errors.length)throw new Error(JSON.stringify(errors));
+  return {doubleClickCreateCount:creates,pendingReconciledAfterRefresh:true,closingQRKeepsInvoicePending:true,errors};
+}

@@ -55,8 +55,37 @@ function detectServiceCategory(name, description) {
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Services page loaded');
+    restoreCatalogFilters();
     loadAllServices();
 });
+
+function restoreCatalogFilters() {
+    if (!window.CustomerCatalog) return;
+    const params = new URLSearchParams(location.search);
+    const category = params.get('category') || 'all';
+    currentCategory = ['all', ...Object.keys(serviceCategories), 'other'].includes(category) ? category : 'all';
+    document.getElementById('searchInput').value = params.get('search') || '';
+    const sort = document.getElementById('sortSelect');
+    sort.value = [...sort.options].some(o => o.value === params.get('sort')) ? params.get('sort') : 'default';
+    markCatalogCategory();
+}
+window.addEventListener?.('popstate', () => { restoreCatalogFilters(); filterServices(); });
+
+function markCatalogCategory() {
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        const active = btn.getAttribute('onclick') === `filterByCategory('${currentCategory}')`;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', String(active));
+    });
+}
+
+function clearServiceFilters() {
+    currentCategory = 'all';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('sortSelect').value = 'default';
+    markCatalogCategory();
+    filterServices();
+}
 
 // ==================== LOAD SERVICES ====================
 async function loadAllServices() {
@@ -67,7 +96,6 @@ async function loadAllServices() {
         if (!response.ok) throw new Error('Services unavailable');
         const data = await response.json();
         
-        console.log('Services API Response:', data);
         
         if (data.success && data.services) {
             servicesPageAllServices = data.services;
@@ -108,6 +136,7 @@ function displayServices(services) {
     servicesGrid.innerHTML = services.map(service => {
         const category = servicePageCategory(service);
         const categoryLabel = getCategoryLabel(category);
+        if (window.CustomerCatalog) return window.CustomerCatalog.serviceCard(service, categoryLabel);
         
         console.log(`Service: ${service.tendv} -> Category: ${category}`);
         
@@ -162,9 +191,7 @@ function servicePageCategory(service) {
 
 function filterByCategory(category) {
     currentCategory = category;
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('onclick') === `filterByCategory('${category}')`);
-    });
+    markCatalogCategory();
     filterServices();
 }
 
@@ -200,6 +227,15 @@ function filterServices() {
     };
     servicesPageFilteredServices.sort(comparators[sort] || comparators.default);
     displayServices(servicesPageFilteredServices);
+    const result = document.getElementById('catalogResultCount');
+    if (result) result.textContent = `${servicesPageFilteredServices.length} dịch vụ`;
+    if (window.CustomerCatalog) {
+        const url = new URL(location.href);
+        for (const [key, value, fallback] of [['search', searchTerm, ''], ['category', currentCategory, 'all'], ['sort', sort, 'default']]) {
+            value === fallback ? url.searchParams.delete(key) : url.searchParams.set(key, value);
+        }
+        history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
 }
 
 function sortServices() {
@@ -240,7 +276,7 @@ function showError(message) {
     if (!servicesGrid) return;
     
     servicesGrid.innerHTML = `
-        <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
+        <div role="alert" style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
             <i class="fas fa-exclamation-circle" style="font-size: 64px; color: #ddd; margin-bottom: 20px; display: block;"></i>
             <p style="font-size: 18px; color: #999;">${message}</p>
             <button onclick="loadAllServices()" class="btn btn-primary" style="margin-top: 20px;">

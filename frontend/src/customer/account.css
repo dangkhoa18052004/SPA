@@ -1,0 +1,35 @@
+.customer-ui .profile-container { max-width: 1264px; padding: 112px 32px 48px; margin: auto; }
+.customer-ui .profile-grid { grid-template-columns: 260px minmax(0,1fr); gap: 24px; }
+.customer-ui :is(.profile-sidebar,.profile-content) { min-width: 0; border: 1px solid var(--customer-border); border-radius: var(--customer-card-radius); background: var(--customer-surface); box-shadow: none; }
+.customer-ui .profile-menu .menu-link { color: var(--customer-text); font-size: 14px; }
+.customer-ui .profile-menu .menu-link.active { color: var(--customer-primary); background: var(--customer-secondary); }
+.customer-ui .profile-menu .menu-link { border-color: var(--customer-border); }
+.customer-ui .profile-menu .menu-link i { color: inherit; }
+.customer-ui .profile-menu .menu-link.active { border-color: var(--customer-primary); }
+.customer-ui .avatar-img { border-color: var(--customer-border); }
+.customer-ui .avatar-upload { background: var(--customer-primary); }
+.customer-ui .customer-react-list-item { list-style: none; margin: 0; padding: 0; border: 0; }
+.customer-ui .customer-account-toolbar { margin-bottom: 24px; }
+.customer-ui .customer-account-toolbar .ant-select { min-width: 180px; }
+.customer-ui .customer-account-cards { display: grid; gap: 16px; }
+.customer-ui .customer-account-cards article { border: 1px solid var(--customer-border); border-radius: var(--customer-card-radius); padding: 20px; }
+.customer-ui .customer-account-cards h3 { font-size: 18px; margin-bottom: 12px; }
+.customer-ui .customer-account-cards p { margin-block: 8px; }
+.customer-ui .ant-alert { margin-bottom: 16px; }
+.customer-ui .ant-form { max-width: 540px; }
+.customer-ui .ant-input-password input { min-height: auto; }
+.customer-ui .ant-table-wrapper { max-width: 100%; overflow: auto; }
+@media(max-width:767px) {
+  .customer-ui .profile-container { padding: 100px 16px 32px; }
+  .customer-ui .profile-grid { display: flex; flex-direction: column; }
+  .customer-ui .profile-sidebar { width: 100%; }
+  .customer-ui .profile-content { padding: 20px; width: 100%; }
+  .customer-ui .profile-menu { display: flex; overflow-x: auto; }
+  .customer-ui .profile-menu li { flex: 0 0 auto; }
+  .customer-ui .profile-menu .menu-link { white-space: nowrap; }
+  .customer-ui .profile-avatar { display: grid; grid-template-columns: 64px minmax(0,1fr); gap: 4px 16px; align-items: center; text-align: left; padding: 0; }
+  .customer-ui .profile-avatar .avatar-wrapper { width: 64px; height: 64px; margin: 0; grid-row: span 2; }
+  .customer-ui .profile-avatar h3 { font-size: 16px; }
+  .customer-ui .profile-avatar p { margin: 0; }
+  .customer-ui .avatar-upload { width: 44px; height: 44px; bottom: -4px; right: -4px; }
+}

@@ -80,12 +80,24 @@
         return requestOptions;
     }
 
+    async function isAuthFailure(response, data) {
+        if (response.status !== 401 && response.status !== 422) return false;
+        // Flask-JWT-Extended uses {msg: ...} for malformed JWTs. A business
+        // validation response must not clear a session or retry a mutation.
+        try {
+            const body = data || await response.clone().json();
+            if (response.status === 401) return !(body?.success === false && typeof body.message === 'string' && !body.msg);
+            return typeof body?.msg === 'string' && body.success !== false &&
+                !body.message && !body.errors && /^(?:Not enough segments|Signature verification failed|Token has expired|Invalid (?:header|payload|crypto|signature|subject)|Subject must be|The specified alg|Algorithm not supported|Only [\w ]+ tokens are allowed|Missing [\w -]+ Header|Bad [\w -]+ header)/i.test(body.msg);
+        } catch (_) { return response.status === 401; }
+    }
+
     async function authenticatedFetch(input, options) {
         let token = getAccessToken();
         if (!token) token = await restoreAccessToken();
 
         let response = await window.fetch(input, withAuthorization(options, token));
-        if (response.status !== 401 && response.status !== 422) return response;
+        if (!await isAuthFailure(response)) return response;
 
         // The access token may have expired. The HTTP-only Flask session lasts
         // longer and can safely issue a replacement token, then retry once.
@@ -121,6 +133,7 @@
         storeLogin,
         clearLocalSession,
         redirectToLogin,
-        safeRedirectPath
+        safeRedirectPath,
+        isAuthFailure
     };
 })();

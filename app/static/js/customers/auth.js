@@ -1,4 +1,22 @@
 // Toggle Password Visibility
+const pendingAuthRequests = new Map();
+async function authFetch(url, options) {
+    // Retain one request while a form is waiting for a response. Each caller
+    // receives its own clone so a repeated submit cannot consume the same body.
+    if (!pendingAuthRequests.has(url)) {
+        const form = document.querySelector('form');
+        const buttons = [...(form?.querySelectorAll('button:not(:disabled)') || [])];
+        form?.setAttribute('aria-busy', 'true');
+        buttons.forEach(button => button.disabled = true);
+        pendingAuthRequests.set(url, fetch(url, options).finally(() => {
+            pendingAuthRequests.delete(url);
+            form?.removeAttribute('aria-busy');
+            buttons.forEach(button => button.disabled = false);
+        }));
+    }
+    return (await pendingAuthRequests.get(url)).clone();
+}
+
 function togglePassword() {
     const passwordInput = document.getElementById('matkhau');
     const eyeIcon = document.getElementById('eyeIcon');
@@ -38,7 +56,7 @@ if (loginForm) {
         const data = Object.fromEntries(formData);
         
         try {
-            const response = await fetch('/api/auth/login/customer', {
+            const response = await authFetch('/api/auth/login/customer', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -105,7 +123,7 @@ if (registerForm) {
         }
         
         try {
-            const response = await fetch('/api/auth/register', {
+            const response = await authFetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -164,7 +182,7 @@ async function verifyOTP() {
     }
     
     try {
-        const response = await fetch('/api/auth/verify-otp', {
+        const response = await authFetch('/api/auth/verify-otp', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -224,7 +242,7 @@ async function resendOTP() {
     }
 
     try {
-        const response = await fetch('/api/auth/resend-otp', {
+        const response = await authFetch('/api/auth/resend-otp', {
             method: 'POST',
             // ✅ SỬA LỖI 2: Gửi email đi
             headers: { 'Content-Type': 'application/json' },
@@ -265,7 +283,7 @@ if (forgotPasswordForm) {
         }
 
         try {
-            const response = await fetch('/api/auth/forgot-password', {
+            const response = await authFetch('/api/auth/forgot-password', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -328,7 +346,7 @@ if (resetPasswordForm) {
         delete data.token; // Xóa key 'token' cũ
         
         try {
-            const response = await fetch('/api/auth/reset-password', {
+            const response = await authFetch('/api/auth/reset-password', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -363,12 +381,14 @@ function showAlert(type, message) {
     }
 
     const alertDiv = document.createElement('div');
+    alertDiv.setAttribute('role', type === 'error' ? 'alert' : 'status');
     alertDiv.className = `alert alert-${type}`;
     alertDiv.textContent = message;
     
     const form = document.querySelector('form');
     if (form) {
         form.insertAdjacentElement('beforebegin', alertDiv);
+        if (document.body.classList.contains('customer-ui')) return;
         
         setTimeout(() => {
             alertDiv.style.opacity = '0';

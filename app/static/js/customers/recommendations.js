@@ -20,6 +20,7 @@
     }
     const price = value => new Intl.NumberFormat('vi-VN', {style:'currency', currency:'VND'}).format(Number(value));
     function serviceCard(service) {
+        if (window.CustomerCatalog) return window.CustomerCatalog.serviceCard({...service, mota: service.reason});
         return `<article class="service-card" data-service-id="${service.madv}">
             <a class="service-image-container" style="display:block" href="/services/${service.madv}"><img class="service-image" loading="lazy"
                 src="${service.anhdichvu ? 'data:image/jpeg;base64,' + service.anhdichvu : '/static/images/default-service.jpg'}" alt="${escape(service.tendv)}"></a>

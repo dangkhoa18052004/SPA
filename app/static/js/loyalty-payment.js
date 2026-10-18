@@ -88,6 +88,7 @@
         } catch(error) { if(host.isConnected) host.textContent=error.message; }
     }
     async function openCustomerInvoice(id) {
+        const trigger=document.activeElement;
         document.getElementById('customerLoyaltyPayment')?.close();
         document.getElementById('customerLoyaltyPayment')?.remove();
         const invoice=await api(`/api/payment/invoices/${id}`);
@@ -96,7 +97,7 @@
         const zero=Number(invoice.payable_amount ?? invoice.tongtien)===0;
         dialog.innerHTML=`<h3>Thanh toán HD${String(id).padStart(6,'0')}</h3>${summary(invoice)}<div data-editor></div><button class="btn btn-primary" data-pay>${zero?'Thanh toán bằng điểm':'Tiếp tục thanh toán VietQR'}</button><button class="btn btn-outline" data-close>Đóng</button><div data-bank></div><p data-message role="status"></p>`;
         document.body.append(dialog);dialog.showModal();let timer;
-        dialog.addEventListener('close',()=>{clearTimeout(timer);dialog.remove();});
+        dialog.addEventListener('close',()=>{clearTimeout(timer);dialog.remove();if(trigger?.isConnected)trigger.focus();});
         dialog.querySelector('[data-close]').onclick=()=>dialog.close();
         const base=`/api/payment/invoices/${id}`;
         dialog.querySelector('[data-pay]').onclick=async event=>{
@@ -105,7 +106,12 @@
                 if(zero){await api(base+'/pay-points','POST',{});dialog.close();window.loadUserInvoices?.();return;}
                 const payment=await api(base+'/generate-qr','POST',{});
                 if(!dialog.isConnected||!dialog.open)return;
-                dialog.querySelector('[data-bank]').innerHTML=`<img src="${esc(payment.qrCodeUrl)}" alt="VietQR" style="max-width:100%"><p>${esc(payment.accountName)} · ${esc(payment.accountNo)} · ${esc(payment.bank)}</p><p>Nội dung: ${esc(payment.description)}</p><p>Số tiền: ${money(payment.amount)}</p>`;
+                dialog.querySelector('[data-bank]').innerHTML=`<img src="${esc(payment.qrCodeUrl)}" alt="VietQR" style="max-width:100%"><p>${esc(payment.accountName)} · ${esc(payment.accountNo)} · ${esc(payment.bank)}</p><button type="button" class="btn btn-outline" data-copy="${esc(payment.accountNo)}">Sao chép số tài khoản</button><p>Nội dung: ${esc(payment.description)}</p><button type="button" class="btn btn-outline" data-copy="${esc(payment.description)}">Sao chép nội dung</button><p>Số tiền: ${money(payment.amount)}</p>`;
+                dialog.querySelector('[data-message]').textContent='Đang chờ ngân hàng xác nhận thanh toán. Bạn có thể đóng và tiếp tục từ Hóa đơn của tôi.';
+                dialog.querySelectorAll('[data-copy]').forEach(copy=>copy.onclick=async()=>{
+                    try{await navigator.clipboard.writeText(copy.dataset.copy);dialog.querySelector('[data-message]').textContent='Đã sao chép. Đang chờ xác nhận thanh toán từ ngân hàng.';}
+                    catch(_){dialog.querySelector('[data-message]').textContent='Chưa sao chép được. Vui lòng chọn và sao chép thông tin chuyển khoản ở trên.';}
+                });
                 dialog.querySelector('[data-editor]').hidden=true;
                 const deadline=Date.now()+300000;
                 const poll=async()=>{

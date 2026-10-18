@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Bin Spa - Tìm về nhịp nghỉ vừa vặn{% endblock %}</title>
+    <meta name="description" content="{% block description %}Khám phá dịch vụ, gói chăm sóc và đặt lịch thuận tiện tại Bin Spa.{% endblock %}">
+    <link rel="canonical" href="{{ request.base_url }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -14,8 +16,13 @@
     {% block extra_css %}{% endblock %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/responsive.css', v='1.1') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ai-chat.css', v='1.1') }}">
+    {% if customer_ui_assets %}
+    {% for stylesheet in customer_ui_assets.styles %}<link rel="stylesheet" href="{{ url_for('static', filename='portal/' + stylesheet) }}">{% endfor %}
+    <link rel="icon" href="{{ url_for('static', filename='images/logo.jpg') }}">
+    {% endif %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% if customer_ui_assets %}customer-ui {% endif %}{% block body_class %}{% endblock %}">
+    {% if customer_ui_assets %}<a class="skip-link" href="#customer-content">Đến nội dung chính</a>{% endif %}
     <!-- Navigation Bar -->
     <nav class="navbar" id="navbar">
         <div class="nav-container">
@@ -35,7 +42,7 @@
             <div class="nav-right">
                 <!-- Language Selector -->
                 <div class="language-selector">
-                    <button class="lang-btn" id="langBtn">
+                    <button class="lang-btn" id="langBtn" type="button" aria-label="Chọn ngôn ngữ">
                         <i class="fas fa-globe"></i>
                         <span id="currentLang">VI</span>
                         <i class="fas fa-chevron-down"></i>
@@ -48,7 +55,7 @@
 
                 <!-- User Menu -->
                 <div class="user-menu">
-                    <button class="user-btn" id="userBtn">
+                    <button class="user-btn" id="userBtn" type="button" aria-label="Tài khoản">
                         {% if session.get('user_id') and session.get('user_type') == 'customer' %}
                             {% if session.get('avatar') %}
                                 <img src="{{ url_for('profile.get_avatar', filename=session.get('avatar')) }}" alt="Avatar" class="user-avatar" onerror="this.onerror=null; this.src='/static/images/default-avatar.svg';">
@@ -88,7 +95,7 @@
     </nav>
 
     <!-- Main Content Block -->
-    {% block content %}{% endblock %}
+    <main id="customer-content" tabindex="-1">{% block content %}{% endblock %}</main>
 
     <!-- Footer -->
     <footer class="footer">
@@ -105,9 +112,10 @@
     <audio id="spaAudio" loop src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=meditation-relaxing-112349.mp3"></audio>
 
     <!-- Floating Chat Icon -->
-    <div class="chat-float" id="chatFloat" onclick="toggleChat()">
+    <button type="button" class="chat-float" id="chatFloat" onclick="toggleChat()" aria-label="Mở trò chuyện với Bin Spa" aria-controls="chatBox">
         <i class="fas fa-comment-dots"></i>
-    </div>
+        {% if customer_ui_assets %}<span class="chat-nav-label">Trò chuyện</span>{% endif %}
+    </button>
 
     <!-- Chat Box -->
     <div class="chat-box" id="chatBox">
@@ -151,7 +159,7 @@
                 <i class="fas fa-plus"></i>
             </button>
             <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." data-lang-vi-placeholder="Nhập tin nhắn..." data-lang-en-placeholder="Type a message...">
-            <button class="chat-send-btn" onclick="sendMessage()">
+            <button type="button" class="chat-send-btn" onclick="sendMessage()" aria-label="Gửi tin nhắn">
                 <i class="fas fa-paper-plane"></i>
             </button>
         </div>
@@ -200,12 +208,13 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/customers/auth-session.js', v='1.0') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/auth-session.js', v='1.1') }}"></script>
     {% if config.get('RECOMMENDATION_METRICS_ENABLED') %}<script src="{{ url_for('static', filename='js/customers/recommendation-metrics.js') }}"></script>{% endif %}
-    <script src="{{ url_for('static', filename='js/customers/recommendations.js', v='2.1') }}"></script>
-    <script src="{{ url_for('static', filename='js/loyalty-payment.js', v='2.2') }}"></script>
-    <script src="{{ url_for('static', filename='js/customers/main.js', v='6.3') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/recommendations.js', v='2.2') }}"></script>
+    <script src="{{ url_for('static', filename='js/loyalty-payment.js', v='2.3') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/main.js', v='6.4') }}"></script>
     <script src="{{ url_for('static', filename='js/ai_chat.js', v='1.2') }}"></script>
     {% block extra_js %}{% endblock %}
+    {% if customer_ui_assets %}<script type="module" src="{{ url_for('static', filename='portal/' + customer_ui_assets.entry) }}"></script>{% endif %}
 </body>
 </html>

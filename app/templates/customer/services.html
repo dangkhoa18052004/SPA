@@ -39,10 +39,11 @@
                 <div class="filter-controls">
                     <div class="search-box">
                         <i class="fas fa-search"></i>
-                        <input type="text" id="searchInput" placeholder="Tìm dịch vụ..." onkeyup="filterServices()">
+                        <label for="searchInput" class="visually-hidden">Tìm dịch vụ</label>
+                        <input type="search" id="searchInput" placeholder="Tìm dịch vụ..." oninput="filterServices()">
                     </div>
                     
-                    <select id="sortSelect" onchange="sortServices()">
+                    <select id="sortSelect" aria-label="Sắp xếp dịch vụ" onchange="sortServices()">
                         <option value="default">Sắp xếp mặc định</option>
                         <option value="price-asc">Giá: Thấp đến Cao</option>
                         <option value="price-desc">Giá: Cao đến Thấp</option>
@@ -60,7 +61,9 @@
             <div class="services-grid" id="servicesGrid">
                 </div>
             
+            {% if customer_ui_assets %}<p id="catalogResultCount" role="status" aria-live="polite"></p>{% endif %}
             <div id="noResults" class="no-results" style="display: none;">
+                <button type="button" class="btn btn-outline" onclick="clearServiceFilters()">Xóa bộ lọc</button>
                 <i class="fas fa-search"></i>
                 <p>Không tìm thấy dịch vụ phù hợp</p>
             </div>

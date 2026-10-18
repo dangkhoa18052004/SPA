@@ -67,6 +67,8 @@ class Config:
     ADMIN_PEOPLE_REACT_ENABLED = _is_truthy(os.getenv('ADMIN_PEOPLE_REACT_ENABLED', 'false'))
     ADMIN_CARE_REACT_ENABLED = _is_truthy(os.getenv('ADMIN_CARE_REACT_ENABLED', 'false'))
     CUSTOMER_BOOKING_REACT_ENABLED = _is_truthy(os.getenv('CUSTOMER_BOOKING_REACT_ENABLED', 'false'))
+    CUSTOMER_PUBLIC_UI_ENABLED = _is_truthy(os.getenv('CUSTOMER_PUBLIC_UI_ENABLED', 'false'))
+    CUSTOMER_ACCOUNT_REACT_ENABLED = _is_truthy(os.getenv('CUSTOMER_ACCOUNT_REACT_ENABLED', 'false'))
     CRM_ENABLED = _is_truthy(os.getenv('CRM_ENABLED', 'false'))
     CUSTOMER_CONSENT_ENABLED = _is_truthy(os.getenv('CUSTOMER_CONSENT_ENABLED', 'false'))
     PERSONALIZATION_ENABLED = _is_truthy(os.getenv('PERSONALIZATION_ENABLED', 'true'))

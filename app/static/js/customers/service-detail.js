@@ -29,6 +29,7 @@ async function loadServiceDetail() {
 
 // ==================== DISPLAY SERVICE DETAIL ====================
 function displayServiceDetail(service) {
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     // Update breadcrumb
     document.getElementById('serviceName').textContent = service.tendv;
     document.getElementById('serviceName').setAttribute('data-orig-vi', service.tendv);
@@ -49,9 +50,9 @@ function displayServiceDetail(service) {
         <div class="service-detail-grid">
             <div class="service-image-section">
                 <img src="${service.anhdichvu ? 'data:image/jpeg;base64,' + service.anhdichvu : '/static/images/default-service.jpg'}" 
-                     alt="${service.tendv}" 
+                     alt="${esc(service.tendv)}" width="640" height="480"
                      class="service-main-image"
-                     onerror="this.src='/static/images/default-service.jpg'">
+                     onerror="this.onerror=null;this.src='/static/images/default-service.jpg'">
                 ${service.thoiluong ? `
                     <div class="service-badge-detail">
                         <i class="fas fa-clock"></i>
@@ -62,7 +63,7 @@ function displayServiceDetail(service) {
             
             <div class="service-info-section">
                 <span class="service-category-badge">${categoryLabel}</span>
-                <h1 class="service-detail-name">${service.tendv}</h1>
+                <h1 class="service-detail-name">${esc(service.tendv)}</h1>
                 <div class="service-detail-price">${formatPrice(service.gia)}</div>
                 
                 <div class="service-meta-info">
@@ -75,13 +76,13 @@ function displayServiceDetail(service) {
                     ${service.donvitinh ? `
                         <div class="meta-item">
                             <i class="fas fa-tag"></i>
-                            <span>${service.donvitinh}</span>
+                            <span>${esc(service.donvitinh)}</span>
                         </div>
                     ` : ''}
                 </div>
                 
                 <div class="service-detail-description">
-                    <p>${service.mota || 'Trải nghiệm dịch vụ chăm sóc sức khỏe và sắc đẹp cao cấp tại Bin Spa. Đội ngũ kỹ thuật viên chuyên nghiệp với nhiều năm kinh nghiệm sẽ mang đến cho bạn những phút giây thư giãn tuyệt vời nhất.'}</p>
+                    <p>${esc(service.mota || 'Liên hệ Bin Spa để được tư vấn thêm về dịch vụ.')}</p>
                 </div>
                 
                 ${features.length > 0 ? `
@@ -101,10 +102,10 @@ function displayServiceDetail(service) {
                 </div>
                 
                 <div class="service-actions-detail">
-                    <a href="/appointments/create?service=${service.madv}" class="btn btn-outline" style="padding: 15px 30px; font-size: 16px;">
+                    <a href="/appointments/create?service=${service.madv}" class="btn ${window.CustomerCatalog ? 'btn-primary' : 'btn-outline'}" style="padding: 15px 30px; font-size: 16px;">
                         <i class="fas fa-calendar-check"></i> Đặt lịch ngay
                     </a>
-                    <button class="btn btn-outline" onclick="openChatWithService('${service.tendv}')">
+                    <button type="button" class="btn btn-outline" data-contact-service>
                         <i class="fas fa-comments"></i> Liên hệ
                     </button>
                 </div>
@@ -112,6 +113,7 @@ function displayServiceDetail(service) {
         </div>
     `;
 
+    container.querySelector('[data-contact-service]').addEventListener('click', () => openChatWithService(service.tendv));
     if (typeof changeLang === 'function') {
         changeLang(localStorage.getItem('spa_lang') || 'vi');
     }
@@ -119,6 +121,7 @@ function displayServiceDetail(service) {
 
 // ==================== LOAD RELATED SERVICES ====================
 function formatPrice(price) {
+    if (window.CustomerCatalog) return window.CustomerCatalog.price(price);
     return new Intl.NumberFormat('vi-VN', { 
         style: 'currency', 
         currency: 'VND' 
