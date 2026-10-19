@@ -1,6 +1,10 @@
 import './customer-main';
 import './customer/account.css';
 import type { Bridge, Profile } from './customer/account-panels';
+import { customerTreatments } from './customer/treatments';
+
+// The existing PackageCare adapter remains the sole data/event owner.
+window.CustomerTreatments = customerTreatments;
 
 let profile: Profile | undefined;
 let implementation: Bridge | undefined;

@@ -28,7 +28,7 @@
                     </label>
                 </div>
                 <h3 id="userName">Đang tải…</h3>
-                <p id="userEmail" style="color: #888; word-break: break-all; overflow-wrap: anywhere;">Đang tải…</p>
+                <p id="userEmail" style="color: var(--customer-muted, #888); word-break: break-all; overflow-wrap: anywhere;">Đang tải…</p>
             </div>
             
             <ul class="profile-menu" aria-label="Mục hồ sơ">
@@ -44,15 +44,16 @@
         
         <!-- Main Content -->
         <div class="profile-content">
-            {% if config.get('CRM_ENABLED') or config.get('CUSTOMER_CONSENT_ENABLED') %}<section class="profile-section communication-preferences" id="communication-section"><h2 class="section-title">Thông báo & quyền riêng tư</h2><p>Chọn email bạn muốn nhận từ Bin Spa. Bạn có thể thay đổi lựa chọn bất cứ lúc nào.</p>
+            {% if config.get('CRM_ENABLED') or config.get('CUSTOMER_CONSENT_ENABLED') %}<section class="profile-section communication-preferences" id="communication-section"><h2 class="section-title">Thông báo & quyền riêng tư</h2><p>Quản lý email chăm sóc và cách Bin Spa cá nhân hóa trải nghiệm của bạn.</p>
             <form id="communicationPreferences"><fieldset disabled><legend>Email chăm sóc</legend>
               <label><input type="checkbox" name="reminders"><span><strong>Nhắc lịch hẹn</strong><small>Nhắc trước 24 giờ và 2 giờ cho lịch đã xác nhận.</small></span></label>
               <label><input type="checkbox" name="post_care"><span><strong>Dặn dò sau dịch vụ</strong><small>Nhận hướng dẫn chăm sóc sau khi hoàn thành buổi hẹn.</small></span></label>
               <label><input type="checkbox" name="review_requests"><span><strong>Mời chia sẻ đánh giá</strong><small>Nhận lời mời đánh giá trải nghiệm tại spa.</small></span></label>
+            </fieldset><fieldset disabled><legend>Cá nhân hóa trải nghiệm</legend>
               <label><input type="checkbox" name="personalization"><span><strong>Cá nhân hóa dịch vụ</strong><small>Sắp xếp dịch vụ theo quan tâm và lịch sử của bạn. Khi tắt, hệ thống ngừng ghi tương tác cá nhân hóa và xóa các lượt xem/nhấp đã lưu. Lịch hẹn và giao dịch vẫn nằm trong hồ sơ của bạn.</small></span></label>
-            </fieldset><p>Email xác nhận đặt/hủy lịch và bảo mật tài khoản phục vụ giao dịch của bạn. Các lựa chọn trên dành cho email chăm sóc.</p><button type="submit" class="btn btn-primary" disabled>Lưu lựa chọn</button> <button type="button" class="btn btn-outline" id="reloadCommunicationPreferences" hidden>Tải lại lựa chọn</button><p id="communicationStatus" role="status" aria-live="polite"></p></form></section>{% endif %}
+            </fieldset><p class="communication-help">Email xác nhận đặt/hủy lịch và bảo mật tài khoản phục vụ giao dịch của bạn. Các tùy chọn email chăm sóc không ảnh hưởng đến những email giao dịch này. Bạn có thể thay đổi lựa chọn bất cứ lúc nào.</p><div class="communication-actions"><button type="submit" class="btn btn-primary" disabled>Lưu lựa chọn</button><button type="button" class="btn btn-outline" id="reloadCommunicationPreferences" hidden>Tải lại lựa chọn</button></div><p id="communicationStatus" role="status" aria-live="polite"></p></form></section>{% endif %}
             <div class="profile-section loyalty-page" id="loyalty-section">
-                <h2 class="section-title">Điểm thưởng</h2><p id="customerLoyaltyMessage" role="status" aria-live="polite"></p>
+                <header class="loyalty-customer-heading"><div><h2 class="section-title">Điểm thưởng</h2><p>Theo dõi điểm tích lũy, đổi quà và quản lý ưu đãi của bạn.</p></div><button type="button" class="btn btn-outline" id="reloadCustomerLoyalty">Tải lại</button></header><p id="customerLoyaltyMessage" role="status" aria-live="polite"></p>
                 <div id="loyaltyBalance" class="loyalty-cards loyalty-wallet">Đang tải...</div>
                 <div class="loyalty-tabs" role="tablist" aria-label="Điểm thưởng">
                     <button type="button" role="tab" class="btn btn-primary" id="loyaltyTab-history" aria-controls="customerLoyaltyContent" data-loyalty-view="history">Lịch sử điểm</button>
@@ -61,10 +62,19 @@
                 </div>
                 <div id="customerLoyaltyContent" role="tabpanel"></div>
             </div>
-            <div class="profile-section" id="reviews-section"><h2 class="section-title">Đánh giá của tôi</h2><div id="myReviews">Đang tải...</div></div>
+            <div class="profile-section" id="reviews-section">
+              <header class="review-customer-heading"><div><h2 class="section-title">Đánh giá của tôi</h2><p>Chia sẻ trải nghiệm từ những lịch hẹn đã hoàn thành.</p></div><button type="button" class="btn btn-outline" id="reloadCustomerReviews">Tải lại</button></header>
+              <p id="customerReviewsMessage" class="review-feedback" role="status"></p><p id="customerReviewsCount" class="review-muted"></p>
+              <div id="myReviews" class="review-list">Đang tải...</div>
+            </div>
             <div class="profile-section package-section" id="treatments-section">
+                {% if customer_account_enabled %}
+                <header class="customer-treatments-heading"><div><h2 class="section-title">Liệu trình của tôi</h2><p>Theo dõi lượt sử dụng, lượt đang giữ và thời hạn của từng dịch vụ.</p></div><a class="btn btn-outline" href="/packages">Xem gói dịch vụ</a></header>
+                {% else %}
                 <h2 class="section-title">Liệu trình của tôi</h2>
                 <p><a href="/packages">Mua gói dịch vụ</a></p>
+                {% endif %}
+                <p id="packagePurchaseStatus" class="package-purchase-status" role="status" aria-live="polite"></p>
                 <div id="myPackagePurchases"></div>
                 <div id="myTreatments" class="package-grid">Đang tải...</div>
             </div>

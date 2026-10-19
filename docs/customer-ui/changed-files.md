@@ -1,6 +1,16 @@
 # File thay đổi
 
-Chỉ liệt kê thay đổi của đợt customer UI. Giữ nguyên file kế hoạch untracked và file khóa Word đã xóa có sẵn của người dùng. Build output, ảnh QA và log nằm trong các thư mục ignored.
+Danh sách theo checkpoint của đợt customer UI; phần nền tảng đã commit, các bổ sung gần nhất còn ở working tree. Build output, ảnh QA và log nằm trong các thư mục ignored. Không sửa thay đổi sẵn có của người dùng trong `requirements-dev.txt`.
+
+## Bổ sung sau checkpoint nền tảng
+
+- E06: [treatments-refactor.md](treatments-refactor.md).
+- Hủy mua gói chờ: [purchase-cancellation.md](purchase-cancellation.md).
+- E07: [rewards-refactor.md](rewards-refactor.md).
+- E08: [reviews-refactor.md](reviews-refactor.md).
+- E09/F: [e09-final-hardening.md](e09-final-hardening.md). File mới: `tests/customer-ui-preferences-final.playwright.js`, `tests/customer-ui-final-hardening.playwright.js`; sửa `communication-preferences.js`, `communication-preferences.css`, `profile.html`, `customers/main.js` và tài liệu. Không thêm dependency hoặc xóa asset dùng chung.
+
+## Danh sách nền tảng
 
 - [app/config.py](../../app/config.py)
 - [app/routes/customer_bp.py](../../app/routes/customer_bp.py)

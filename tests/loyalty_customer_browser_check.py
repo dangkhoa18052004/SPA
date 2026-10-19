@@ -92,7 +92,7 @@ def main():
         # Catalog: tab URL, missing points hint, backend filters.
         click('[data-loyalty-view="rewards"]'); b.wait('document.querySelectorAll("[data-redeem]").length===3')
         assert 'loyalty_view=rewards' in b.evaluate('location.search')
-        assert 'Cần thêm 4300 điểm' in text()
+        assert 'Cần thêm 4.300 điểm' in text()
         b.evaluate('document.querySelector("[data-filter] [name=affordable_only]").click()')
         b.wait('document.querySelectorAll("[data-redeem]").length===2')
         b.evaluate('{const f=document.querySelector("[data-filter]");f.elements.reward_type.value="physical_gift";f.elements.reward_type.dispatchEvent(new Event("change"))}')
@@ -103,7 +103,7 @@ def main():
         for expected in ('Voucher 50.000', '200 điểm', 'Giảm', '50.000', 'Dịch vụ và gói', 'Đơn tối thiểu', '200.000', '30 ngày sau khi đổi', 'Còn 2 quà'):
             assert expected in card, (expected, card)
         vip_text = b.evaluate('[...document.querySelectorAll("article.loyalty-reward")].find(a=>a.innerText.includes("Liệu trình VIP")).innerText')
-        assert 'Cần thêm 4300 điểm' in vip_text and 'Chưa đủ điểm' in vip_text, vip_text
+        assert 'Cần thêm 4.300 điểm' in vip_text and 'Chưa đủ điểm' in vip_text, vip_text
         assert b.evaluate('[...document.querySelectorAll("article.loyalty-reward")].find(a=>a.innerText.includes("Liệu trình VIP")).querySelector("[data-redeem]").disabled')
         gift_card = b.evaluate('document.querySelector(' + json.dumps(f'[data-redeem="{gift_id}"]') + ').closest("article").innerText')
         assert 'Quà nhận tại Bin Spa' in gift_card and 'Đơn tối thiểu' not in gift_card, gift_card
@@ -165,7 +165,7 @@ def main():
         click('[data-detail]'); b.wait('document.getElementById("loyaltyRewardDialog").open')
         detail = text('#loyaltyRewardDialog')
         assert 'BIN-' in detail and '200 điểm' in detail and 'Ưu đãi của khách' in detail, detail
-        click('#loyaltyRewardDialog [data-copy]'); b.wait('/sao chép/i.test(document.getElementById("customerLoyaltyMessage").textContent)')
+        click('#loyaltyRewardDialog [data-copy]'); b.wait('/sao chép/i.test(document.querySelector("#loyaltyRewardDialog [data-copy-feedback]").textContent)')
         screenshot('detail.png'); click('#loyaltyRewardDialog [data-close]')
 
         # T12-style reload keeps tab and filter.

@@ -80,6 +80,7 @@
 .customer-ui .service-main-image { aspect-ratio: 4/3; height: auto; object-fit: cover; border-radius: var(--customer-card-radius); }
 .customer-ui .service-detail-name { font-size: clamp(28px,3vw,40px); }
 .customer-ui .service-detail-price { color: var(--customer-text); font-size: 28px; }
+.customer-ui .service-badge-detail { color: var(--customer-on-primary); background: var(--customer-primary); }
 .customer-ui .service-info-section { min-width: 0; }
 .customer-ui .service-detail-description { color: var(--customer-muted); white-space: pre-line; overflow-wrap: anywhere; }
 .customer-ui .service-actions-detail { display: flex; flex-wrap: wrap; gap: 12px; }
@@ -96,6 +97,9 @@
 .customer-ui .auth-form-container h2 { font-size: 28px; text-align: left; }
 .customer-ui .auth-form-container .form-group input { background: var(--customer-surface); border-color: var(--customer-border); }
 .customer-ui .auth-logo a { color: var(--customer-primary); }
+.customer-ui :is(.forgot-link,.auth-footer a,.back-home a,.resend-otp button:not(:disabled)) { color: var(--customer-primary); }
+.customer-ui :is(.forgot-link,.auth-footer a,.back-home a,.resend-otp button:not(:disabled)):hover { color: #354d3b; text-decoration: underline; }
+.customer-ui .auth-divider span { color: var(--customer-muted); background: var(--customer-background); }
 .customer-ui .otp-inputs { gap: 8px; }
 .customer-ui .otp-input { min-width: 0; width: calc((100% - 40px)/6); }
 @media (max-width: 1023px) {

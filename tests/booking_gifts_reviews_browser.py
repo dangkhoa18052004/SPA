@@ -163,7 +163,7 @@ def main():
         # Completed multi-service review -> chosen service only -> profile edit -> staff reply -> public -> delete.
         apt=reviews['appointments'][0]
         navigate(f'/profile?review={apt}#appointments')
-        b.wait('document.getElementById("spaReviewDialog")?.open')
+        b.wait('!!document.querySelector("#spaReviewDialog form [name=rating]")')
         assert b.evaluate('document.querySelectorAll("#spaReviewDialog [name=rating]").length')==5
         assert b.evaluate('document.querySelector("#spaReviewDialog select")===null')
         def star_point(n):
@@ -212,12 +212,12 @@ def main():
         navigate(f"/services/{data['service']}");b.wait('document.querySelector("[data-service-reviews] .review-reply")?.textContent.includes("Spa cảm ơn bạn")')
         b.evaluate('document.querySelector("[data-service-reviews]").scrollIntoView({block:"center"})')
         screenshot('service-review-mobile.png');check_errors()
-        navigate(f'/profile?review={apt}#appointments');b.wait('document.getElementById("spaReviewDialog")?.open')
+        navigate(f'/profile?review={apt}#appointments');b.wait('!!document.querySelector("#spaReviewDialog [data-edit]")')
         assert b.evaluate('document.querySelector("#spaReviewDialog form")===null')
-        assert b.evaluate('getComputedStyle(document.querySelector(".review-close-button")).color')=='rgb(0, 0, 0)'
+        assert b.evaluate('getComputedStyle(document.querySelector(".review-close-button")).color')=='rgb(66, 95, 73)'
         close_point=b.evaluate('(()=>{const r=document.querySelector(".review-close-button").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()')
         b.call('Input.dispatchMouseEvent',dict(type='mouseMoved',**close_point))
-        assert b.evaluate('getComputedStyle(document.querySelector(".review-close-button")).color')=='rgb(0, 0, 0)'
+        assert b.evaluate('getComputedStyle(document.querySelector(".review-close-button")).color')=='rgb(66, 95, 73)'
         screenshot('review-view-mobile.png')
         b.evaluate('document.querySelector(".review-dialog-close").click()')
         b.wait('!document.getElementById("spaReviewDialog")')
@@ -230,7 +230,9 @@ def main():
         b.call('Input.dispatchMouseEvent',dict(type='mouseReleased',x=2,y=2,button='left',clickCount=1))
         b.wait('!document.getElementById("spaReviewDialog")')
         navigate('/profile#reviews');b.wait('!!document.querySelector("[data-delete-review]")')
-        b.evaluate('window.confirm=()=>true;document.querySelector("[data-delete-review]").click()')
+        b.evaluate('document.querySelector("[data-delete-review]").click()')
+        b.wait('!!document.querySelector("#spaReviewDialog [data-confirm-delete]")')
+        b.evaluate('document.querySelector("#spaReviewDialog [data-confirm-delete]").click()')
         b.wait('document.getElementById("myReviews").textContent.includes("chưa có đánh giá")')
         navigate(f"/services/{data['service']}");b.wait('document.querySelector("[data-service-reviews] [data-list]").textContent.includes("Chưa có đánh giá")');check_errors()
         print('PASS: service CTA/login/reload; single/multi/exact package+gift selection; gift UI; 5 viewport centering checks; review create/edit/view/delete; staff reply; public statistics and safe HTML rendering.')

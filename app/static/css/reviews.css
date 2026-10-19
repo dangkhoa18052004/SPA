@@ -34,3 +34,59 @@ html:has(dialog.spa-review-dialog:modal){overflow:hidden}
 .review-rating-value{display:block;margin-top:6px;color:#374151;font-weight:600;font-size:14px}
 @media(prefers-reduced-motion:reduce){.review-rating-option span{transition:none}}
 @media(max-width:480px){.spa-review-dialog{padding:18px}.spa-review-dialog .review-rating{padding:10px}.review-rating-options{gap:0}.review-card{padding:16px}.review-filters>*{flex-basis:100%}}
+
+/* E08 customer surfaces; admin cards and reply editor keep their own styling. */
+#reviews-section,.customer-review-dialog,[data-service-reviews]{
+  --review-primary:var(--customer-primary,#425f49);--review-text:var(--customer-text,#2e3c30);
+  --review-muted:var(--customer-muted,#606e60);--review-surface:var(--customer-surface,#fff);
+  --review-secondary:var(--customer-secondary,#edf1e9);--review-border:var(--customer-border,#dce3d8);
+  color:var(--review-text);font-family:var(--customer-font,var(--font-body,system-ui));
+}
+#reviews-section .review-customer-heading{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:20px}
+#reviews-section .section-title{font-family:inherit;font-size:28px;font-weight:650;line-height:1.3;margin-bottom:8px}
+#reviews-section .review-customer-heading p{color:var(--review-muted)}
+#reviews-section .review-list{margin:12px 0 0;gap:16px}
+#reviews-section .review-card,[data-service-reviews] .review-card{padding:20px;border-color:var(--review-border);border-radius:14px;background:var(--review-surface)}
+#reviews-section .review-card>strong,[data-service-reviews] .review-card>strong{font-size:18px;line-height:1.5}
+#reviews-section .review-card p,[data-service-reviews] .review-card p,.customer-review-dialog p{line-height:1.6;overflow-wrap:anywhere}
+#reviews-section .review-muted,.customer-review-dialog .review-muted,[data-service-reviews] .review-muted{color:var(--review-muted);font-size:14px}
+#reviews-section .review-feedback{color:var(--review-primary);font-weight:600;overflow-wrap:anywhere}
+#reviews-section .review-feedback:empty{display:none}
+#reviews-section .review-stars,.customer-review-dialog .review-stars,[data-service-reviews] .review-stars{color:#825506;margin-bottom:8px}
+#reviews-section .review-reply,.customer-review-dialog .review-reply,[data-service-reviews] .review-reply{border-color:var(--review-primary);background:var(--review-secondary);padding:16px}
+#reviews-section .review-reply strong,.customer-review-dialog .review-reply strong,[data-service-reviews] .review-reply strong{font-size:14px}
+#reviews-section .review-reply small,.customer-review-dialog .review-reply small,[data-service-reviews] .review-reply small{color:var(--review-muted);font-size:13px}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) .btn{min-height:44px;padding:10px 16px;margin:0;font:inherit;font-size:14px;font-weight:600;line-height:1.5;letter-spacing:normal;text-transform:none;border:1px solid var(--review-border);border-radius:10px;transition:none}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) .btn-primary{background:var(--review-primary);border-color:var(--review-primary);color:#fff}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) .btn-primary:hover{background:#354d3b;border-color:#354d3b;color:#fff}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) :is(.btn-outline,.btn-secondary){background:var(--review-surface);color:var(--review-primary);border-color:var(--review-border)}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) :is(.btn-outline,.btn-secondary):hover{background:var(--review-secondary);color:var(--review-primary)}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) .btn.review-danger{color:#a62b2b;background:#fff;border-color:#c88e8e}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) .btn.review-danger:hover{background:#fff0f0;color:#8d2222}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) .btn:disabled{opacity:1;background:var(--review-secondary);border-color:var(--review-border);color:var(--review-muted);cursor:not-allowed}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) :is(button,a,textarea):focus-visible{outline:2px solid var(--review-primary);outline-offset:3px}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) .review-state{padding:24px;border:1px solid var(--review-border);border-radius:12px;background:var(--review-secondary)}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) .review-state p{margin:0 0 12px}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) .review-error{color:#a62b2b;overflow-wrap:anywhere}
+:is(#reviews-section,.customer-review-dialog,[data-service-reviews]) .review-state.review-error{border-color:#c88e8e}
+.customer-review-dialog{border:1px solid var(--review-border);background:var(--review-surface);color:var(--review-text)}
+.customer-review-dialog .review-dialog-header h2{font-family:inherit;font-size:24px;font-weight:650;color:var(--review-text)}
+.customer-review-dialog form{gap:16px}
+.customer-review-dialog .review-appointment{margin:0;color:var(--review-muted)}
+.customer-review-dialog textarea{min-height:144px;resize:vertical;font:inherit;font-size:16px;line-height:1.6;color:var(--review-text);background:var(--review-surface);border-color:var(--review-border)}
+.customer-review-dialog textarea::placeholder{color:var(--review-muted);opacity:1}
+.customer-review-dialog .review-service-picker{border:1px solid var(--review-border);border-radius:12px;padding:12px 16px}
+.customer-review-dialog .review-service-picker legend{padding-inline:6px;font-weight:600}
+.customer-review-dialog .review-service-picker label{min-height:44px;gap:12px;margin:4px 0;overflow-wrap:anywhere}
+.customer-review-dialog .review-service-picker input{width:18px;height:18px;flex-shrink:0;accent-color:var(--review-primary)}
+.customer-review-dialog .review-rating{background:var(--review-secondary);border-color:var(--review-border)}
+.customer-review-dialog .review-rating-option span{color:var(--review-muted);transition:none}
+.customer-review-dialog .review-rating-option.is-active span{color:#825506}
+.customer-review-dialog .review-rating-option:hover span{background:#fff0cc;color:#825506;transform:none}
+.customer-review-dialog .review-rating-value{color:var(--review-text)}
+.customer-review-dialog [data-error]:empty{display:none}
+@media(max-width:600px){
+  #reviews-section .review-card,[data-service-reviews] .review-card{padding:16px}
+  #reviews-section .review-actions>.btn{flex:1 1 auto}
+  .customer-review-dialog .review-actions>.btn{flex:1 1 auto}
+}

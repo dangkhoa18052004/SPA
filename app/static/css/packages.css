@@ -84,6 +84,18 @@
 }
 
 .package-pay-method { margin: 0; font-size: 14px; color: #3D5A45; display: flex; align-items: center; gap: 6px; }
+.package-pending-purchase { padding: 16px; margin-bottom: 12px; border: 1px solid var(--customer-border,#dce3d8); border-radius: 12px; background: #fff; }
+.package-pending-actions,.package-cancel-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.package-pending-actions .btn,.package-cancel-actions .btn { margin: 0; min-height: 44px; padding: 10px 16px; font: inherit; font-size: 14px; letter-spacing: normal; text-transform: none; }
+.package-pending-actions .btn,.package-cancel-dialog .btn-outline { color: var(--customer-primary,#3d5a45); background: #fff; border: 1px solid var(--customer-primary,#3d5a45); }
+.package-cancel-dialog { position: fixed; inset: 0; color: var(--customer-text,#2e3c30); background: #fff; }
+.package-cancel-dialog h3 { font: inherit; font-size: 22px; font-weight: 600; margin-bottom: 16px; }
+.package-cancel-dialog p { margin-bottom: 12px; }
+.package-cancel-dialog [role=alert] { color: #a62b2b; }
+.package-cancel-dialog .package-cancel-danger { background: #a62b2b; border: 1px solid #a62b2b; color: #fff; }
+.package-cancel-dialog .package-cancel-danger:hover { background: #8d2424; color: #fff; }
+.package-cancel-dialog button:disabled,.package-pending-actions button:disabled { opacity: .55; cursor: not-allowed; }
+.package-purchase-status { color: var(--customer-primary,#3d5a45); }
 
 /* Hộp yêu cầu đăng nhập khi mua gói (cùng kiểu với trang đặt lịch) */
 .package-login-modal {

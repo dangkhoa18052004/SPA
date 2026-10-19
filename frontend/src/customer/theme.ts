@@ -8,6 +8,8 @@ export function customerTheme(): ThemeConfig {
   return { token: {
     colorPrimary: token('primary', '#425f49'), colorText: token('text', '#2e3c30'),
     colorTextSecondary: token('muted', '#606e60'), colorBgLayout: token('background', '#f7f7f2'),
+    colorTextPlaceholder: token('muted', '#606e60'),
+    colorError: '#a62b2b', colorErrorHover: '#8d2424', colorErrorActive: '#7a1f1f',
     colorBgContainer: token('surface', '#fff'), colorBorder: token('border', '#dce3d8'),
     fontFamily: token('font', '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'),
     fontSize: 16, controlHeight: 44, borderRadius: 10, borderRadiusLG: 16,

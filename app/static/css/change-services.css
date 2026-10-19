@@ -1,12 +1,18 @@
 /* Hộp "Đổi dịch vụ" dùng chung (khách + admin). Không phụ thuộc CSS của từng trang. */
 .cs-dialog {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    box-sizing: border-box;
     width: min(880px, calc(100vw - 24px));
     max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
     padding: 0;
     border: none;
     border-radius: 16px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
     color: #2c2a26;
+    background: #fff;
     font-family: inherit;
     overflow: hidden;
 }
@@ -17,6 +23,8 @@
 }
 
 .cs-dialog::backdrop { background: rgba(20, 18, 15, 0.55); }
+.cs-dialog :is(button,input,select,h2) { font-family: inherit; }
+.cs-header, .cs-selected, .cs-search, .cs-footer { flex-shrink: 0; }
 
 .cs-header {
     display: flex;
@@ -31,6 +39,7 @@
 .cs-header p { margin: 4px 0 0; color: #7a7266; font-size: 13px; }
 
 .cs-close {
+    color: inherit;
     width: 44px;
     height: 44px;
     border: none;
@@ -88,6 +97,8 @@
 
 .cs-search input {
     flex: 1;
+    min-width: 0;
+    color: inherit;
     min-height: 46px;
     padding: 0 14px 0 40px;
     border: 1.5px solid #e2d9c8;
@@ -102,7 +113,7 @@
     box-shadow: 0 0 0 3px rgba(201, 169, 97, 0.25);
 }
 
-.cs-search small { color: #9a9182; white-space: nowrap; font-size: 12px; }
+.cs-search small { color: #6b6257; white-space: nowrap; font-size: 12px; }
 
 .cs-grid {
     flex: 1;
@@ -202,7 +213,7 @@
     background: #fff;
 }
 
-.cs-empty { grid-column: 1 / -1; text-align: center; color: #9a9182; padding: 30px 0; }
+.cs-empty { grid-column: 1 / -1; text-align: center; color: #6b6257; padding: 30px 0; }
 
 .cs-footer {
     border-top: 1px solid #efe9df;
@@ -218,7 +229,7 @@
 }
 
 .cs-col, .cs-diff { display: flex; flex-direction: column; gap: 2px; }
-.cs-col span, .cs-diff span { font-size: 12px; color: #9a9182; text-transform: uppercase; letter-spacing: 0.04em; }
+.cs-col span, .cs-diff span { font-size: 12px; color: #6b6257; text-transform: uppercase; letter-spacing: 0.04em; }
 .cs-col strong, .cs-diff strong { font-size: 18px; }
 .cs-col small, .cs-diff small { font-size: 12px; color: #7a7266; }
 .cs-arrow { font-size: 20px; color: #C9A961; }
@@ -242,11 +253,11 @@
 }
 
 .cs-btn-ghost { border: 1.5px solid #d8c9a3; background: #fff; color: #5b4a24; }
-.cs-btn-primary { border: none; background: #C9A961; color: #fff; }
+.cs-btn-primary { border: none; background: var(--customer-primary, #3d5a45); color: #fff; }
 .cs-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 @media (max-width: 640px) {
-    .cs-dialog { width: 100vw; max-width: 100vw; max-height: 100vh; height: 100vh; border-radius: 0; margin: 0; }
+    .cs-dialog { width: 100%; max-width: 100%; max-height: 100vh; height: 100vh; max-height: 100dvh; height: 100dvh; border-radius: 0; margin: 0; }
     .cs-grid { grid-template-columns: 1fr; padding: 4px 12px 12px; }
     .cs-header, .cs-footer { padding-left: 12px; padding-right: 12px; }
     .cs-search { margin: 10px 12px 6px; flex-wrap: wrap; }

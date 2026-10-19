@@ -3,6 +3,7 @@
 (() => {
     const {api,esc,money}=window.LoyaltyPayment;
     const walletLabels={available_points:'Điểm khả dụng',lifetime_earned:'Tổng điểm đã tích',lifetime_redeemed:'Tổng điểm đã dùng'};
+    const points=value=>value===null||value===undefined||!Number.isFinite(Number(value))?'Chưa cập nhật':new Intl.NumberFormat('vi-VN').format(Number(value));
     const views=['history','rewards','mine'];
     const groups={usable:'Có thể sử dụng',pickup:'Chờ nhận quà',applied:'Đang áp dụng',done:'Đã sử dụng / Đã nhận',closed:'Hết hạn / Đã hủy',all:'Tất cả'};
     const emptyGroups={usable:'Bạn chưa có voucher nào có thể sử dụng.',pickup:'Không có quà nào đang chờ nhận.',applied:'Không có ưu đãi nào đang áp dụng cho thanh toán.',done:'Chưa có ưu đãi nào đã sử dụng hoặc đã nhận.',closed:'Không có ưu đãi hết hạn hoặc đã hủy.',all:'Bạn chưa đổi ưu đãi nào.'};
@@ -30,12 +31,12 @@
     const tierCard=t=>{
         if(!t)return '';
         const next=t.next_tier;
-        const pctValue=Math.round(Number(t.progress_percent)||0);
+        const pctValue=Math.min(100,Math.max(0,Math.round(Number(t.progress_percent)||0)));
         return `<div class="loyalty-card loyalty-tier-card"><span>Hạng thành viên</span><strong>${esc(t.tier.name)}</strong>`+
             (next?`<div class="loyalty-tier-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctValue}" aria-label="Tiến độ lên hạng ${esc(next.name)}"><span style="width:${pctValue}%"></span></div>`+
-                `<small>Còn ${esc(t.points_to_next)} điểm tích lũy để lên hạng ${esc(next.name)}</small>`
+                `<small>Còn ${points(t.points_to_next)} điểm tích lũy để lên hạng ${esc(next.name)}</small>`
                 :'<small>Bạn đang ở hạng cao nhất</small>')+
-            `<small class="loyalty-tier-note">${esc(t.qualifying_points)} điểm xét hạng · đổi thưởng không làm giảm hạng</small></div>`;
+            `<small class="loyalty-tier-note">${points(t.qualifying_points)} điểm xét hạng · đổi thưởng không làm giảm hạng</small></div>`;
     };
     const notify=text=>{const m=el('customerLoyaltyMessage');if(m)m.textContent=text;};
     // sessionStorage can be unavailable (private mode); retry protection then lasts for this page only.
@@ -60,26 +61,30 @@
         }
     }
 
+    let dialogTrigger;
     function dialog(){
         let d=el('loyaltyRewardDialog');
-        if(!d){d=document.createElement('dialog');d.id='loyaltyRewardDialog';d.className='loyalty-dialog loyalty-reward-dialog';d.setAttribute('aria-labelledby','loyaltyDialogTitle');document.body.append(d);}
+        if(!d){d=document.createElement('dialog');d.id='loyaltyRewardDialog';d.className='loyalty-dialog loyalty-reward-dialog';d.setAttribute('aria-labelledby','loyaltyDialogTitle');d.addEventListener('close',()=>{if(dialogTrigger?.isConnected)dialogTrigger.focus();});document.body.append(d);}
         return d;
     }
     const facts=rows=>`<dl class="loyalty-facts">${rows.filter(Boolean).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
 
     function openConfirm(reward){
-        const d=dialog(),available=state.balance?.available_points??0,pending=readPending();
+        if(state.busy){notify('Yêu cầu đổi thưởng đang được xử lý. Vui lòng chờ kết quả.');return;}
+        const d=dialog(),available=state.balance?.available_points,pending=readPending();
         // An unresolved request for this reward is retried with its original key so it can never be applied twice.
         const retry=pending?.reward_id===reward.id;
+        if(!retry&&(available===null||available===undefined)){notify('Chưa tải được số điểm. Vui lòng tải lại trước khi đổi thưởng.');return;}
+        dialogTrigger=document.activeElement;
         const key=retry?pending.key:newKey();
         d.innerHTML=`<h3 id="loyaltyDialogTitle">Xác nhận đổi thưởng</h3><span class="loyalty-badge">${isGift(reward)?'Quà tặng':'Voucher'}</span><h4>${esc(reward.name)}</h4>${reward.description?`<p class="loyalty-muted">${esc(reward.description)}</p>`:''}`+
-            facts([['Điểm hiện có',`${available} điểm`],['Điểm dùng',`${reward.points_cost} điểm`],!retry&&['Điểm còn lại',`${available-reward.points_cost} điểm`],...terms(reward),['Hạn sử dụng',validity(reward)]])+
+            facts([['Điểm hiện có',`${points(available)}${available==null?'':' điểm'}`],['Điểm dùng',`${points(reward.points_cost)} điểm`],!retry&&['Điểm còn lại',`${points(available-reward.points_cost)} điểm`],...terms(reward),['Hạn sử dụng',validity(reward)]])+
             `<p>${isGift(reward)?'Sau khi đổi, mang mã ưu đãi tới Bin Spa để nhận quà.':'Sau khi đổi, chọn voucher ở bước thanh toán hóa đơn hoặc mua gói.'}</p>`+
             (retry?'<p class="loyalty-warn">Yêu cầu đổi trước đó chưa xác nhận được kết quả. Xác nhận lần này chỉ kiểm tra lại, không trừ điểm hai lần.</p>':'')+
             `<p data-dialog-message class="loyalty-error" role="alert"></p><div class="loyalty-actions"><button type="button" class="btn btn-outline" data-cancel>Hủy</button><button type="button" class="btn btn-primary" data-confirm>Xác nhận đổi</button></div>`;
         d.querySelector('[data-cancel]').onclick=()=>d.close();
         d.querySelector('[data-confirm]').onclick=event=>submit(reward,key,event.currentTarget);
-        d.showModal();d.querySelector('[data-confirm]').focus();
+        d.showModal();d.querySelector('[data-cancel]').focus();
     }
 
     async function submit(reward,key,button){
@@ -110,8 +115,8 @@
     function showSuccess(redemption){
         const d=dialog(),r=redemption.reward;
         d.innerHTML=`<h3 id="loyaltyDialogTitle">Đổi thưởng thành công</h3><div role="status" data-success><span class="loyalty-badge">${isGift(r)?'Quà tặng':'Voucher'}</span>`+
-            facts([[isGift(r)?'Quà':'Voucher',esc(r.name)],['Mã ưu đãi',`<code>${esc(redemption.code)}</code>`],['Điểm đã dùng',`${redemption.points_spent} điểm`],
-                state.balance&&['Điểm còn lại',`${esc(state.balance.available_points)} điểm`],...terms(r),['Hạn sử dụng',date(redemption.expires_at)]])+
+            facts([[isGift(r)?'Quà':'Voucher',esc(r.name)],['Mã ưu đãi',`<code>${esc(redemption.code)}</code>`],['Điểm đã dùng',`${points(redemption.points_spent)} điểm`],
+                state.balance&&['Điểm còn lại',`${points(state.balance.available_points)} điểm`],...terms(r),['Hạn sử dụng',date(redemption.expires_at)]])+
             `<p>${esc(guide(redemption))}</p></div><div class="loyalty-actions"><button type="button" class="btn btn-primary" data-view-offers>Xem ưu đãi của tôi</button></div>`;
         const open=d.querySelector('[data-view-offers]');
         open.onclick=()=>{
@@ -124,10 +129,11 @@
 
     function openDetail(offer){
         const d=dialog(),r=offer.reward;
+        dialogTrigger=document.activeElement;
         d.innerHTML=`<h3 id="loyaltyDialogTitle">${esc(r.name)}</h3><span class="loyalty-badge">${isGift(offer)?'Quà tặng':'Voucher'}</span> <span class="loyalty-status loyalty-status--${esc(offer.status)}">${esc(statusLabel(offer))}</span>${r.description?`<p class="loyalty-muted">${esc(r.description)}</p>`:''}`+
-            facts([...terms(r),['Mã ưu đãi',`<code>${esc(offer.code)}</code>`],['Điểm đã đổi',`${offer.points_spent} điểm`],['Ngày đổi',date(offer.redeemed_at)],['Hạn sử dụng',date(offer.expires_at)],
+            facts([...terms(r),['Mã ưu đãi',`<code>${esc(offer.code)}</code>`],['Điểm đã đổi',`${points(offer.points_spent)} điểm`],['Ngày đổi',date(offer.redeemed_at)],['Hạn sử dụng',date(offer.expires_at)],
                 offer.used_at&&['Đã sử dụng',date(offer.used_at)],offer.fulfilled_at&&['Đã nhận quà',date(offer.fulfilled_at)],offer.status==='reserved'&&['Đang áp dụng cho',esc(targetRef(offer))]])+
-            `<p>${esc(guide(offer))}</p><div class="loyalty-actions">${['available','reserved'].includes(offer.status)?`<button type="button" class="btn btn-outline" data-copy="${esc(offer.code)}">Sao chép mã</button>`:''}<button type="button" class="btn btn-primary" data-close>Đóng</button></div>`;
+            `<p>${esc(guide(offer))}</p><p data-copy-feedback class="loyalty-copy-feedback" role="status"></p><div class="loyalty-actions">${['available','reserved'].includes(offer.status)?`<button type="button" class="btn btn-outline" data-copy="${esc(offer.code)}">Sao chép mã</button>`:''}<button type="button" class="btn btn-primary" data-close>Đóng</button></div>`;
         d.querySelector('[data-close]').onclick=()=>d.close();
         bindCopy(d);d.showModal();d.querySelector('[data-close]').focus();
     }
@@ -135,8 +141,9 @@
     function bindCopy(root){
         root.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{
             const code=b.dataset.copy;
-            try{await navigator.clipboard.writeText(code);notify(`Đã sao chép mã ${code}.`);b.textContent='Đã sao chép';}
-            catch{notify(`Không thể sao chép tự động. Mã của bạn: ${code}`);}
+            const announce=text=>{const feedback=root.querySelector('[data-copy-feedback]');if(feedback)feedback.textContent=text;else notify(text);};
+            try{await navigator.clipboard.writeText(code);announce(`Đã sao chép mã ${code}.`);b.textContent='Đã sao chép';}
+            catch{announce(`Không thể sao chép tự động. Mã của bạn: ${code}`);}
         });
     }
 
@@ -149,6 +156,7 @@
     }
 
     function syncTabs(){
+        el('customerLoyaltyContent')?.setAttribute('aria-labelledby','loyaltyTab-'+state.view);
         document.querySelectorAll('[data-loyalty-view]').forEach(b=>{
             const active=b.dataset.loyaltyView===state.view;
             b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;
@@ -188,12 +196,13 @@
         if(drop)drop.onclick=()=>{writePending(null);host.innerHTML='';};
     }
 
-    function rewardCard(r,available=state.balance?.available_points??0){
+    function rewardCard(r,available=state.balance?.available_points){
+        const unknown=available===undefined||available===null;
         const missing=Math.max(0,r.points_cost-available),soldOut=r.stock===0;
         return `<article class="loyalty-card loyalty-reward"><span class="loyalty-badge">${isGift(r)?'Quà tặng':'Voucher'}</span><h3>${esc(r.name)}</h3>${r.description?`<p class="loyalty-muted">${esc(r.description)}</p>`:''}`+
-            facts([['Điểm cần đổi',`${r.points_cost} điểm`],...terms(r),['Hạn',validity(r)],['Tình trạng',soldOut?'Hết quà':r.stock==null?'Còn quà':`Còn ${r.stock} quà`]])+
-            (missing&&!soldOut?`<p class="loyalty-warn">Cần thêm ${missing} điểm</p>`:'')+
-            `<button type="button" class="btn btn-primary" data-redeem="${r.id}" ${missing||soldOut?'disabled':''}>${soldOut?'Hết quà':missing?'Chưa đủ điểm':'Đổi ngay'}</button></article>`;
+            `<p class="loyalty-reward-cost"><span>Điểm cần đổi</span><strong>${points(r.points_cost)} điểm</strong></p>`+facts([...terms(r),['Hạn',validity(r)],['Tình trạng',soldOut?'Hết quà':r.stock==null?'Còn quà':`Còn ${r.stock} quà`]])+
+            (!unknown&&missing&&!soldOut?`<p class="loyalty-warn">Cần thêm ${points(missing)} điểm</p>`:'')+
+            `<button type="button" class="btn btn-primary" data-redeem="${r.id}" ${unknown||missing||soldOut?'disabled':''}>${soldOut?'Hết quà':unknown?'Chưa tải được điểm':missing?'Chưa đủ điểm':'Đổi ngay'}</button></article>`;
     }
 
     function offerCard(o){
@@ -215,16 +224,29 @@
         if(!content)return;
         syncTabs();renderToolbar(content);renderPending(content);
         const list=content.querySelector('[data-list]'),pager=content.querySelector('[data-pager]');
+        const balance=el('loyaltyBalance'),refresh=el('reloadCustomerLoyalty');
+        state.balance=null;
+        balance.setAttribute('aria-busy','true');
+        if(refresh)refresh.disabled=true;
+        list.querySelectorAll('[data-redeem]').forEach(button=>button.disabled=true);
+        pager.innerHTML='';
         list.setAttribute('aria-busy','true');
         if(!list.children.length)list.innerHTML='<p class="loyalty-state">Đang tải...</p>';
         try{
             const endpoint={history:'/api/loyalty/me/transactions',rewards:'/api/loyalty/rewards',mine:'/api/loyalty/my-rewards'}[state.view];
-            const [me,data]=await Promise.all([api('/api/loyalty/me'),api(endpoint+'?'+query())]);
+            const [walletResult,dataResult]=await Promise.allSettled([api('/api/loyalty/me'),api(endpoint+'?'+query())]);
             if(token!==state.version)return;
-            state.balance=me.wallet;
-            el('loyaltyBalance').innerHTML=tierCard(me.tier)+Object.entries(walletLabels).map(([k,label])=>`<div class="loyalty-card"><span>${label}</span><strong>${esc(state.balance[k])}</strong></div>`).join('');
+            if(walletResult.status==='fulfilled'){
+                const me=walletResult.value;state.balance=me.wallet;
+                balance.innerHTML=Object.entries(walletLabels).map(([k,label])=>`<div class="loyalty-card${k==='available_points'?' loyalty-wallet-available':''}"><span>${label}</span><strong>${points(state.balance[k])}</strong></div>`).join('')+tierCard(me.tier);
+            }else{
+                balance.innerHTML='<div class="loyalty-state loyalty-wallet-error" role="alert"><p>Chưa tải được số điểm. Bạn vẫn có thể xem ưu đãi và lịch sử.</p><button type="button" class="btn btn-outline" data-reload-wallet>Thử lại</button></div>';
+                balance.querySelector('[data-reload-wallet]').onclick=()=>load();
+            }
+            if(dataResult.status==='rejected')throw dataResult.reason;
+            const data=dataResult.value;
             const filtered=Object.entries(state.filters[state.view]||{}).some(([k,v])=>k!=='status'&&v);
-            if(state.view==='history')list.innerHTML=`<ul class="loyalty-history">${data.items.map(t=>`<li><strong>${t.points_delta>0?'+':''}${t.points_delta} điểm</strong><p>${esc(t.description)}</p><small>${date(t.created_at)}</small></li>`).join('')||'<li>Bạn chưa có lịch sử điểm.</li>'}</ul>`;
+            if(state.view==='history')list.innerHTML=`<ul class="loyalty-history">${data.items.map(t=>`<li><strong class="loyalty-history-delta ${t.points_delta>0?'is-credit':'is-debit'}">${t.points_delta>0?'+':''}${points(t.points_delta)} điểm</strong><p>${esc(t.description)}</p><small>${date(t.created_at)}</small></li>`).join('')||'<li>Bạn chưa có lịch sử điểm.</li>'}</ul>`;
             if(state.view==='rewards'){
                 state.catalog=new Map(data.items.map(r=>[r.id,r]));
                 list.innerHTML=data.items.length?`<div class="loyalty-cards loyalty-grid">${data.items.map(r=>rewardCard(r)).join('')}</div>`:`<p class="loyalty-state">${filtered?'Không có quà phù hợp với bộ lọc.':'Chưa có quà đổi thưởng.'}</p>`;
@@ -250,7 +272,7 @@
             if(token!==state.version)return;
             list.innerHTML=`<div class="loyalty-state loyalty-error" role="alert"><p>${esc(error.message||'Không thể tải dữ liệu điểm thưởng.')}</p><button type="button" class="btn btn-outline" data-reload>Thử lại</button></div>`;
             list.querySelector('[data-reload]').onclick=()=>load();
-        }finally{if(token===state.version)list.removeAttribute('aria-busy');}
+        }finally{if(token===state.version){list.removeAttribute('aria-busy');balance.removeAttribute('aria-busy');if(refresh)refresh.disabled=false;}}
     }
 
     function setView(view){
@@ -260,10 +282,14 @@
     }
 
     document.addEventListener('DOMContentLoaded',()=>{
+        el('reloadCustomerLoyalty')?.addEventListener('click',()=>load());
         const tabs=[...document.querySelectorAll('[data-loyalty-view]')];
         tabs.forEach((b,i)=>{
             b.onclick=()=>{notify('');setView(b.dataset.loyaltyView);};
             b.onkeydown=event=>{
+                if(event.key==='Home'||event.key==='End'){
+                    event.preventDefault();const next=event.key==='Home'?tabs[0]:tabs[tabs.length-1];next.focus();next.click();return;
+                }
                 const step={ArrowRight:1,ArrowLeft:-1}[event.key];
                 if(!step)return;
                 event.preventDefault();const next=tabs[(i+step+tabs.length)%tabs.length];next.focus();next.click();

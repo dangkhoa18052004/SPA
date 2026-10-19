@@ -19,7 +19,56 @@
 .customer-ui .ant-form { max-width: 540px; }
 .customer-ui .ant-input-password input { min-height: auto; }
 .customer-ui .ant-table-wrapper { max-width: 100%; overflow: auto; }
+.customer-ui .customer-treatments-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.customer-ui .customer-treatments-heading .section-title { font-size: 28px; font-weight: 650; line-height: 1.3; margin-bottom: 8px; }
+.customer-ui .customer-treatments-heading p, .customer-ui .customer-treatment-note { color: var(--customer-muted); font-size: 14px; }
+.customer-ui #myTreatments { grid-template-columns: minmax(0,1fr); gap: 24px; }
+.customer-ui .customer-treatment { min-width: 0; padding: 24px; border: 1px solid var(--customer-border); border-radius: var(--customer-card-radius); background: var(--customer-surface); color: var(--customer-text); }
+.customer-ui .customer-treatment-header { display: grid; grid-template-columns: 96px minmax(0,1fr) auto; align-items: center; gap: 16px; }
+.customer-ui .customer-treatment-header img { width: 96px; height: 72px; border-radius: 10px; object-fit: cover; background: var(--customer-secondary); }
+.customer-ui .customer-treatment-header h3 { font-size: 22px; line-height: 1.4; margin: 4px 0 0; }
+.customer-ui .customer-treatment-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 13px; color: var(--customer-muted); background: var(--customer-secondary); }
+.customer-ui .customer-treatment-badge--active { color: #23583a; background: #e8f4ec; }
+.customer-ui .customer-treatment-badge--expired { color: #7a4b00; background: #fff1d6; }
+.customer-ui .customer-treatment-badge--cancelled { color: #8a2c2c; background: #f4e4e4; }
+.customer-ui .customer-treatment-dates { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; padding-block: 20px; margin-bottom: 4px; }
+.customer-ui .customer-treatment :is(dt,p) { overflow-wrap: anywhere; }
+.customer-ui .customer-treatment :is(dt,small) { font-size: 14px; font-weight: 400; color: var(--customer-muted); }
+.customer-ui .customer-treatment dd { margin: 0; }
+.customer-ui .customer-treatment-group h4 { padding-block: 16px 8px; border-top: 1px solid var(--customer-border); font-size: 18px; }
+.customer-ui .customer-treatment-group ul { list-style: none; padding: 0; }
+.customer-ui .customer-treatment-service { padding: 16px; margin-top: 12px; border: 1px solid var(--customer-border); border-radius: 12px; }
+.customer-ui .customer-treatment-service h5 { font-size: 16px; line-height: 1.5; }
+.customer-ui .customer-treatment-counts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 16px 0 12px; }
+.customer-ui .customer-treatment-counts dd { font-size: 24px; font-weight: 650; }
+.customer-ui .customer-treatment-counts > div:first-child dd { color: var(--customer-primary); }
+.customer-ui .customer-treatment progress { width: 100%; height: 8px; accent-color: var(--customer-primary); }
+.customer-ui .customer-treatment-item-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-size: 14px; }
+.customer-ui .customer-treatment-item-footer .btn { margin: 0; }
+.customer-ui .customer-treatment-footer { margin-top: 20px; }
+.customer-ui .customer-treatment-history { margin-top: 16px; }
+.customer-ui :is(.customer-treatment-history,#myPackagePurchases)[hidden] { display: none; }
+.customer-ui .customer-treatment-timeline { list-style: none; padding: 0; }
+.customer-ui .customer-treatment-timeline li { padding: 12px 0; border-top: 1px solid var(--customer-border); }
+.customer-ui .customer-treatment-timeline li > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.customer-ui .customer-treatment-timeline :is(span,p) { font-size: 14px; color: var(--customer-muted); }
+.customer-ui .customer-treatment-purchases { padding: 20px; margin-bottom: 24px; background: var(--customer-secondary); border: 1px solid var(--customer-border); border-radius: var(--customer-card-radius); }
+.customer-ui .customer-treatment-purchases h3 { font-size: 18px; margin-bottom: 8px; }
+.customer-ui .customer-treatment-purchases > p { font-size: 14px; color: var(--customer-muted); }
+.customer-ui .customer-treatment-purchases ul { list-style: none; padding: 0; }
+.customer-ui .customer-treatment-purchases li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; }
+.customer-ui .customer-treatment-state { padding: 24px; margin-bottom: 16px; border: 1px solid var(--customer-border); border-radius: 12px; background: var(--customer-secondary); color: var(--customer-text); }
+.customer-ui .customer-treatment-state[role=alert] { border-color: #a62b2b; }
+.customer-ui .customer-treatment-state .btn { margin-top: 12px; }
 @media(max-width:767px) {
+  .customer-ui .customer-treatment { padding: 16px; }
+  .customer-ui .customer-treatment-header { grid-template-columns: 64px minmax(0,1fr); gap: 12px; }
+  .customer-ui .customer-treatment-header img { width: 64px; height: 64px; }
+  .customer-ui .customer-treatment-header h3 { font-size: 20px; }
+  .customer-ui .customer-treatment-badge { grid-column: 2; justify-self: start; }
+  .customer-ui .customer-treatment-dates { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  .customer-ui .customer-treatment-dates > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+  .customer-ui .customer-treatment-service { padding: 12px; }
   .customer-ui .profile-container { padding: 100px 16px 32px; }
   .customer-ui .profile-grid { display: flex; flex-direction: column; }
   .customer-ui .profile-sidebar { width: 100%; }

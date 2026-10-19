@@ -110,6 +110,16 @@ function customerRender(){
     vm.runInNewContext(fs.readFileSync('app/static/js/customers/loyalty.js','utf8'),context);
     return context.window.CustomerLoyalty.render;
 }
+test('unknown wallet does not pretend the customer has zero or enough points',()=>{
+    const {rewardCard}=customerRender();
+    const reward={id:1,name:'Voucher',reward_type:'voucher_amount',points_cost:200,reward_value:50000,stock:5};
+    const unknown=rewardCard(reward);
+    assert.match(unknown,/data-redeem="1" disabled>Chưa tải được điểm/);
+    assert.ok(!/Cần thêm|Chưa đủ điểm/.test(unknown));
+    assert.match(rewardCard(reward,0),/disabled>Chưa đủ điểm/);
+    assert.match(rewardCard(reward,200),/data-redeem="1" >Đổi ngay/);
+    assert.match(rewardCard({...reward,stock:0}),/disabled>Hết quà/);
+});
 const plainText=html=>html.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');
 
 test('reward store card shows voucher value, scope, minimum, validity and stock',()=>{

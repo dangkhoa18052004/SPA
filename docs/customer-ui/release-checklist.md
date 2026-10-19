@@ -2,7 +2,9 @@
 
 ## Trạng thái
 
-Đã triển khai và kiểm tra local. Chưa commit, mở PR hoặc deploy. Không có thay đổi schema, API contract hay cấu hình production. Các cờ mới mặc định **false**.
+Phần nền tảng đã commit tại `ad68001`; HEAD đối chiếu ngày 19/10/2026 là `38e100d`. Các bổ sung E06–E09 và sửa lỗi theo phản hồi hiện nằm trong working tree, chưa commit hoặc tạo PR trong lượt này. Không đổi cấu hình production hoặc deploy. Các cờ customer mới mặc định **false**. API hủy purchase bổ sung theo yêu cầu người dùng được ghi riêng trong `purchase-cancellation.md`; E09/F không đổi API hay schema.
+
+Kiểm tra HTTP chỉ đọc trên LAN ngày 19/10: `/`, `/services`, `/packages`, `/auth/login`, `/profile` chưa có entry public/account mới; `/appointments/create` có entry booking. Đây là trạng thái asset được quan sát, không suy ra chính xác nguyên nhân cấu hình. Chưa bật rollout các nhóm còn legacy.
 
 | Cờ | Phạm vi | Entry |
 |---|---|---|
@@ -24,6 +26,16 @@ Preview chỉ bind loopback, dùng SQLite in-memory và dữ liệu test; `/__pr
 
 Các script `tests/customer-ui-*.playwright.js` chạy qua `playwright-cli ... run-code --filename=...`. Public/account/transaction scripts dùng port 5078 với preview `--new-ui`; auth/preferences/hardening dùng 5079 với `--new-ui --preferences`; baseline/performance cần legacy preview port 5077.
 
+Các suite bổ sung treatments/rewards/reviews/preferences-final/final-hardening và purchase cancellation dùng preview `--new-ui --preferences --port 5080`. Lượt kiểm tra cuối dùng bản sao ignored của các script cũ để đổi 5078/5079 thành 5080; giữ nguyên assertions, tên file nguồn và log trong `.test-tmp/customer-ui-final`. Cần legacy preview 5077 cho flag-off và so sánh hiệu năng.
+
+Build nghiệm thu có thể xuất riêng để tránh thay asset mà các phiên LAN đang dùng:
+
+```powershell
+npm --prefix frontend run build -- --outDir E:/Project/Spa/SPA/.test-tmp/customer-ui-final/portal
+```
+
+Lượt E09/F đã đối chiếu manifest output riêng với `app/static/portal/.vite/manifest.json`: giống hệt; preview vẫn dùng đúng build tương ứng. Các sửa E09/F là static JS/CSS/Jinja. Không dùng thư mục test làm release; khi triển khai được duyệt phải bàn giao trọn bộ output/manifest đúng revision.
+
 ```powershell
 npm --prefix frontend test
 node --test tests/*.test.cjs
@@ -35,7 +47,7 @@ Lệnh pytest local giới hạn `tests` và bỏ browser-profile `.tmp` cũ đ�
 ## Trước rollout staging
 
 1. Review diff theo checkpoint: foundation → public → booking/payment → account → loyalty/preferences/hardening. Khi tách PR, mỗi PR phải build đầy đủ, giữ các entry cũ.
-2. Build đúng revision đã review; lưu manifest cùng **toàn bộ** output `app/static/portal`. `emptyOutDir` sẽ xóa asset cũ, không build riêng customer rồi bỏ portal/booking.
+2. Build đúng revision đã review; lưu manifest cùng **toàn bộ** output `app/static/portal`. `emptyOutDir` xóa asset cũ, vì vậy chuẩn bị output ngoài release đang phục vụ rồi chuyển release đồng bộ. Giữ asset cũ cho phiên đang mở theo quy trình hosting để lazy imports không bị đứt; không build riêng customer rồi bỏ portal/booking.
 3. Test PostgreSQL chuyên dụng như CI qua `TEST_LOYALTY_POSTGRES_URL`; không dùng DB production. Kiểm tra các test thời gian bị skip với fixture phù hợp.
 4. Kiểm tra native zoom 200%, iOS/Android keyboard, focus, chat/navigation/CTA và upload avatar. Đo lại hiệu năng trên staging/network đại diện.
 5. Xác minh CS1 text/tel, cả hai địa chỉ/giờ mở cửa, nguồn ảnh và nguồn các thông tin marketing trước khi công bố. Không tự bật lại số liệu/testimonial chưa xác thực.

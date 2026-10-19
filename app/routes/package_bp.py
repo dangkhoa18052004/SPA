@@ -204,6 +204,17 @@ def purchase_status(purchase_id):
     return jsonify(success=True, purchase=serialize_purchase(purchase))
 
 
+@package_bp.route('/api/packages/purchases/<int:purchase_id>/cancel', methods=['POST'])
+@customer_required
+def cancel_purchase(purchase_id):
+    if not GoiDichVuPurchase.query.filter_by(id=purchase_id, makh=g.current_user.makh).first():
+        return jsonify(success=False, message='Không tìm thấy giao dịch'), 404
+    purchase = service.cancel_purchase(purchase_id, g.current_user.makh)
+    result = serialize_purchase(purchase)
+    db.session.commit()
+    return jsonify(success=True, purchase=result, message='Đã hủy yêu cầu mua gói.')
+
+
 @package_bp.route('/api/packages/my-treatments')
 @customer_required
 def treatments():

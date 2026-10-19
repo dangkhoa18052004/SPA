@@ -1,2 +1,29 @@
 .communication-preferences{max-width:680px}.communication-preferences p{line-height:1.65;color:#56634f}.communication-preferences fieldset{border:0;padding:0;margin:20px 0}.communication-preferences legend{font-size:18px;font-weight:600;margin-bottom:12px}.communication-preferences label{display:flex;align-items:flex-start;gap:12px;padding:16px;border:1px solid #dce3d8;border-radius:10px;margin:12px 0;cursor:pointer}.communication-preferences input[type=checkbox]{width:19px;height:19px;flex-shrink:0;margin-top:3px;accent-color:#425f49}.communication-preferences small{display:block;line-height:1.6;margin-top:5px;color:#606e60}.communication-preferences button{min-height:44px}.communication-preferences [role=status]{padding:12px 0;overflow-wrap:anywhere}.communication-preferences button:focus-visible,.communication-preferences input:focus-visible{outline:2px solid #425f49;outline-offset:4px}
 .communication-preferences [hidden]{display:none!important}
+
+/* E09 customer preferences use the same controls and readable colors in both shells. */
+#communication-section{max-width:none;font-family:var(--customer-font,var(--font-body,system-ui));color:var(--customer-text,#2e3c30)}
+#communication-section .section-title{font-family:inherit;font-size:28px;font-weight:650;line-height:1.3;margin-bottom:8px;text-align:left}
+#communication-section p,#communication-section small{color:var(--customer-muted,#606e60)}
+#communication-section fieldset{margin:24px 0;min-width:0}
+#communication-section legend{font-size:18px;font-weight:650;line-height:1.5}
+#communication-section label{margin:12px 0;padding:16px;min-height:44px;background:var(--customer-surface,#fff);border-color:var(--customer-border,#dce3d8)}
+#communication-section label:has(input:checked){background:var(--customer-secondary,#edf1e9);border-color:var(--customer-primary,#425f49)}
+#communication-section label>span{min-width:0;overflow-wrap:anywhere}
+#communication-section strong{font-size:16px;line-height:1.5}
+#communication-section small{font-size:14px;line-height:1.65}
+#communication-section input[type=checkbox]{width:20px;height:20px;margin-top:2px;accent-color:var(--customer-primary,#425f49)}
+#communication-section fieldset:disabled label{cursor:default}
+#communication-section .communication-help{padding:16px;background:var(--customer-secondary,#edf1e9);border-radius:10px;font-size:14px}
+#communication-section .communication-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+#communication-section .btn{min-height:44px;margin:0;padding:10px 18px;font:inherit;font-size:14px;font-weight:600;line-height:1.5;letter-spacing:normal;text-transform:none;border-radius:10px;transition:none}
+#communication-section .btn-primary{background:var(--customer-primary,#425f49);border:1px solid var(--customer-primary,#425f49);color:#fff}
+#communication-section .btn-primary:hover{background:#354d3b;border-color:#354d3b;color:#fff}
+#communication-section .btn-outline{background:var(--customer-surface,#fff);border:1px solid var(--customer-border,#dce3d8);color:var(--customer-primary,#425f49)}
+#communication-section .btn-outline:hover{background:var(--customer-secondary,#edf1e9);color:var(--customer-primary,#425f49)}
+#communication-section .btn:disabled{opacity:1;background:var(--customer-secondary,#edf1e9);border-color:var(--customer-border,#dce3d8);color:var(--customer-muted,#606e60);cursor:not-allowed}
+#communication-section #communicationStatus{font-size:14px;line-height:1.6}
+#communication-section #communicationStatus:empty{display:none}
+#communication-section #communicationStatus.is-error{color:#a62b2b}
+#communication-section #communicationStatus.is-success{color:#23583a}
+@media(max-width:600px){#communication-section .communication-actions>.btn{flex:1 1 auto}}

@@ -201,6 +201,22 @@ def confirm_purchase(purchase_id, amount, external_id=None, method=None, staff_i
     return purchase, activate_package_purchase(purchase), True
 
 
+def cancel_purchase(purchase_id, customer_id):
+    # Same target-row lock as confirmation and loyalty updates, including SQLite.
+    purchase = loyalty.lock_target('package_purchase', purchase_id, customer_id)
+    if purchase.status == 'cancelled':
+        return purchase
+    if purchase.status != 'pending':
+        raise AppointmentValidationError('Chỉ có thể hủy đơn mua gói đang chờ thanh toán. Gói đã thanh toán không thể hủy tại đây.')
+    if purchase.loyalty_discount:
+        loyalty.release_points(purchase)
+    if purchase.reward_discount:
+        loyalty.release_reward(purchase)
+    purchase.status = 'cancelled'
+    db.session.flush()
+    return purchase
+
+
 def lock_treatment(record_id):
     count = TheLieuTrinh.query.filter_by(mathe=record_id).update(
         {TheLieuTrinh.version: TheLieuTrinh.version + 1}, synchronize_session=False)

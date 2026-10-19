@@ -22,7 +22,7 @@
             console.error('Package API returned invalid JSON:', url, response.status);
             throw new Error('Không thể tải dữ liệu. Vui lòng thử lại.');
         }
-        if (!response.ok) throw new Error(result.message || result.msg || 'Không thể tải dữ liệu');
+        if (!response.ok) throw Object.assign(new Error(result.message || result.msg || 'Không thể tải dữ liệu'), {status: response.status});
         return result;
     }
     function message(text) { const el=document.getElementById('packageMessage'); if(el) el.textContent=text; }
@@ -39,6 +39,11 @@
         if (purchase.status==='paid') {
             panel.innerHTML='<h2>Thanh toán thành công</h2><p>Liệu trình của bạn đã được kích hoạt.</p>'+(window.LoyaltyPayment?LoyaltyPayment.summary(purchase):'')+(!isAdmin()?'<a class="btn btn-primary" href="/profile#treatments">Liệu trình của tôi</a>':'');
             clearInterval(pollTimer); document.dispatchEvent(new CustomEvent('package:paid',{detail:purchase})); return;
+        }
+        if (purchase.status !== 'pending') {
+            clearInterval(pollTimer);
+            panel.innerHTML=`<h2>${esc(status(purchase.status))}</h2><p>Yêu cầu mua gói này không còn chờ thanh toán.</p>`+(!isAdmin()?'<a class="btn btn-outline" href="/packages">Xem gói dịch vụ</a>':'');
+            return;
         }
         const payment=purchase.payment;
         const payable=purchase.payable_amount ?? purchase.amount;
@@ -69,7 +74,7 @@
         clearInterval(pollTimer);pollCount=0;
         pollTimer=setInterval(async()=>{
             if(++pollCount>60){clearInterval(pollTimer);panel.insertAdjacentHTML('beforeend','<p>Đã dừng chờ tự động. Bạn có thể kiểm tra lại thanh toán.</p>');return;}
-            try{const r=await api(endpoint);if(dialog && !dialog.open)return;if(r.purchase.status==='paid')await showPayment(r.purchase);else if(r.purchase.status!=='pending'){clearInterval(pollTimer);message(status(r.purchase.status));}}
+            try{const r=await api(endpoint);if(dialog && !dialog.open)return;if(r.purchase.status!=='pending')await showPayment(r.purchase);}
             catch(e){clearInterval(pollTimer);message(e.message);}
         },5000);
         if(window.LoyaltyPayment) await LoyaltyPayment.mount(panel.querySelector('[data-package-loyalty]'),base,purchase.makh,reload);
@@ -139,8 +144,112 @@
             `<button type="button" class="btn btn-secondary" data-history="${t.mathe}">Xem lịch sử</button><div id="history-${t.mathe}" class="package-history"></div>`)+`</article>`;
     }
     const historyHtml = rows => rows.length?`<ul>${rows.map(u=>`<li>Lịch hẹn #${u.malh} · ${esc(u.tendv||'Dịch vụ #'+u.madv)} · ${u.source_type==='gift'?'🎁 Lượt tặng':'Trong gói'} #${u.the_item_id} · ${esc(status(u.state))} · ${date(u.consumed_at || u.released_at || u.reserved_at)}</li>`).join('')}</ul>`:'Chưa có lịch sử sử dụng.';
+    function bindPurchaseCancellation(root, refresh) {
+        root.querySelectorAll('[data-cancel-purchase]').forEach(button => button.onclick = () => {
+            if (document.getElementById('packageCancelDialog')) return;
+            const id = Number(button.dataset.cancelPurchase);
+            const dialog = document.createElement('dialog');
+            dialog.id = 'packageCancelDialog';
+            dialog.className = 'package-dialog package-cancel-dialog';
+            dialog.setAttribute('aria-labelledby', 'packageCancelTitle');
+            dialog.innerHTML = `<h3 id="packageCancelTitle">Hủy mua gói?</h3><p>${esc(button.dataset.purchaseName)}</p><p>Điểm và voucher đang giữ sẽ được trả lại theo trạng thái còn hiệu lực.</p><p>Chỉ hủy khi bạn chưa chuyển khoản. Nếu đã chuyển khoản, vui lòng liên hệ spa để đối soát.</p><p data-cancel-error role="alert"></p><div class="package-cancel-actions"><button type="button" class="btn btn-outline" data-keep>Giữ lại</button><button type="button" class="btn package-cancel-danger" data-confirm-cancel>Hủy mua gói</button></div>`;
+            document.body.append(dialog);
+            const confirm = dialog.querySelector('[data-confirm-cancel]');
+            const keep = dialog.querySelector('[data-keep]');
+            let pending = false;
+            button.disabled = true;
+            dialog.addEventListener('cancel', event => { if (pending) event.preventDefault(); });
+            dialog.addEventListener('close', () => { dialog.remove(); button.disabled = false; if (button.isConnected) button.focus(); });
+            keep.onclick = () => dialog.close();
+            confirm.onclick = async () => {
+                if (pending) return;
+                pending = true; confirm.disabled = true; keep.disabled = true;
+                dialog.querySelector('[data-cancel-error]').textContent = '';
+                try {
+                    await api(`/api/packages/purchases/${id}/cancel`, 'POST');
+                    await refresh();
+                    const notice = document.getElementById('packagePurchaseStatus');
+                    if (notice) notice.textContent = 'Đã hủy yêu cầu mua gói.';
+                    dialog.close();
+                } catch (error) {
+                    dialog.querySelector('[data-cancel-error]').textContent = error.message;
+                    // A payment may have completed while the confirmation was open.
+                    if (error.status === 400) await refresh();
+                } finally { pending = false; confirm.disabled = false; keep.disabled = false; }
+            };
+            dialog.showModal();
+            keep.focus();
+        });
+    }
+    let treatmentLoadVersion = 0;
+    async function loadCustomerTreatments(list, view) {
+        const version = ++treatmentLoadVersion;
+        const purchases = document.getElementById('myPackagePurchases');
+        const current = () => version === treatmentLoadVersion && list.isConnected;
+        async function loadPurchases() {
+            if (!purchases || !current()) return;
+            purchases.hidden = false;
+            purchases.setAttribute('aria-busy', 'true');
+            purchases.innerHTML = view.loading('Đang kiểm tra gói chờ thanh toán…');
+            try {
+                const result = await api('/api/packages/my-purchases');
+                if (!current()) return;
+                purchases.innerHTML = view.purchases(result.purchases);
+                purchases.hidden = !purchases.innerHTML;
+                bindPurchaseCancellation(purchases, loadPurchases);
+            } catch (error) {
+                if (!current()) return;
+                purchases.innerHTML = view.error('Chưa tải được gói chờ thanh toán. ' + error.message, 'purchases');
+                purchases.querySelector('[data-retry-purchases]').onclick = loadPurchases;
+            } finally { if (current()) purchases.setAttribute('aria-busy', 'false'); }
+        }
+        async function loadList() {
+            list.setAttribute('aria-busy', 'true');
+            list.innerHTML = view.loading();
+            try {
+                const result = await api('/api/packages/my-treatments');
+                if (!current()) return;
+                list.innerHTML = result.treatments.length ? result.treatments.map(view.card).join('') : view.empty();
+                list.querySelectorAll('[data-history]').forEach(button => button.onclick = async () => {
+                    const region = list.querySelector('#history-' + Number(button.dataset.history));
+                    if (button.getAttribute('aria-expanded') === 'true' && button.dataset.historyState !== 'error') {
+                        region.hidden = true;
+                        button.setAttribute('aria-expanded', 'false');
+                        button.textContent = 'Xem lịch sử sử dụng';
+                        return;
+                    }
+                    region.hidden = false;
+                    region.setAttribute('aria-busy', 'true');
+                    region.innerHTML = view.loading('Đang tải lịch sử sử dụng…');
+                    button.setAttribute('aria-expanded', 'true');
+                    button.disabled = true;
+                    try {
+                        const detail = await api('/api/packages/my-treatments/' + Number(button.dataset.history));
+                        if (!current() || !button.isConnected) return;
+                        region.innerHTML = view.history(detail.treatment.history || []);
+                        button.dataset.historyState = 'loaded';
+                        button.textContent = 'Ẩn lịch sử sử dụng';
+                    } catch (error) {
+                        if (!current() || !button.isConnected) return;
+                        region.innerHTML = view.error('Chưa tải được lịch sử sử dụng. ' + error.message);
+                        button.dataset.historyState = 'error';
+                        button.textContent = 'Thử lại lịch sử';
+                    } finally {
+                        if (button.isConnected) { button.disabled = false; region.setAttribute('aria-busy', 'false'); }
+                    }
+                });
+            } catch (error) {
+                if (!current()) return;
+                list.innerHTML = view.error(error.message, 'treatments');
+                list.querySelector('[data-retry-treatments]').onclick = loadTreatments;
+            } finally { if (current()) list.setAttribute('aria-busy', 'false'); }
+        }
+        // A pending-purchase failure must not erase usable treatment cards.
+        await Promise.all([loadList(), loadPurchases()]);
+    }
     async function loadTreatments() {
         const list=document.getElementById('myTreatments'); if(!list)return;
+        if (window.CustomerTreatments) return loadCustomerTreatments(list, window.CustomerTreatments);
         try {
             const r=await api('/api/packages/my-treatments');
             list.innerHTML=r.treatments.length?r.treatments.map(t=>treatmentHtml(t)).join(''):'<div class="package-empty"><h3>Bạn chưa có liệu trình nào.</h3><a class="btn btn-primary" href="/packages">Mua gói dịch vụ</a></div>';
@@ -148,7 +257,9 @@
                 try {const t=(await api(`/api/packages/my-treatments/${b.dataset.history}`)).treatment;document.getElementById(`history-${b.dataset.history}`).innerHTML=historyHtml(t.history);}catch(e){b.textContent=e.message;}
             });
             const purchases=await api('/api/packages/my-purchases');
-            document.getElementById('myPackagePurchases').innerHTML=purchases.purchases.filter(p=>p.status==='pending').map(p=>`<p>${esc(p.tengoi)} · ${price(p.payable_amount ?? p.amount)} · Chờ thanh toán <a href="/packages?purchase=${p.id}">Tiếp tục thanh toán</a></p>`).join('');
+            const pending = document.getElementById('myPackagePurchases');
+            pending.innerHTML=purchases.purchases.filter(p=>p.status==='pending').map(p=>`<div class="package-pending-purchase"><p><strong>${esc(p.tengoi)}</strong> · ${price(p.payable_amount ?? p.amount)} · Chờ thanh toán</p><div class="package-pending-actions"><a class="btn btn-outline" href="/packages?purchase=${Number(p.id)}">Tiếp tục thanh toán</a><button type="button" class="btn btn-outline" data-cancel-purchase="${Number(p.id)}" data-purchase-name="${esc(p.tengoi)}">Hủy mua gói</button></div></div>`).join('');
+            bindPurchaseCancellation(pending, loadTreatments);
         } catch(e){list.textContent=e.message;}
     }
     let treatmentSelections=new Map(), renderVersion=0, lastBookingKey='', bookingRequest;

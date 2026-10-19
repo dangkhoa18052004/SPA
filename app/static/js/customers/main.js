@@ -964,6 +964,10 @@ function setupChatRefresh() {
     }, 10000); // 10 giây
 }
 window.addEventListener('pagehide', () => { clearInterval(chatRefreshInterval); chatRefreshInterval = null; });
+// Back/Forward can restore the same document after pagehide stopped its polling.
+window.addEventListener('pageshow', event => {
+    if (event.persisted && getAuthToken()) setupChatRefresh();
+});
 
 // Setup chat input handler
 function setupChatInput() {
