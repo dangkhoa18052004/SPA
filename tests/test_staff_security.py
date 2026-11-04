@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import json
 import pytest
 from cryptography.fernet import Fernet
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, decode_token
 from app import create_app
 from app.extensions import db
 from app.models import NhanVien, ChucVu, StaffMFA, StaffStepUp, StaffRecoveryCode, StaffSecurityAudit
@@ -113,7 +113,7 @@ def test_elevation_bound_to_jwt_current_password_role_and_expiry(secured, app, c
     assert client.get('/api/me/security', headers=other).json['verified_until'] is None
     secured[0] += timedelta(seconds=30)
     assert client.post('/api/me/security/verify', json={'code': otp(secret, secured[0])}, headers=other).status_code == 200
-    secured[0] += timedelta(seconds=601)
+    secured[0] += timedelta(seconds=3601)
     assert client.get('/api/me/security', headers=other).json['verified_until'] is None
 
 
@@ -129,6 +129,34 @@ def test_logout_revokes_elevation_for_that_token(secured, client, admin_auth_hea
     assert client.post('/api/auth/logout', headers=admin_auth_headers).status_code == 200
     assert client.get('/api/me/security', headers=admin_auth_headers).json['verified_until'] is None
     assert client.post('/api/auth/logout', headers={'Authorization': 'Bearer invalid'}).status_code == 200
+
+
+@pytest.mark.parametrize('seconds,valid',[(3599,True),(3600,False),(3601,False)])
+def test_one_hour_elevation_boundaries(secured,client,admin_auth_headers,seconds,valid):
+    enroll(client,admin_auth_headers,secured)
+    until=datetime.fromisoformat(client.get('/api/me/security',headers=admin_auth_headers).json['verified_until'].replace('Z',''))
+    assert (until-secured[0]).total_seconds()==3600
+    secured[0]+=timedelta(seconds=seconds)
+    status=client.get('/api/me/security',headers=admin_auth_headers).json
+    assert status['elevation_seconds']==3600
+    assert bool(status['verified_until']) is valid
+    if not valid:
+        blocked=client.post('/api/admin/payroll-periods/999/lock',headers=admin_auth_headers,json={})
+        assert blocked.status_code==403 and blocked.json['code']=='mfa_required'
+
+
+def test_elevation_never_outlives_a_short_jwt(secured,app,client):
+    secured[0]=datetime.utcnow().replace(microsecond=0)
+    with app.app_context():
+        token=create_access_token(identity=f'staff:{app.config["TEST_ADMIN_ID"]}',expires_delta=timedelta(minutes=20))
+        expires=datetime.utcfromtimestamp(decode_token(token)['exp'])
+    headers={'Authorization':'Bearer '+token}
+    enroll(client,headers,secured)
+    assert datetime.fromisoformat(client.get('/api/me/security',headers=headers).json['verified_until'].replace('Z',''))==expires
+    secured[0]=expires-timedelta(seconds=1)
+    assert client.get('/api/me/security',headers=headers).json['verified_until']
+    secured[0]=expires
+    assert client.get('/api/me/security',headers=headers).json['verified_until'] is None
 
 
 def test_access_changes_permanently_revoke_even_when_restored(secured, app, client, admin_auth_headers, staff_auth_headers):
@@ -156,7 +184,7 @@ def test_role_rate_write_happens_only_after_proof_and_stops_after_expiry(secured
     with app.app_context(): assert db.session.get(ChucVu, role_id).dongiagio == 100000
     enroll(client, admin_auth_headers, secured)
     assert client.put(path, json={'dongiagio': 120000}, headers=admin_auth_headers).status_code == 200
-    secured[0] += timedelta(minutes=11)
+    secured[0] += timedelta(minutes=61)
     assert client.put(path, json={'dongiagio': 990000}, headers=admin_auth_headers).status_code == 403
     with app.app_context(): assert db.session.get(ChucVu, role_id).dongiagio == 120000
 
@@ -225,7 +253,7 @@ def test_cross_origin_and_non_object_requests_rejected(secured, client, admin_au
 
 def test_prune_removes_only_expired_elevation_and_pending_setup(secured, app, client, admin_auth_headers):
     enroll(client, admin_auth_headers, secured)
-    secured[0] += timedelta(minutes=11)
+    secured[0] += timedelta(minutes=61)
     result = app.test_cli_runner().invoke(args=['staff-security', 'prune', '--dry-run'])
     assert result.exit_code == 0 and 'Expired elevations: 1' in result.output
     assert app.test_cli_runner().invoke(args=['staff-security', 'prune']).exit_code == 0

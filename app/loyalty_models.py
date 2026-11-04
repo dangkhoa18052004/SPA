@@ -4,7 +4,8 @@ from .extensions import db
 
 # Migration 20261004_0013 creates the same constraints.
 VOUCHER_TYPES = ('voucher_amount', 'voucher_percent')
-REWARD_CHECK = ("reward_type IN ('voucher_amount','voucher_percent','physical_gift') AND points_cost > 0 AND reward_value >= 0 "
+REWARD_CHECK = ("reward_type IN ('voucher_amount','voucher_percent','physical_gift') AND points_cost >= 0 "
+    "AND (NOT allow_points_redemption OR points_cost > 0) AND (NOT allow_manual_gift OR reward_type IN ('voucher_amount','voucher_percent')) AND reward_value >= 0 "
     "AND (reward_type <> 'voucher_amount' OR reward_value > 0) AND (stock IS NULL OR stock >= 0) AND (validity_days IS NULL OR validity_days > 0)")
 VOUCHER_TERMS_CHECK = ("(minimum_spend IS NULL OR minimum_spend >= 0) AND (reward_type IN ('voucher_amount','voucher_percent') "
     "AND apply_to IS NOT NULL AND apply_to IN ('service_invoice','package_purchase','both') OR reward_type NOT IN ('voucher_amount','voucher_percent') "
@@ -12,6 +13,12 @@ VOUCHER_TERMS_CHECK = ("(minimum_spend IS NULL OR minimum_spend >= 0) AND (rewar
 PERCENT_CHECK = ("reward_type = 'voucher_percent' AND percentage_value IS NOT NULL AND percentage_value > 0 AND percentage_value <= 100 "
     "AND (max_discount_amount IS NULL OR max_discount_amount > 0) "
     "OR reward_type <> 'voucher_percent' AND percentage_value IS NULL AND max_discount_amount IS NULL")
+ISSUANCE_CHECK = ("status IN ('available','reserved','used','fulfilled','expired','cancelled') AND "
+    "((issuance_source = 'points_redemption' AND points_spent > 0) OR "
+    "(issuance_source IN ('welcome','staff_gift') AND points_spent = 0)) AND "
+    "(issuance_source <> 'staff_gift' OR (issued_by_staff IS NOT NULL AND gift_reason IS NOT NULL AND length(trim(gift_reason)) > 0)) AND "
+    "((issuance_source = 'welcome' AND welcome_once_key IS NOT NULL AND length(welcome_once_key) > 0) OR "
+    "(issuance_source <> 'welcome' AND welcome_once_key IS NULL))")
 
 
 def voucher_default(context, value):
@@ -96,6 +103,8 @@ class LoyaltyReward(db.Model):
     stock = db.Column(db.Integer)
     validity_days = db.Column(db.Integer)
     active = db.Column(db.Boolean, nullable=False, default=True)
+    allow_points_redemption = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+    allow_manual_gift = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     # Voucher terms only; physical gifts keep both NULL. 0 means no minimum spend.
     minimum_spend = db.Column(db.Numeric(12, 2), default=lambda context: voucher_default(context, 0))
     apply_to = db.Column(db.String(30), default=lambda context: voucher_default(context, 'both'))
@@ -126,4 +135,35 @@ class LoyaltyRewardRedemption(db.Model):
     idempotency_key = db.Column(db.String(200), nullable=False, unique=True)
     target_type = db.Column(db.String(30))
     target_id = db.Column(db.Integer)
-    __table_args__ = (db.CheckConstraint("status IN ('available','reserved','used','fulfilled','expired','cancelled') AND points_spent > 0", name='ck_loyalty_reward_redemption'), db.Index('uq_loyalty_target_voucher', 'target_type', 'target_id', unique=True, postgresql_where=db.text("status = 'reserved'"), sqlite_where=db.text("status = 'reserved'")))
+    issuance_source = db.Column(db.String(30), nullable=False, default='points_redemption', server_default='points_redemption')
+    issued_by_staff = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'))
+    gift_reason = db.Column(db.Text)
+    customer_message = db.Column(db.String(1000))
+    welcome_once_key = db.Column(db.String(80), unique=True)
+    issuance_payload_json = db.Column(db.JSON)
+    cancelled_by_staff = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'))
+    cancelled_at = db.Column(db.DateTime)
+    cancel_reason = db.Column(db.Text)
+    __table_args__ = (db.CheckConstraint(ISSUANCE_CHECK, name='ck_loyalty_reward_redemption'),
+        db.Index('ix_loyalty_issuance_history', 'makh', 'issuance_source', 'redeemed_at'),
+        db.Index('uq_loyalty_target_voucher', 'target_type', 'target_id', unique=True, postgresql_where=db.text("status = 'reserved'"), sqlite_where=db.text("status = 'reserved'")))
+
+
+class CustomerOtpRegistration(db.Model):
+    """Only self-registration writes this marker; never backfill old/imported customers."""
+    __tablename__ = 'customer_otp_registration'
+    makh = db.Column(db.Integer, db.ForeignKey('khachhang.makh'), primary_key=True)
+    registered_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class WelcomeVoucherConfig(db.Model):
+    __tablename__ = 'welcome_voucher_config'
+    id = db.Column(db.Integer, primary_key=True, default=1)
+    enabled = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    reward_id = db.Column(db.Integer, db.ForeignKey('loyalty_reward.id'))
+    starts_at = db.Column(db.DateTime)
+    ends_at = db.Column(db.DateTime)
+    updated_by_staff = db.Column(db.Integer, db.ForeignKey('nhanvien.manv'))
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    __table_args__ = (db.CheckConstraint("id = 1 AND (NOT enabled OR (reward_id IS NOT NULL AND starts_at IS NOT NULL)) "
+        "AND (ends_at IS NULL OR (starts_at IS NOT NULL AND ends_at > starts_at))", name='ck_welcome_voucher_config'),)

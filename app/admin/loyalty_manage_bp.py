@@ -6,6 +6,8 @@ from ..decorators import roles_required
 from ..models import KhachHang, NhanVien, LoyaltyWallet, LoyaltyPointTransaction, LoyaltyReward, LoyaltyRewardRedemption
 from ..services import loyalty_service as service
 from ..services import loyalty_tier_service as tiers
+from ..services import voucher_issuance_service as issuance
+from ..services.voucher_observability import observe_failure
 from ..routes.loyalty_bp import paginate, payload, request_key, validation, conflict, choice_arg, text_arg
 from sqlalchemy.exc import IntegrityError
 from ..ui_assets import admin_portal_page
@@ -13,6 +15,12 @@ from ..ui_assets import admin_portal_page
 admin_loyalty_bp = Blueprint('admin_loyalty', __name__)
 admin_loyalty_bp.register_error_handler(service.LoyaltyError, validation)
 admin_loyalty_bp.register_error_handler(IntegrityError, conflict)
+
+
+@admin_loyalty_bp.errorhandler(issuance.IssuanceError)
+def issuance_error(error):
+    db.session.rollback()
+    return jsonify(success=False, msg=str(error), message=str(error)), error.status
 
 
 def manager():
@@ -102,7 +110,7 @@ def transactions():
 def rewards():
     manager()
     if request.method == 'POST':
-        reward = service.save_reward(payload())
+        reward = issuance.save_template(payload(), g.current_user.manv)
         db.session.commit()
         return jsonify(success=True, reward=service.serialize_reward(reward)), 201
     return jsonify(success=True, **paginate(LoyaltyReward.query.order_by(LoyaltyReward.id.desc()), service.serialize_reward))
@@ -112,12 +120,13 @@ def rewards():
 @roles_required('admin', 'manager')
 def reward_detail(reward_id):
     manager()
-    reward = LoyaltyReward.query.filter_by(id=reward_id).with_for_update().first()
+    reward = LoyaltyReward.query.filter_by(id=reward_id).first()
     if not reward:
         return jsonify(success=False, msg='Không tìm thấy quà'), 404
     if request.method == 'PUT':
-        service.save_reward(payload(), reward)
+        issuance.save_template(payload(), g.current_user.manv, reward)
     elif request.method == 'DELETE':
+        reward = service.lock_reward(reward.id)
         reward.active = False  # Preserve historical redemptions and audit.
     if request.method != 'GET':
         db.session.commit()
@@ -176,3 +185,63 @@ def payment_vouchers(makh):
     usable_for = choice_arg('usable_for', service.TARGET_KINDS)
     query = service.filter_redemptions(LoyaltyRewardRedemption.query.filter_by(makh=makh), 'usable', now=now, usable_for=usable_for)
     return jsonify(success=True, **paginate(query.order_by(LoyaltyRewardRedemption.id), lambda row: service.serialize_redemption(row, now)))
+
+
+@admin_loyalty_bp.route('/api/admin/loyalty/gift-templates')
+@roles_required(*GIFT_DESK_ROLES)
+def gift_templates():
+    query = LoyaltyReward.query.filter(
+        LoyaltyReward.reward_type.in_(service.VOUCHER_TYPES),
+        or_(LoyaltyReward.stock.is_(None), LoyaltyReward.stock > 0))
+    search = text_arg('search')
+    if search:
+        query = query.filter(LoyaltyReward.name.ilike(service.like_pattern(search), escape='!'))
+    return jsonify(success=True, **paginate(query.order_by(LoyaltyReward.id), service.serialize_reward))
+
+
+@admin_loyalty_bp.route('/api/admin/loyalty/customers/<int:makh>/voucher-gifts', methods=['GET', 'POST'])
+@roles_required(*GIFT_DESK_ROLES)
+@observe_failure('staff_gift', 'customer_gifts')
+def voucher_gifts(makh):
+    if request.method == 'POST':
+        data = payload()
+        key = request_key({})  # Header mandatory; do not accept actor/terms/body keys.
+        row, created = issuance.manual_gift(makh, data, g.current_user.manv, key)
+        db.session.commit()
+        return jsonify(success=True, redemption=issuance.serialize_gift(row), replayed=not created), 201 if created else 200
+    if not db.session.get(KhachHang, makh):
+        return jsonify(success=False, msg='Không tìm thấy khách hàng'), 404
+    query = LoyaltyRewardRedemption.query.filter_by(makh=makh).filter(
+        LoyaltyRewardRedemption.issuance_source.in_(('welcome', 'staff_gift')))
+    source = choice_arg('issuance_source', ('welcome', 'staff_gift'))
+    if source:
+        query = query.filter_by(issuance_source=source)
+    staff = text_arg('issued_by_staff', 12)
+    if staff:
+        if not staff.isdigit() or int(staff) < 1 or int(staff) > 2147483647:
+            raise service.LoyaltyError('Người tặng không hợp lệ')
+        query = query.filter_by(issued_by_staff=int(staff))
+    query = service.filter_redemptions(query, choice_arg('status', service.REDEMPTION_GROUPS) or 'all')
+    return jsonify(success=True, **paginate(query.order_by(LoyaltyRewardRedemption.id.desc()), issuance.serialize_gift))
+
+
+@admin_loyalty_bp.route('/api/admin/loyalty/voucher-gifts/<int:redemption_id>/cancel', methods=['POST'])
+@roles_required('admin', 'manager')
+@observe_failure('gift', 'cancel')
+def cancel_voucher_gift(redemption_id):
+    data = payload()
+    if set(data) != {'reason'}:
+        raise service.LoyaltyError('Cần lý do thu hồi')
+    row = issuance.cancel_gift(redemption_id, data['reason'], g.current_user.manv)
+    db.session.commit()
+    return jsonify(success=True, redemption=issuance.serialize_gift(row))
+
+
+@admin_loyalty_bp.route('/api/admin/loyalty/welcome-config', methods=['GET', 'PUT'])
+@roles_required('admin', 'manager')
+@observe_failure('welcome', 'configure')
+def welcome_config():
+    if request.method == 'PUT':
+        issuance.update_welcome_config(payload(), g.current_user.manv)
+        db.session.commit()
+    return jsonify(success=True, config=issuance.serialize_welcome_config())

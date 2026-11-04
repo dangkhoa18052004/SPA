@@ -367,9 +367,10 @@ def get_related_recommendations(customer_id, current_service_id, service_limit=3
 
 def serialize_service(service):
     image = service.anhdichvu
+    category = service.category if service.category and service.category.active else None
     return dict(madv=service.madv, tendv=service.tendv, gia=str(service.gia),
         thoiluong=service.thoiluong, mota=service.mota or '',
-        category_id=service.category_id,
-        category_slug=service.category.slug if service.category else None,
-        category_name=service.category.name if service.category else None,
+        category_id=category.id if category else None,
+        category_slug=category.slug if category else None,
+        category_name=category.name if category else None,
         anhdichvu=base64.b64encode(image).decode('ascii') if isinstance(image, bytes) else image)

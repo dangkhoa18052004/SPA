@@ -9,6 +9,15 @@ CSKH_ROLES = ['letan', 'manager', 'admin']
 VIETNAM_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
 
+def _unread_counts(rows, sender):
+    ids = [row[0].maht for row in rows]
+    if not ids:
+        return {}
+    return dict(db.session.query(TinNhan.maht, func.count(TinNhan.matn)).filter(
+        TinNhan.maht.in_(ids), sender.isnot(None), TinNhan.da_doc.is_(False)
+    ).group_by(TinNhan.maht).all())
+
+
 def require_active(user, user_type):
     if user is None or user_type not in ('staff', 'customer'):
         raise PermissionError('Cần đăng nhập để xem hội thoại')
@@ -34,14 +43,11 @@ def get_conversations_for_user(user, user_type):
             Hoithoai.makh == user.makh
         )
         
-        user_conversations = convs_query.order_by(desc(Hoithoai.tin_nhan_cuoi_thoi_gian)).all()
+        user_conversations = convs_query.order_by(desc(Hoithoai.tin_nhan_cuoi_thoi_gian).nullslast(), Hoithoai.maht.desc()).all()
+        counts = _unread_counts(user_conversations, TinNhan.nguoigui_manv)
         
         for conv, staff_name, staff_avatar_file in user_conversations:
-            unread_count = db.session.query(func.count(TinNhan.matn)).filter(
-                TinNhan.maht == conv.maht,
-                TinNhan.nguoigui_manv != None,
-                TinNhan.da_doc == False      
-            ).scalar()
+            unread_count = counts.get(conv.maht, 0)
 
             last_msg_time = None
             if conv.tin_nhan_cuoi_thoi_gian:
@@ -74,14 +80,13 @@ def get_conversations_for_user(user, user_type):
         else:
             return []
             
-        user_conversations = convs_query.order_by(desc(Hoithoai.tin_nhan_cuoi_thoi_gian)).all()
+        user_conversations = convs_query.order_by(desc(Hoithoai.tin_nhan_cuoi_thoi_gian).nullslast(), Hoithoai.maht.desc()).all()
+        counts = _unread_counts(user_conversations, TinNhan.nguoigui_makh)
+        assigned_ids = {row[0].manv for row in user_conversations if row[0].manv}
+        staff_names = dict(db.session.query(NhanVien.manv, NhanVien.hoten).filter(NhanVien.manv.in_(assigned_ids)).all()) if assigned_ids else {}
 
         for conv, customer_name, customer_avatar_file in user_conversations:
-            unread_count = db.session.query(func.count(TinNhan.matn)).filter(
-                TinNhan.maht == conv.maht,
-                TinNhan.nguoigui_makh != None,
-                TinNhan.da_doc == False        
-            ).scalar()
+            unread_count = counts.get(conv.maht, 0)
 
             last_msg_time = None
             if conv.tin_nhan_cuoi_thoi_gian:
@@ -94,8 +99,7 @@ def get_conversations_for_user(user, user_type):
                 "customer_name": customer_name or "Khách vãng lai",
                 "customer_avatar": customer_avatar_file,
                 "assigned_staff_id": conv.manv,
-                "assigned_staff_name": (db.session.get(NhanVien, conv.manv).hoten
-                    if conv.manv and db.session.get(NhanVien, conv.manv) else None),
+                "assigned_staff_name": staff_names.get(conv.manv),
                 "last_message": conv.tin_nhan_cuoi_noi_dung,
                 "last_message_time": last_msg_time,
                 "unread_count": unread_count

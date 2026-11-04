@@ -1,0 +1,20 @@
+:root { --binspa-chat-bg:#f7f8f5; --binspa-chat-surface:#fff; --binspa-chat-text:#243d31; --binspa-chat-muted:#55675c; --binspa-chat-border:#dee7e0; --binspa-chat-ai-head:#254638; --binspa-chat-human-head:#315e4b; --binspa-chat-sent:#315e4b; --binspa-chat-received:#eef3ef; }
+body.dark-theme { --binspa-chat-bg:#15221b; --binspa-chat-surface:#203329; --binspa-chat-text:#edf5ef; --binspa-chat-muted:#bdcfc3; --binspa-chat-border:#455f50; --binspa-chat-received:#2b4436; }
+body .ai-widget .ai-fab, body .ai-widget .ai-input button { background:var(--binspa-chat-sent); color:#fff; }
+body .ai-widget .ai-head { background:var(--binspa-chat-ai-head); color:#fff; }
+body .ai-widget :is(.ai-panel,.ai-input,.ai-quick,.ai-note) { background:var(--binspa-chat-surface); color:var(--binspa-chat-text); }
+body .ai-widget .ai-note { color:var(--binspa-chat-muted); }
+body .ai-widget .ai-log { background:var(--binspa-chat-bg); }
+body .ai-widget .ai-model { background:var(--binspa-chat-surface); border-color:var(--binspa-chat-border); color:var(--binspa-chat-text); }
+body .ai-widget .ai-user { background:var(--binspa-chat-sent); color:#fff; }
+body .ai-widget :is(.ai-btn,.ai-quick button) { min-height:44px; background:var(--binspa-chat-received); color:var(--binspa-chat-text); border-color:var(--binspa-chat-border); }
+body .ai-widget .ai-btn-primary { background:var(--binspa-chat-sent); color:#fff; }
+body .ai-widget .ai-icon-btn, body .chat-box .chat-close { min-width:44px; min-height:44px; }
+body .ai-widget input { background:var(--binspa-chat-surface); color:var(--binspa-chat-text); border-color:var(--binspa-chat-border); }
+body .chat-box .chat-send-btn { background:var(--binspa-chat-sent); color:#fff; min-width:44px; min-height:44px; }
+body .chat-box { max-height:calc(100dvh - 120px); border-color:var(--binspa-chat-border); }
+body .chat-box :is(.chat-input-area,.chat-quick-replies) { background:var(--binspa-chat-surface); }
+body .chat-box :is(#chatInput,.quick-reply-btn) { background:var(--binspa-chat-surface); color:var(--binspa-chat-text); border-color:var(--binspa-chat-border); }
+body .chat-box .chat-messages { background:var(--binspa-chat-bg); }
+body :is(.chat-box,.ai-widget) :focus-visible { outline:2px solid var(--binspa-chat-text); outline-offset:3px; }
+@media(max-width:767px) { body .ai-widget.is-open .ai-panel { top:env(safe-area-inset-top); bottom:calc(80px + env(safe-area-inset-bottom)); height:auto; max-height:calc(100dvh - 96px); } body .chat-box { bottom:calc(80px + env(safe-area-inset-bottom)); max-height:calc(100dvh - 160px); } }

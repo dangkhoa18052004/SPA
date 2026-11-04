@@ -43,8 +43,8 @@
         <!-- Input gửi tin nhắn -->
         <div class="chat-input-area" id="chat-input-area">
             <textarea id="message-input" class="form-control" placeholder="Nhập tin nhắn..." rows="1"></textarea>
-            <button id="send-message-btn" class="btn btn-primary">
-                <i class="fas fa-paper-plane"></i>
+            <button id="send-message-btn" class="btn btn-primary" aria-label="Gửi tin nhắn">
+                <i class="fas fa-paper-plane" aria-hidden="true"></i>
             </button>
         </div>
     </div>
@@ -52,5 +52,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/admin/chat.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin/chat.js', v='20261020') }}"></script>
 {% endblock %}

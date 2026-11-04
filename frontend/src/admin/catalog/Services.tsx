@@ -165,6 +165,6 @@ function ServiceList() {
 }
 
 export default function Services({ me }: { me: Me }) {
-  if (!['admin', 'manager'].includes(me.user.role)) return <Result status="403" title="Không có quyền quản lý dịch vụ" />;
+  if (!['admin', 'manager'].includes(me.user.role)) return <Result status="403" title="Không có quyền quản lý dịch vụ" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
   return <ServiceList />;
 }

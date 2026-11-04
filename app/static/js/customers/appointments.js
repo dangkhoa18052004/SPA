@@ -238,15 +238,15 @@ function displayPagination(totalPages, totalItems) {
 
     const paginationHTML = `
         <div class="services-pagination" style="grid-column: 1/-1; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px;">
-            <button class="pagination-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
-                <i class="fas fa-chevron-left"></i>
+            <button class="pagination-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} aria-label="Trang trước">
+                <i class="fas fa-chevron-left" aria-hidden="true"></i>
             </button>
             <span style="color: #666; font-size: 14px;">
                 Trang ${currentPage} / ${totalPages}
                 <span style="color: #999;">(${totalItems} dịch vụ)</span>
             </span>
-            <button class="pagination-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
-                <i class="fas fa-chevron-right"></i>
+            <button class="pagination-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} aria-label="Trang sau">
+                <i class="fas fa-chevron-right" aria-hidden="true"></i>
             </button>
         </div>
     `;

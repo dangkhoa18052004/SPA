@@ -194,7 +194,9 @@ async function verifyOTP() {
         
         if (result.success) {
             sessionStorage.removeItem('otp_email'); // Dọn dẹp
-            showAlert('success', 'Xác thực thành công! Đang chuyển hướng...');
+            showAlert('success', result.welcome_voucher?.issued
+                ? 'Xác thực thành công! Bạn đã nhận quà chào mừng trong Ưu đãi của tôi. Đang chuyển hướng...'
+                : 'Xác thực thành công! Đang chuyển hướng...');
             setTimeout(() => {
                 window.location.href = '/auth/login';
             }, 1500);

@@ -1,0 +1,25 @@
+{% extends "customer/layout.html" %}
+{% block body_class %}is-subpage{% endblock %}
+
+{% block title %}Không tìm thấy trang - Bin Spa{% endblock %}
+
+{% block content %}
+    {% set staff_area = request.path.startswith('/admin') or request.path.startswith('/employee') %}
+    <section class="services-header">
+        <div class="container">
+            <h1>Không tìm thấy trang</h1>
+            <p>{{ message or 'Đường dẫn không tồn tại hoặc nội dung đã ngừng hiển thị.' }}</p>
+        </div>
+    </section>
+    <section class="not-found-actions">
+        <div class="container" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:32px 16px 56px">
+            {% if staff_area %}
+            <a href="/admin/dashboard" class="btn btn-primary">Về trang quản trị</a>
+            {% else %}
+            <a href="/" class="btn btn-primary">Về trang chủ</a>
+            <a href="/services" class="btn btn-outline">Xem dịch vụ</a>
+            <a href="/packages" class="btn btn-outline">Xem gói dịch vụ</a>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

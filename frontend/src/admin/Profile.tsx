@@ -95,7 +95,7 @@ export default function Profile({ me }: { me: Me }) {
   const profile = resource.data?.user;
   return <>
     <div className="page-heading section-toolbar"><div><span className="eyebrow">TÀI KHOẢN</span><h1>Trang cá nhân</h1><p>Thông tin liên hệ, ảnh đại diện và mật khẩu đăng nhập.</p></div>
-      {me.features.employee_portal && me.features.attendance && <Button type="primary" size="large" href="/employee/attendance" data-testid="attendance-shortcut">Chấm công vào/ra</Button>}</div>
+      {me.features.employee_portal && <Button type="primary" size="large" href="/employee/attendance" data-testid="attendance-shortcut">{me.features.attendance?'Chấm công vào/ra':'Về cổng nhân viên'}</Button>}</div>
     <ResourceState {...resource} />
     {!resource.loading && !resource.error && profile && <Card>
       <Tabs activeKey={tab} onChange={key => setQuery({ tab: key === 'info' ? null : key }, true)} items={[

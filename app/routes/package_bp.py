@@ -1,4 +1,4 @@
-from flask import current_app, Blueprint, request, jsonify, g, render_template
+from flask import current_app, Blueprint, request, jsonify, g, render_template, abort
 
 from ..extensions import db
 from ..decorators import customer_required, roles_required
@@ -97,7 +97,7 @@ def validation(error):
 @package_bp.route('/packages/<int:package_id>')
 def package_page(package_id=None):
     if package_id and not GoiDichVu.query.filter_by(magoi=package_id, active=True, customer_sale_enabled=True).first():
-        return 'Không tìm thấy gói dịch vụ', 404
+        abort(404, description='Gói dịch vụ không tồn tại hoặc đã ngừng bán.')
     return render_template('customer/packages.html', package_id=package_id)
 
 
@@ -409,7 +409,16 @@ def counter_sales():
     status = request.args.get('status')
     if status in ('pending', 'paid', 'failed', 'cancelled'):
         query = query.filter(GoiDichVuPurchase.status == status)
-    return jsonify(success=True, purchases=[serialize_purchase(p) for p in query.order_by(GoiDichVuPurchase.id.desc()).limit(200)])
+    # Pages of 200, newest first. Without before_id the response is the same first page as before;
+    # before_id (the last id of the previous page) continues with older receipts.
+    before_id = request.args.get('before_id', type=int)
+    if before_id:
+        query = query.filter(GoiDichVuPurchase.id < before_id)
+    records = query.order_by(GoiDichVuPurchase.id.desc()).limit(201).all()
+    has_more = len(records) > 200
+    records = records[:200]
+    return jsonify(success=True, purchases=[serialize_purchase(p) for p in records],
+                   has_more=has_more, next_before_id=records[-1].id if has_more else None)
 
 
 @package_bp.route('/api/admin/package-sales/<int:purchase_id>')

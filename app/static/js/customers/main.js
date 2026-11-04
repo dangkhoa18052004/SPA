@@ -144,6 +144,8 @@ function getAuthHeaders(includeContentType = true) {
 // ==================== GLOBAL VARIABLES ====================
 let currentLang = 'vi';
 let currentConversationId = null;
+let customerChatSending=false;
+let conversationConnection=null, unreadRefreshVersion=0;
 let unreadCount = 0; // Số tin nhắn chưa đọc
 let chatRefreshInterval = null; // Interval để refresh tin nhắn
 
@@ -489,13 +491,29 @@ async function loadServices() {
     if (window.location.pathname !== '/') return;
     try {
         const fetcher = window.CustomerAuth ? window.CustomerAuth.fetch.bind(window.CustomerAuth) : fetch;
-        const response = await fetcher('/api/services', {
-            headers: getAuthHeaders(false)
-        });
+        const [response, categoryResponse] = await Promise.all([
+            fetcher('/api/services', {headers: getAuthHeaders(false)}),
+            fetcher('/api/services/categories')
+        ]);
+        if (!response.ok || !categoryResponse.ok) throw new Error('Services unavailable');
         const data = await response.json();
+        const categoryData = await categoryResponse.json();
         
         if (data.success && data.services) {
             allServices = data.services;
+            const filters = document.getElementById('homeCategories');
+            if (filters) {
+                filters.replaceChildren();
+                for (const category of [{slug:'all',name:'Tất cả'}, ...categoryData.categories]) {
+                    const button = document.createElement('button');
+                    button.type = 'button'; button.className = 'filter-chip';
+                    button.textContent = category.name;
+                    button.classList.toggle('active', category.slug === 'all');
+                    button.setAttribute('aria-pressed', String(category.slug === 'all'));
+                    button.onclick = () => filterServices(category.slug, button);
+                    filters.append(button);
+                }
+            }
             displayServices(allServices.slice(0, 6));
         } else throw new Error('Services unavailable');
     } catch (error) {
@@ -654,9 +672,8 @@ function toggleChat() {
     chatBox.classList.toggle('show');
     
     if (chatBox.classList.contains('show')) {
+        document.dispatchEvent(new CustomEvent('binspa:open-human-chat'));
         loadOrCreateConversation();
-        unreadCount = 0;
-        updateUnreadBadge();
     }
 }
 
@@ -665,12 +682,14 @@ function openChat() {
     if (!chatBox) return;
     
     chatBox.classList.add('show');
+    document.dispatchEvent(new CustomEvent('binspa:open-human-chat'));
     loadOrCreateConversation();
-    unreadCount = 0;
-    updateUnreadBadge();
 }
 
 async function loadOrCreateConversation() {
+    if(currentConversationId)return loadMessages(currentConversationId);
+    if(conversationConnection)return conversationConnection;
+    conversationConnection=(async()=>{
     try {
         const token = getAuthToken();
         const chatInputArea = document.querySelector('.chat-input-area');
@@ -714,6 +733,8 @@ async function loadOrCreateConversation() {
         console.error('Error loading/creating conversation:', error);
         showChatMessage('bot', 'Có lỗi xảy ra. Vui lòng thử lại!');
     }
+    })();
+    try{return await conversationConnection;}finally{conversationConnection=null;}
 }
 
 async function sendQuickReply(text) {
@@ -725,14 +746,16 @@ async function sendQuickReply(text) {
 }
 
 async function loadMessages(conversationId) {
+    if(document.hidden || conversationId!==currentConversationId || !document.getElementById('chatBox')?.classList.contains('show'))return;
     try {
         const response = await window.CustomerAuth.fetch(`/api/chat/conversations/${conversationId}/messages`, {
             headers: getAuthHeaders(false)
         });
         
         const data = await response.json();
-        
+        if(conversationId!==currentConversationId || document.hidden || !document.getElementById('chatBox')?.classList.contains('show'))return;
         if (data.success && data.messages) {
+            updateUnreadCount();
             const chatMessages = document.getElementById('chatMessages');
             if (!chatMessages) return;
             
@@ -852,11 +875,14 @@ function showChatMessage(type, message) {
 
 async function sendMessage() {
     const chatInput = document.getElementById('chatInput');
-    if (!chatInput) return;
+    if (!chatInput || customerChatSending) return;
     
     const message = chatInput.value.trim();
     if (!message) return;
     
+    customerChatSending=true;
+    const sendButton=document.querySelector('.chat-send-btn');if(sendButton)sendButton.disabled=true;
+    try {
     if (!currentConversationId) {
         showChatMessage('bot', 'Đang kết nối...');
         await loadOrCreateConversation();
@@ -867,7 +893,7 @@ async function sendMessage() {
     showChatMessage('user', message);
     chatInput.value = '';
     
-    try {
+        const conversationId=currentConversationId;
         const response = await window.CustomerAuth.fetch(`/api/chat/conversations/${currentConversationId}/messages`, {
             method: 'POST',
             headers: getAuthHeaders(true),
@@ -876,17 +902,19 @@ async function sendMessage() {
         
         const data = await response.json();
         
-        if (!data.success) {
-            showChatMessage('bot', 'Có lỗi xảy ra. Vui lòng thử lại!');
-        }
+        if (!response.ok || !data.success) {
+            if(response.status<500){chatInput.value=message;showChatMessage('bot', data.message||'Chưa gửi được tin nhắn.');}
+            else {await loadMessages(conversationId);showChatMessage('bot','Chưa xác định kết quả gửi. Hãy kiểm tra lịch sử trước khi gửi lại.');}
+        }else await loadMessages(conversationId);
     } catch (error) {
-        console.error('Error sending message:', error);
-        showChatMessage('bot', 'Không thể gửi tin nhắn. Vui lòng thử lại!');
-    }
+        await loadMessages(currentConversationId);
+        showChatMessage('bot', 'Chưa xác định kết quả gửi. Hãy kiểm tra lịch sử trước khi gửi lại.');
+    } finally {customerChatSending=false;if(sendButton)sendButton.disabled=false;}
 }
 
 // ✅ FIX: Cập nhật số tin nhắn chưa đọc
 async function updateUnreadCount() {
+    const version=++unreadRefreshVersion;
     try {
         const token = getAuthToken();
         if (!token) {
@@ -901,7 +929,7 @@ async function updateUnreadCount() {
         
         const data = await response.json();
         
-        if (data.success && data.conversations) {
+        if (data.success && data.conversations && version===unreadRefreshVersion && token===getAuthToken()) {
             // Tính tổng số tin nhắn chưa đọc từ tất cả conversations
             unreadCount = data.conversations.reduce((total, conv) => {
                 return total + (conv.unread_count || 0);
@@ -1112,22 +1140,10 @@ function toggleSpaMusic() {
 }
 
 // ==================== SMART NEED-BASED SERVICE FILTERING ====================
-function filterServices(keyword, btn) {
+function filterServices(category, btn) {
     const buttons = document.querySelectorAll('.smart-filters .filter-chip');
-    buttons.forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    
-    const serviceItems = document.querySelectorAll('#servicesGrid .service-card, .services-grid .service-card');
-    const term = keyword.toLowerCase();
-    
-    serviceItems.forEach(item => {
-        const text = item.textContent.toLowerCase();
-        if (keyword === 'all' || text.includes(term)) {
-            item.style.display = '';
-        } else {
-            item.style.display = 'none';
-        }
-    });
+    buttons.forEach(b => { b.classList.toggle('active', b === btn); b.setAttribute('aria-pressed', String(b === btn)); });
+    displayServices(allServices.filter(service => category === 'all' || service.category_slug === category).slice(0, 6));
 }
 
 // ==================== LOGOUT ====================

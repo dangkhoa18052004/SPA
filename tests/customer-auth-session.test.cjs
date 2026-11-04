@@ -39,3 +39,16 @@ test('wrong current password stays a form error and does not replay the mutation
     assert.equal(s.calls.length,1);
     assert.equal(s.values.get('access_token'),'test-token');
 });
+test('a guest page asks the server for a session once; a forced restore still asks', async () => {
+    const calls = [], values = new Map();
+    const context = {window: {fetch: async path => { calls.push(path); return new Response(JSON.stringify({success:path !== '/api/auth/restore-session'}), {status:path === '/api/auth/restore-session' ? 401 : 200}); }},
+        Headers, URL, console, localStorage: {getItem:k=>values.get(k), setItem:(k,v)=>values.set(k,v), removeItem:k=>values.delete(k)}};
+    vm.runInNewContext(fs.readFileSync('app/static/js/customers/auth-session.js', 'utf8'), context);
+    const auth = context.window.CustomerAuth;
+    assert.equal(await auth.restoreAccessToken(), null);
+    assert.equal(await auth.restoreAccessToken(), null);
+    await auth.fetch('/api/public');
+    assert.deepEqual(calls, ['/api/auth/restore-session', '/api/public']);
+    assert.equal(await auth.restoreAccessToken(true), null);
+    assert.equal(calls.filter(p => p === '/api/auth/restore-session').length, 2);
+});

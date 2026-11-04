@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { canFulfill, reconcileMessage, rewardPayload, richMessage, safeImage } from './model';
 import type { ChatMessage, Redemption } from './model';
 describe('care parity', () => {
+  it('blocks expired physical gifts without treating vouchers as gifts',()=>{
+    const now=Date.parse('2026-10-20T00:00:00Z');
+    const gift={reward:{reward_type:'physical_gift'},status:'available',expires_at:'2026-10-20T00:00:00Z'} as Redemption;
+    expect(canFulfill(gift,now)).toBe(false);expect(canFulfill({...gift,expires_at:'2026-10-20T00:00:01Z'},now)).toBe(true);
+    expect(canFulfill({...gift,reward:{reward_type:'voucher_percent'}} as Redemption,now-1000)).toBe(false);
+  });
   it('only offers physical gift handover while available', () => {
     expect(canFulfill({ reward: { reward_type: 'physical_gift' }, status: 'available' } as Redemption)).toBe(true);
     expect(canFulfill({ reward: { reward_type: 'voucher_amount' }, status: 'available' } as Redemption)).toBe(false);

@@ -125,6 +125,7 @@ const MENU_ITEMS = {
     package_sales: { title: 'Bán gói', href: '/admin/package-sales', icon: 'fa-receipt' },
     customers: { title: 'Khách hàng', href: '/admin/customers', icon: 'fa-user-friends' },
     services: { title: 'Dịch vụ', href: '/admin/services', icon: 'fa-spa' },
+    skin_service_map: { title: 'Dịch vụ theo loại mụn', href: '/admin/skin-service-map', icon: 'fa-check-double' },
     packages: { title: 'Gói dịch vụ / Liệu trình', href: '/admin/packages', icon: 'fa-box-open' },
     roles: { title: 'Chức vụ', href: '/admin/roles', icon: 'fa-user-tag' },
     staff: { title: 'Nhân viên', href: '/admin/staff', icon: 'fa-users-cog' },
@@ -150,7 +151,7 @@ const MENU_CONFIG = {
     admin: [
         menuItem('dashboard'), menuItem('appointments'), menuItem('invoices'), menuItem('package_sales'), menuItem('customers'),
         menuItem('operations'), menuItem('attendance'),
-        menuGroup('Danh mục'), menuItem('services'), menuItem('packages'), menuItem('roles'),
+        menuGroup('Danh mục'), menuItem('services'), menuItem('skin_service_map'), menuItem('packages'), menuItem('roles'),
         menuGroup('Nhân sự'), menuItem('staff'), menuItem('shifts'), menuItem('approve_shifts'), menuItem('salary'),
         menuGroup('Chăm sóc'), menuItem('loyalty'), menuItem('reviews'), menuItem('chat'),
         menuGroup('Tài khoản'), menuItem('my_appointments'), menuItem('profile'),
@@ -159,7 +160,7 @@ const MENU_CONFIG = {
     manager: [
         menuItem('operations'), menuItem('attendance'),
         menuItem('dashboard'), menuItem('appointments'), menuItem('invoices'), menuItem('package_sales'), menuItem('customers'),
-        menuGroup('Danh mục'), menuItem('packages'),
+        menuGroup('Danh mục'), menuItem('skin_service_map'), menuItem('packages'),
         menuGroup('Chăm sóc'), menuItem('loyalty'), menuItem('reviews'), menuItem('chat'),
         menuGroup('Tài khoản'), menuItem('my_appointments'), menuItem('my_salary'), menuItem('profile'),
     ],
@@ -243,6 +244,7 @@ function buildSidebar() {
     }).join('');
 
     menu.innerHTML = menuHTML;
+    document.dispatchEvent(new Event('binspa:sidebar-ready'));
 
     console.log(`✅ Sidebar built for role: ${role} (${menuItems.filter(i => !i.group).length} items)`);
 }
@@ -418,6 +420,11 @@ function checkPageAccess() {
         '/admin/packages': ['admin', 'manager', 'staff'],
         '/admin/reviews': ['admin', 'manager', 'staff'],
         '/admin/package-sales': ['admin', 'manager', 'letan'],
+        // Same gates as the React screens and role menus.
+        '/admin/customers': ['admin', 'manager', 'letan'],
+        '/admin/invoices': ['admin', 'manager', 'letan'],
+        '/admin/services': ['admin', 'manager'],
+        '/admin/skin-service-map': ['admin', 'manager'],
         '/admin/staff': ['admin', 'manager'],
         '/admin/salary': ['admin', 'manager'],
         '/admin/roles': ['admin'],
@@ -436,10 +443,26 @@ function checkPageAccess() {
     return true;
 }
 
+// ====== ICON ACCESSIBILITY ======
+
+/**
+ * Font Awesome glyphs come from ::before and become a button's accessible name,
+ * hiding its title. Mark them decorative, including rows rendered later.
+ */
+function hideDecorativeIcons(root) {
+    const selector = 'i.fas:not([aria-hidden]), i.far:not([aria-hidden]), i.fab:not([aria-hidden])';
+    if (root.matches?.(selector)) root.setAttribute('aria-hidden', 'true');
+    root.querySelectorAll?.(selector).forEach(icon => icon.setAttribute('aria-hidden', 'true'));
+}
+
 // ====== DOM READY ======
 
 document.addEventListener('DOMContentLoaded', function () {
     console.log('🚀 Admin layout initializing...');
+    hideDecorativeIcons(document);
+    new MutationObserver(records => records.forEach(record =>
+        record.addedNodes.forEach(node => node.nodeType === 1 && hideDecorativeIcons(node))
+    )).observe(document.body, { childList: true, subtree: true });
 
     // Small delay để đảm bảo DOM đã sẵn sàng
     setTimeout(() => {

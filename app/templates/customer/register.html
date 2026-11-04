@@ -109,7 +109,7 @@
                                    placeholder="Nhập mật khẩu ít nhất 6 kí tự"
                                    minlength="6"
                                    required>
-                            <button type="button" class="toggle-password" onclick="togglePassword()">
+                            <button type="button" class="toggle-password" onclick="togglePassword()" aria-label="Hiện mật khẩu" aria-controls="matkhau" aria-pressed="false">
                                 <i class="fas fa-eye" id="eyeIcon"></i>
                             </button>
                         </div>
@@ -126,7 +126,7 @@
                                    name="confirm_password" 
                                    placeholder="Nhập lại mật khẩu"
                                    required>
-                            <button type="button" class="toggle-password" onclick="toggleConfirmPassword()">
+                            <button type="button" class="toggle-password" onclick="toggleConfirmPassword()" aria-label="Hiện mật khẩu xác nhận" aria-controls="confirm_password" aria-pressed="false">
                                 <i class="fas fa-eye" id="eyeIcon2"></i>
                             </button>
                         </div>
@@ -164,6 +164,7 @@
         function toggleConfirmPassword() {
             const passwordInput = document.getElementById('confirm_password');
             const eyeIcon = document.getElementById('eyeIcon2');
+            const button = passwordInput.closest('.password-input').querySelector('.toggle-password');
             
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
@@ -174,6 +175,8 @@
                 eyeIcon.classList.remove('fa-eye-slash');
                 eyeIcon.classList.add('fa-eye');
             }
+            button.setAttribute('aria-pressed', String(passwordInput.type === 'text'));
+            button.setAttribute('aria-label', passwordInput.type === 'text' ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận');
         }
     </script>
 </body>

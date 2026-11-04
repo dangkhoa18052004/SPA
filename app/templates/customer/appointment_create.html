@@ -5,7 +5,7 @@
 {% block title %}Đặt lịch hẹn - Bin Spa{% endblock %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css', v='1.2') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/appointments.css', v='1.3') }}">
 {% endblock %}
 
@@ -238,7 +238,7 @@
 
 {% block extra_js %}
     {% if session.get('user_id') and session.get('user_type') == 'customer' %}
-    <script src="{{ url_for('static', filename='js/customers/appointments.js', v='1.5') }}"></script>
-    <script src="{{ url_for('static', filename='js/packages.js', v='1.2') }}"></script>
+    <script src="{{ url_for('static', filename='js/customers/appointments.js', v='1.6') }}"></script>
+    <script src="{{ url_for('static', filename='js/packages.js', v='1.5') }}"></script>
     {% endif %}
 {% endblock %}

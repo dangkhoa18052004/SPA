@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App, Button, ConfigProvider, Result } from 'antd';
+import { App, Badge, Button, ConfigProvider, Dropdown, Result } from 'antd';
 import viVN from 'antd/locale/vi_VN';
 import { ResourceState, useResource } from './components';
 import type { Me } from './types';
@@ -9,6 +9,8 @@ import { StepUpGate } from './StepUpGate';
 import { useLocation } from './router';
 import { AdminShell } from './admin/AdminShell';
 import { normalizePath } from './admin/navigation';
+import { useChatConversations } from './chat-state';
+import { expireSession, logout } from './session';
 
 const Today = React.lazy(() => import('./Employee').then(m => ({ default: m.Today })));
 const Schedule = React.lazy(() => import('./Employee').then(m => ({ default: m.Schedule })));
@@ -45,6 +47,7 @@ const AdminLegacySalary = React.lazy(() => import('./admin/people/LegacySalary')
 const AdminLoyalty = React.lazy(() => import('./admin/care/Loyalty'));
 const AdminReviews = React.lazy(() => import('./admin/care/Reviews'));
 const AdminChat = React.lazy(() => import('./admin/care/Chat'));
+const AdminSkinServiceMap = React.lazy(() => import('./admin/care/SkinServiceMap'));
 
 const loading = <ResourceState loading error="" reload={() => {}} />;
 
@@ -60,7 +63,7 @@ function adminScreen(me: Me, path: string): React.ReactNode {
   if (me.features.admin_catalog && path.startsWith('/admin/packages/')) return <AdminPackagePage me={me} path={path} />;
   return ({ '/admin/dashboard': <BusinessDashboard me={me} />, '/admin/crm': <CRM me={me} />, '/admin/reports': <Reports me={me} />,
     '/admin/security': <Security me={me} />, '/admin/profile': <Profile me={me} />,
-    ...(me.features.admin_care ? { '/admin/loyalty': <AdminLoyalty me={me} />, '/admin/reviews': <AdminReviews me={me} />, '/admin/chat': <AdminChat me={me} /> } : {}),
+    ...(me.features.admin_care ? { '/admin/loyalty': <AdminLoyalty me={me} />, '/admin/reviews': <AdminReviews me={me} />, '/admin/chat': <AdminChat me={me} />, '/admin/skin-service-map': <AdminSkinServiceMap me={me} /> } : {}),
     ...(me.features.admin_booking ? { '/admin/appointments': <AdminAppointments me={me} />, '/admin/customers': <AdminCustomers me={me} /> } : {}),
     ...(me.features.admin_billing ? { '/admin/invoices': <AdminInvoices me={me} />, '/admin/package-sales': <AdminPackageSales me={me} /> } : {}),
     ...(me.features.admin_catalog ? { '/admin/services': <AdminServices me={me} />, '/admin/packages': <AdminPackages me={me} /> } : {}),
@@ -70,6 +73,7 @@ function adminScreen(me: Me, path: string): React.ReactNode {
 }
 
 function EmployeePortal({ me, path }: { me: Me; path: string }) {
+  const chat=useChatConversations(me);
   const canManage = ['admin', 'manager'].includes(me.user.role);
   const screen = path.split('/').filter(Boolean).slice(1).join('/') || 'attendance';
   const items = [['attendance', 'Hôm nay'], ['appointments', 'Lịch hẹn'], ['schedule', 'Lịch ca'], ['income', 'Thu nhập'], ['account', 'Tài khoản']];
@@ -79,9 +83,16 @@ function EmployeePortal({ me, path }: { me: Me; path: string }) {
   return <div className="portal employee-portal">
     <header className="portal-header"><a className="brand" href="/employee/attendance"><span className="brand-mark">B</span><b>Bin Spa</b></a>
       <div className="header-actions"><span className="user-name">{me.user.name}</span>
+        {me.features.admin_care && <a className="chat-inbox-link" href="/admin/chat">Tin nhắn <Badge count={chat.totalUnread} overflowCount={99} /></a>}
+        <a className="employee-profile-link" href="/admin/profile">Trang cá nhân</a>
+        <Button className="employee-logout" onClick={()=>{void logout();}}>Đăng xuất</Button>
+        <Dropdown trigger={['click']} placement="bottomRight" menu={{items:[
+          {key:'profile',label:<a href="/admin/profile">Trang cá nhân</a>},
+          ...(me.features.staff_security?[{key:'security',label:<a href="/admin/security">Bảo mật tài khoản</a>}]:[]),
+          {type:'divider' as const},{key:'logout',label:'Đăng xuất',danger:true,onClick:()=>{void logout();}}
+        ]}}><Button className="employee-account-menu" aria-label="Tài khoản nhân viên">Tài khoản ▾</Button></Dropdown>
         {(canManage || (me.user.role === 'letan' && me.features.business_portal)) && <a href={adminHome}>Về trang quản trị</a>}</div></header>
-    <main className="portal-main"><div className="section-toolbar"><a className="profile-return" href="/admin/profile">← Trang cá nhân và các chức năng khác</a>
-      {me.features.staff_security && <a href="/admin/security">Bảo mật tài khoản</a>}</div>
+    <main className="portal-main">
       <React.Suspense fallback={loading}>
         {screens[screen] || <Result status="404" title="Không tìm thấy trang" extra={<Button href="/employee/attendance">Về trang chính</Button>} />}
       </React.Suspense></main>
@@ -93,6 +104,10 @@ function EmployeePortal({ me, path }: { me: Me; path: string }) {
 
 function Portal({ path }: { path: string }) {
   const resource = useResource<Me>('/api/me/operations');
+  useEffect(()=>{
+    const restore=(event:PageTransitionEvent)=>{if(event.persisted){if(!localStorage.getItem('admin_token'))expireSession();else resource.reload();}};
+    window.addEventListener('pageshow',restore);return()=>window.removeEventListener('pageshow',restore);
+  },[resource.reload]);
   const [, setClock] = useState(Date.now());
   useEffect(() => { const timer = window.setInterval(() => setClock(Date.now()), 30000); return () => window.clearInterval(timer); }, []);
   if (resource.loading && !resource.data) return <div className="portal-loading">{loading}</div>;

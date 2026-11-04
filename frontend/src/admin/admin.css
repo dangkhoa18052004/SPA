@@ -37,3 +37,9 @@
 .profile-avatar{width:88px;height:88px;border-radius:50%;object-fit:cover;background:#f0f5f2;border:1px solid var(--line)}
 .profile-form{max-width:520px}
 .profile-details{margin:28px 0 20px}
+
+.admin-topbar-actions { display:flex; align-items:center; gap:12px; min-width:0; }
+.chat-menu-unread { margin-left:8px; }
+.chat-inbox-link { display:inline-flex; gap:8px; align-items:center; min-height:44px; color:#254638; white-space:nowrap; }
+.chat-menu-unread .ant-badge-count,.chat-inbox-link .ant-badge-count { background:#a52d22; }
+@media(max-width:479px) { .admin-topbar-actions { gap:4px; } .chat-inbox-link { font-size:12px; } }

@@ -38,6 +38,8 @@
 
 ## DOM và bridge
 
+Master plan 20/10/2026: public `GET /api/services/categories` returns `{success,categories:[{id,name,slug,service_count}]}` from active populated DB categories (no-store). Service list accepts exact persisted category slug, optional validated `min_price/max_price/min_duration/max_duration`, and **opt-in** `page/per_page` (default 9, cap 100). Paged response adds `page,per_page,total_pages`; no paging params keeps full list. Ranking/filtering precedes slicing. Invalid ranges/pages return 400; out-of-range returns empty; empty total_pages=0. Hidden category metadata is null. Catalog URL/history and packages client pagination are owned by their existing scripts. No purchase/booking/payment request change.
+
 - `window.CustomerTreatments` chỉ đăng ký bởi account entry khi gate mới khả dụng. Bridge cung cấp markup cho list/history/pending/loading/error; `PackageCare.loadTreatments()` tiếp tục sở hữu GET và event trong `myTreatments`/`myPackagePurchases`. Không mount React vào các root này. Thiếu bridge hoặc `?ui=legacy` dùng renderer cũ; admin không gọi nhánh mới. Các query booking `treatment`, `service`, `item` và purchase resume ID được giữ nguyên.
 
 - `servicesGrid`: home thuộc main.js; `/services` thuộc services.js; không mount hai owner. `relatedRecommendations` thuộc recommendations.js.

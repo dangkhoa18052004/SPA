@@ -79,15 +79,25 @@ OVERLOADED = (429, 500, 503)
 
 def call_gemini(payload):
     """POST generateContent. Tách riêng để test mock; không bao giờ log key/payload.
-    Model chính quá tải (429/5xx): thử lại 1 lần rồi chuyển lần lượt sang GEMINI_FALLBACK_MODELS."""
+    Reserve time for configured fallbacks and reuse a working model within a request.
+    Provider errors are neutral; the caller supplies booking/report-specific advice."""
     if not is_configured():
         raise AINotConfigured('Trợ lý AI chưa được cấu hình (thiếu GEMINI_API_KEY). Các chức năng khác vẫn hoạt động bình thường.')
-    attempts = [model_name(), model_name()] + fallback_models()
+    models = list(dict.fromkeys([model_name()] + fallback_models()))
+    failed = g.setdefault('ai_failed_models', set())
+    models = [model for model in models if model not in failed] or models
+    if not hasattr(g, 'ai_deadline'):
+        g.ai_deadline = time.monotonic() + 22
+    preferred = getattr(g, 'ai_preferred_model', None)
+    if preferred in models:
+        models = [preferred] + [model for model in models if model != preferred]
+    attempts = models if len(models) > 1 or preferred in models else models * 2
     for index, model in enumerate(attempts):
         remaining = getattr(g, 'ai_deadline', float('inf')) - time.monotonic() if has_app_context() else float('inf')
         if remaining < 0.5:
-            raise AIUpstreamError('Trợ lý đang phản hồi chậm. Vui lòng thử lại hoặc dùng trang Đặt lịch.', 504)
-        budget = min(float(current_app.config.get('GEMINI_TIMEOUT', 30)), remaining)
+            raise AIUpstreamError('Dịch vụ AI chưa phản hồi kịp thời. Vui lòng thử lại sau.', 504)
+        # A slow primary must not consume all 22 seconds before fallback can run.
+        budget = min(float(current_app.config.get('GEMINI_TIMEOUT', 30)), remaining / (len(attempts) - index))
         connect = min(3, budget / 2)
         try:
             response = requests.post(
@@ -95,15 +105,17 @@ def call_gemini(payload):
                 headers={'x-goog-api-key': current_app.config['GEMINI_API_KEY'].strip(), 'Content-Type': 'application/json'},
                 timeout=(connect, max(0.1, budget - connect)))
         except requests.RequestException as error:
+            failed.add(model)
             current_app.logger.warning('[ai] Gemini request failed (%s): %s', model, type(error).__name__)
             if index + 1 < len(attempts):
                 continue
+            if isinstance(error, requests.Timeout):
+                raise AIUpstreamError('Dịch vụ AI chưa phản hồi kịp thời. Vui lòng thử lại sau.', 504)
             raise AIUpstreamError('Không kết nối được dịch vụ AI, vui lòng thử lại sau.')
-        if response.status_code not in OVERLOADED or index + 1 == len(attempts):
+        if response.status_code not in (*OVERLOADED, 404) or index + 1 == len(attempts):
             break
         current_app.logger.info('[ai] %s HTTP %s, thử model kế tiếp', model, response.status_code)
-        if index == 0:
-            time.sleep(1.0)
+        failed.add(model)
     if response.status_code != 200:
         try:
             reason = response.json().get('error', {}).get('status', '')
@@ -117,6 +129,7 @@ def call_gemini(payload):
         result = response.json()
         if not isinstance(result, dict):
             raise ValueError()
+        g.ai_preferred_model = model
         return result
     except ValueError:
         raise AIUpstreamError('Dịch vụ AI trả phản hồi không hợp lệ. Vui lòng thử lại sau.')

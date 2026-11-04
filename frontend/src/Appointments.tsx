@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Button, Card, Descriptions, Drawer, Form, Input, Select, Space, Statistic, Table, Tag } from 'antd';
+import { useEffect, useState } from 'react';
+import { Alert, Button, Card, Descriptions, Drawer, Form, Input, Select, Space, Statistic, Table, Tag } from 'antd';
 import { dateLabel, time } from './attendance';
 import { Pager, ResourceState, useResource } from './components';
+import { useQuery } from './router';
 import type { EmployeeAppointment, Page } from './types';
 
 const statuses = [
@@ -25,6 +26,13 @@ export default function Appointments() {
   const [form] = Form.useForm();
   const params = new URLSearchParams({ ...filters, page: String(page) });
   const resource = useResource<Result>(`/api/me/appointments?${params}`);
+  // ?view=<id> from the dashboard opens that appointment; the API only returns the signed-in employee's own.
+  const [query, setQuery] = useQuery();
+  const view = query.get('view') || '';
+  const linked = useResource<Result>(view ? `/api/me/appointments?id=${encodeURIComponent(view)}` : '');
+  const linkedItem = linked.data?.items.find(item => String(item.id) === view);
+  useEffect(() => { if (linkedItem) setSelected(linkedItem); }, [linked.data]);
+  function close() { setSelected(undefined); if (query.has('view')) setQuery({ view: null }); }
   function apply(values: Record<string, string>) {
     setFilters(Object.fromEntries(Object.entries(values).filter(([, value]) => !!value)));
     setPage(1);
@@ -48,6 +56,8 @@ export default function Appointments() {
         <Button onClick={resource.reload}>Cập nhật</Button>
       </Space>
     </Form></Card>
+    {view && !linked.loading && (linked.error || !linkedItem) && <Alert className="section-title" type="warning" showIcon closable onClose={() => setQuery({ view: null }, true)}
+      message={linked.error || `Không tìm thấy lịch hẹn #${view} trong lịch của bạn.`} />}
     <div className="section-toolbar"><h2>{resource.data?.total ?? 0} lịch hẹn</h2><span className="muted">Giờ Việt Nam</span></div>
     <ResourceState {...resource} empty={!resource.data?.items.length} />
     {!resource.loading && !resource.error && <>
@@ -67,7 +77,7 @@ export default function Appointments() {
       ]} />
       <Pager data={resource.data} setPage={setPage} />
     </>}
-    <Drawer title="Chi tiết lịch hẹn" width={520} open={!!selected} onClose={() => setSelected(undefined)}>
+    <Drawer title="Chi tiết lịch hẹn" width={520} open={!!selected} onClose={close}>
       {selected && <><h2>{selected.customer_name}</h2><AppointmentStatus item={selected} />
         <Descriptions className="section-title" column={1} bordered items={[
           { key: 'id', label: 'Mã lịch hẹn', children: `#${selected.id}` },

@@ -198,9 +198,9 @@ function PositionList() {
 }
 
 export function Positions({ me }: { me: Me }) {
-  return me.user.role === 'admin' ? <PositionList /> : <Result status="403" title="Chỉ quản trị viên quản lý chức vụ" />;
+  return me.user.role === 'admin' ? <PositionList /> : <Result status="403" title="Chỉ quản trị viên quản lý chức vụ" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
 }
 
 export default function Staff({ me }: { me: Me }) {
-  return me.user.role === 'admin' ? <StaffList /> : <Result status="403" title="Chỉ quản trị viên quản lý nhân viên" />;
+  return me.user.role === 'admin' ? <StaffList /> : <Result status="403" title="Chỉ quản trị viên quản lý nhân viên" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
 }

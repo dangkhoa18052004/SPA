@@ -3,7 +3,8 @@ from datetime import datetime
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.schema import FetchedValue
 from .loyalty_models import (LoyaltyWallet, LoyaltyConfig, LoyaltyPointTransaction,
-    LoyaltyRedemptionReservation, LoyaltyReward, LoyaltyRewardRedemption)
+    LoyaltyRedemptionReservation, LoyaltyReward, LoyaltyRewardRedemption,
+    CustomerOtpRegistration, WelcomeVoucherConfig)
 nhanvien_calam = db.Table('nhanvien_calam',
     db.Column('manv', db.Integer, db.ForeignKey('nhanvien.manv'), primary_key=True),
     db.Column('maca', db.Integer, db.ForeignKey('calam.maca'), primary_key=True)
@@ -578,4 +579,5 @@ from .operations_models import PayrollCommissionDelta
 from .crm_models import CustomerPreference, CustomerPreferenceAudit, RecommendationImpression, RecommendationTiming
 from .release_models import AuthRateBucket, ReportExportAudit, WorkerHeartbeat, AppointmentOutcome
 from .ai_chat_models import AIChatJob
+from .skin_models import SkinAnalysis  # noqa: E402,F401
 from .security_models import StaffMFA, StaffRecoveryCode, StaffStepUp, StaffSecurityAudit

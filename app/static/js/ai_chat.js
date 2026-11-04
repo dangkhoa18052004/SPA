@@ -170,12 +170,14 @@
             root.classList.toggle('is-open', open);
             writeValue('.open', open ? '1' : '0');
             if (open) {
+                document.getElementById('chatBox')?.classList.remove('show');
                 fab.querySelector('span').textContent = 'Trợ lý AI';
                 if (focus) input.focus();
                 requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
             }
         };
         fab.onclick = () => toggle(panel.hidden);
+        document.addEventListener('binspa:open-human-chat', () => toggle(false, false));
         root.querySelector('[data-close]').onclick = () => toggle(false);
         root.querySelector('[data-reset]').onclick = () => { if (!busy) { history = []; store.save(history); savePending(null); greet(); } };
         document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) toggle(false); });

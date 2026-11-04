@@ -9,7 +9,9 @@
         const form = typeof FormData !== 'undefined' && data instanceof FormData;
         const headers = isAdmin() ? window.getAuthHeaders(!form) : (form ? {} : {'Content-Type':'application/json'});
         const fetcher = !isAdmin() && window.CustomerAuth ? window.CustomerAuth.fetch.bind(window.CustomerAuth) : fetch;
-        const response = await fetcher(url,{method,headers, ...(data ? {body:form ? data : JSON.stringify(data)} : {})});
+        const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000);
+        try{
+        const response = await fetcher(url,{method,headers,signal:controller.signal, ...(data ? {body:form ? data : JSON.stringify(data)} : {})});
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.toLowerCase().includes('application/json')) {
             console.error('Package API expected JSON:', url, response.status, contentType);
@@ -24,11 +26,12 @@
         }
         if (!response.ok) throw Object.assign(new Error(result.message || result.msg || 'Không thể tải dữ liệu'), {status: response.status});
         return result;
+        }finally{clearTimeout(timeout);}
     }
     function message(text) { const el=document.getElementById('packageMessage'); if(el) el.textContent=text; }
     const validity = months => months == null ? 'Vô thời hạn' : `${months} tháng từ khi kích hoạt`;
     const cover = p => `<img class="package-cover" src="${esc(p.image_url || '/static/images/default-package.svg')}" alt="${esc(p.tengoi)}" loading="lazy" onerror="this.onerror=null;this.src='/static/images/default-package.svg'">`;
-    const packageHtml = (p, saleBadge = '') => `<article class="package-panel package-card">${cover(p)}<div class="package-card-body">${saleBadge}<span class="package-badge">${Number(p.savings)>0?'Tiết kiệm '+price(p.savings):validity(p.validity_months)}</span><h3>${esc(p.tengoi)}</h3><p class="package-description">${esc(p.mota)}</p><ul class="package-service-list">${p.items.map(i=>`<li><span>${esc(i.tendv)}</span><strong>${i.total_sessions} buổi</strong><small>${price(i.regular_unit_price_snapshot)}/buổi</small></li>`).join('')}</ul><p class="package-retail">Giá lẻ tổng: ${price(p.regular_total)}</p><p class="package-price">${price(p.giagoi)}</p>${Number(p.savings)>0?`<p class="package-saving">Tiết kiệm: ${price(p.savings)}</p>`:''}<p class="package-validity">${validity(p.validity_months)}</p></div>`;
+    const packageHtml = (p, saleBadge = '') => `<article class="package-panel package-card">${cover(p)}<div class="package-card-body">${saleBadge}<span class="package-badge">${Number(p.savings)>0?'Tiết kiệm '+price(p.savings):validity(p.validity_months)}</span><h3>${esc(p.tengoi)}</h3><p class="package-description">${esc(p.mota)}</p><ul class="package-service-list">${p.items.map(i=>`<li><span>${esc(i.tendv)}</span><strong>${i.total_sessions} buổi</strong><small>${price(i.regular_unit_price_snapshot)}/buổi${i.package_unit_value!=null?` · Giá trong gói: ${price(i.package_unit_value)}/buổi`:""}</small></li>`).join('')}</ul><p class="package-retail">Giá lẻ tổng: ${price(p.regular_total)}</p><p class="package-price">${price(p.giagoi)}</p>${Number(p.savings)>0?`<p class="package-saving">Tiết kiệm: ${price(p.savings)}</p>`:''}<p class="package-validity">${validity(p.validity_months)}</p></div>`;
     let pollTimer, pollCount=0;
     async function showPayment(purchase) {
         const panel=document.getElementById('packagePayment');
@@ -57,7 +60,7 @@
             '<button type="button" class="btn btn-secondary" id="checkPackagePayment">Kiểm tra thanh toán</button>';
         const endpoint=isAdmin()?`/api/admin/package-sales/${purchase.id}/status`:`/api/packages/purchases/${purchase.id}/status`;
         const base=isAdmin()?`/api/admin/packages/purchases/${purchase.id}`:`/api/packages/purchases/${purchase.id}`;
-        const reload=async()=>showPayment((await api(endpoint)).purchase);
+        const reload=async()=>{const result=await api(endpoint);if(!dialog||dialog.open)return showPayment(result.purchase);};
         const reveal=panel.querySelector('[data-reveal-qr]');
         if(reveal) reveal.onclick=()=>{panel.querySelector('[data-package-qr]').hidden=false;reveal.hidden=true;};
         const pointButton=panel.querySelector('[data-pay-points]');
@@ -102,37 +105,104 @@
         modal.querySelector('[data-login-close]').onclick=close;
         modal.onclick=e=>{if(e.target===modal)close();};
     }
+    const buyingPackages=new Set();
+    const purchaseMarkerKey=id=>{
+        let owner='';try{owner=JSON.parse(atob((window.CustomerAuth?.getAccessToken()||localStorage.getItem('access_token')||'').split('.')[1])).sub;}catch(e){/* Authentication is checked separately. */}
+        return `binspa.pending-package-purchase:${owner}:${id}`;
+    };
+    async function reconcilePurchase(id){
+        const key=purchaseMarkerKey(id),raw=sessionStorage.getItem(key);if(!raw)return false;
+        const marker=JSON.parse(raw);
+        const data=await api('/api/packages/my-purchases');
+        const matches=data.purchases.filter(p=>Number(p.magoi)===id&&!marker.before.includes(p.id));
+        if(matches.length===1){await showPayment(matches[0]);sessionStorage.removeItem(key);message('Đã tìm thấy đơn mua trước đó. Không tạo thêm đơn.');return true;}
+        message(matches.length?'Có nhiều đơn phù hợp. Vui lòng đối chiếu tại Liệu trình của tôi trước khi mua thêm.':'Chưa xác định kết quả mua gói. Bấm Mua gói để kiểm tra lại; hệ thống sẽ không gửi lại yêu cầu mua.');
+        return false;
+    }
     async function buy(id) {
-        if(!(await customerLoggedIn())) return requireLogin(id);
+        if(buyingPackages.has(id))return;
+        buyingPackages.add(id);
+        let sent=false,key,reconciling=false;
         try {
+            if(!(await customerLoggedIn())) return requireLogin(id);
+            key=purchaseMarkerKey(id);
+            if(sessionStorage.getItem(key)){reconciling=true;await reconcilePurchase(id);return;}
+            const before=await api('/api/packages/my-purchases');
+            sessionStorage.setItem(key,JSON.stringify({before:before.purchases.map(p=>p.id)}));
             // Khách mua online chỉ thanh toán VietQR (bán tiền mặt do nhân viên tạo tại quầy).
+            sent=true;
             const result=await api(`/api/packages/${id}/purchase`,'POST',{payment_method:'vietqr'});
             await showPayment(result.purchase);
+            sessionStorage.removeItem(key);
         } catch(e){
+            if(reconciling||sent&&(!e.status||e.status>=500)){
+                try{await reconcilePurchase(id);}catch(error){message('Chưa xác minh được đơn mua. Bấm Mua gói để kiểm tra lại trước khi tạo yêu cầu mới.');}
+                return;
+            }
+            if(key)sessionStorage.removeItem(key);
             if(/đăng nhập|token|401/i.test(e.message)) return requireLogin(id);
             message(e.message);
-        }
+        } finally {buyingPackages.delete(id);}
     }
+    // Short listing cards; the existing full renderer remains for detail/admin.
+    function packageSummaryHtml(p) {
+        const items=p.items||[], sessions=items.reduce((sum,i)=>sum+Number(i.total_sessions||0),0);
+        return `<article class="package-panel package-card">${cover(p)}<div class="package-card-body"><h3>${esc(p.tengoi)}</h3><p class="package-description">${esc(p.mota)}</p><p>${items.length} dịch vụ · ${sessions} lượt</p><ul class="package-preview">${items.slice(0,3).map(i=>`<li>${esc(i.tendv)}</li>`).join('')}${items.length>3?`<li>+${items.length-3} dịch vụ khác</li>`:''}</ul><p class="package-price">${price(p.giagoi)}</p>${Number(p.savings)>0?`<p class="package-saving">Tiết kiệm ${price(p.savings)}</p>`:''}<p class="package-validity">${validity(p.validity_months)}</p></div>`;
+    }
+    let packageCatalogTimer;
     async function loadCustomerPackages() {
         const page=document.querySelector('[data-package-page="customer"]');
         const id=page.dataset.packageId;
+        let catalogLoaded=false;
         try {
             const options=await api('/api/packages/payment-options');
             const result=await api(id?`/api/packages/${id}`:'/api/packages');
             const packages=(result.packages || [result.package]).filter(p=>p.active && p.customer_sale_enabled);
             if (id && packages.length) window.CustomerRecommendations?.track('view_package', {magoi: Number(id)});
-            document.getElementById('packageList').innerHTML=packages.length?packages.map(p=>packageHtml(p)+
-                `<div class="package-card-actions">${!id?`<a class="btn btn-secondary" href="/packages/${p.magoi}">Xem chi tiết</a>`:''}<p class="package-pay-method"><i class="fas fa-qrcode" aria-hidden="true"></i> Thanh toán chuyển khoản VietQR</p>${options.vietqr_available?`<button type="button" class="btn btn-primary" data-buy="${p.magoi}">Mua gói</button>`:'<button type="button" class="btn btn-primary" disabled title="VietQR đang tạm ngưng">Tạm ngưng bán online</button>'}</div></article>`).join(''):'Chưa có gói dịch vụ đang bán.';
-            document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{b.disabled=true;buy(Number(b.dataset.buy)).finally(()=>b.disabled=false);});
+            const root=document.getElementById('packageList');
+            const card=p=>(id?packageHtml(p):packageSummaryHtml(p))+
+                `<div class="package-card-actions">${!id?`<a class="btn btn-secondary" href="/packages/${p.magoi}">Xem chi tiết</a>`:''}<p class="package-pay-method"><i class="fas fa-qrcode" aria-hidden="true"></i> Thanh toán chuyển khoản VietQR</p>${options.vietqr_available?`<button type="button" class="btn btn-primary" data-buy="${p.magoi}">Mua gói</button>`:'<button type="button" class="btn btn-primary" disabled title="VietQR đang tạm ngưng">Tạm ngưng bán online</button>'}</div></article>`;
+            const bindBuy=()=>root.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{b.disabled=true;buy(Number(b.dataset.buy)).finally(()=>b.disabled=false);});
+            if(id){
+                root.innerHTML=packages.length?packages.map(card).join(''):'Chưa có gói dịch vụ đang bán.';bindBuy();
+            }else{
+                const search=document.getElementById('packageSearch'),sort=document.getElementById('packageSort');
+                let current=1;
+                function restore(){const p=new URLSearchParams(location.search);search.value=p.get('search')||'';sort.value=[...sort.options].some(o=>o.value===p.get('sort'))?p.get('sort'):'default';current=Math.max(1,Math.floor(Number(p.get('page'))||1));}
+                function sync(){const u=new URL(location.href);for(const [k,v,f] of [['search',search.value.trim(),''],['sort',sort.value,'default'],['page',String(current),'1']]){v===f?u.searchParams.delete(k):u.searchParams.set(k,v);}if(u.href!==location.href)history.pushState(null,'',u.pathname+u.search+u.hash);}
+                function render(){
+                    const term=search.value.trim().toLocaleLowerCase('vi');
+                    const rows=packages.filter(p=>!term||[p.tengoi,p.mota,...p.items.map(i=>i.tendv)].join(' ').toLocaleLowerCase('vi').includes(term));
+                    const comparators={'price-asc':(a,b)=>Number(a.giagoi)-Number(b.giagoi)||a.magoi-b.magoi,'price-desc':(a,b)=>Number(b.giagoi)-Number(a.giagoi)||a.magoi-b.magoi,'name-asc':(a,b)=>a.tengoi.localeCompare(b.tengoi,'vi')||a.magoi-b.magoi,'name-desc':(a,b)=>b.tengoi.localeCompare(a.tengoi,'vi')||a.magoi-b.magoi};
+                    if(comparators[sort.value])rows.sort(comparators[sort.value]);
+                    const total=rows.length,pages=Math.ceil(total/9);current=Math.min(current,pages||1);
+                    root.innerHTML=total?rows.slice((current-1)*9,current*9).map(card).join(''):'<div class="package-empty" role="status">Không tìm thấy gói dịch vụ. Hãy thử xóa bộ lọc.</div>';bindBuy();
+                    document.getElementById('packageResultCount').textContent=`Hiển thị ${total?(current-1)*9+1:0}–${Math.min(current*9,total)} / ${total} gói`;
+                    const nav=document.getElementById('packagePagination');nav.replaceChildren();
+                    if(pages>1){
+                        const add=(label,target,disabled,active)=>{const b=document.createElement('button');b.type='button';b.className='btn btn-outline';b.textContent=label;b.disabled=disabled;if(active)b.setAttribute('aria-current','page');b.onclick=()=>{current=target;render();sync();const c=document.getElementById('packageResultCount');c.focus({preventScroll:true});c.scrollIntoView({block:'start',behavior:'instant'});};nav.append(b);};
+                        add('Trước',current-1,current===1);let previous=0;
+                        for(const p of [...new Set([1,...Array.from({length:5},(_,i)=>current+i-2).filter(n=>n>1&&n<pages),pages])]){if(previous&&p>previous+1)nav.append(document.createTextNode('…'));add(String(p),p,false,p===current);previous=p;}
+                        add('Sau',current+1,current===pages);
+                    }
+                }
+                const update=()=>{current=1;render();sync();};
+                search.oninput=()=>{clearTimeout(packageCatalogTimer);packageCatalogTimer=setTimeout(update,300);};sort.onchange=update;
+                document.getElementById('packageClear').onclick=()=>{clearTimeout(packageCatalogTimer);search.value='';sort.value='default';update();};
+                window.addEventListener('popstate',()=>{clearTimeout(packageCatalogTimer);restore();render();});restore();render();
+            }
+            catalogLoaded=true;
+            if(id&&sessionStorage.getItem(purchaseMarkerKey(Number(id))))await reconcilePurchase(Number(id));
             // Vừa đăng nhập xong từ hộp "Vui lòng đăng nhập": tiếp tục mua gói đã chọn.
             const resume=Number(new URLSearchParams(location.search).get('buy'));
             if(resume>0 && packages.some(p=>p.magoi===resume) && await customerLoggedIn()){
-                history.replaceState(null,'',location.pathname);
+                const resumedUrl=new URL(location.href);resumedUrl.searchParams.delete('buy');
+                history.replaceState(null,'',resumedUrl.pathname+resumedUrl.search+resumedUrl.hash);
                 await buy(resume);
             }
             const pending=new URLSearchParams(location.search).get('purchase');
             if(pending) await showPayment((await api(`/api/packages/purchases/${Number(pending)}`)).purchase);
-        } catch(e){message(e.message);}
+        } catch(e){message(e.message);if(!catalogLoaded){const root=document.getElementById('packageList');root.innerHTML='<div class="package-empty" role="alert">Chưa tải được gói dịch vụ. <button type="button" class="btn btn-outline" data-retry-packages>Thử lại</button></div>';root.querySelector('[data-retry-packages]').onclick=()=>{message('');loadCustomerPackages();};}}
     }
     function treatmentHtml(t, admin=false) {
         const sections = ['package', 'gift'].map(source => {

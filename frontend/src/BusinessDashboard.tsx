@@ -60,6 +60,7 @@ function DailySchedule({ role, employeePortal }: { role: string; employeePortal?
   const progress = rows.filter(r => r.trangthai === 'in_progress').length;
   const visible = rows.filter(r => (!status || r.trangthai === status) && `${r.khachhang_hoten} ${r.dichvu_ten} ${r.nhanvien_hoten || ''}`.toLocaleLowerCase('vi').includes(search.toLocaleLowerCase('vi')));
   const href = staff ? employeePortal ? '/employee/appointments' : '/admin/appointments' : '/admin/appointments';
+  const detailHref = (row: Appointment) => `${href}?view=${row.malh}`;
   const badge = (row: Appointment) => <Tag color={color[row.trangthai]}>{row.trangthai_vi}</Tag>;
   return <section><div className="section-toolbar"><h2>{staff ? 'Lịch khách của tôi hôm nay' : 'Lịch hẹn hôm nay'}</h2><Space wrap><Button onClick={resource.reload}>Làm mới</Button><Button href={href}>Xem tất cả lịch hẹn</Button></Space></div>
     <ResourceState {...resource} />
@@ -71,8 +72,8 @@ function DailySchedule({ role, employeePortal }: { role: string; employeePortal?
         {visible.length ? <><div className="desktop-table"><Table rowKey="malh" dataSource={visible} pagination={{ pageSize: 10, showSizeChanger: false }} columns={[
           { title: 'Giờ', dataIndex: 'ngaygio', render: time, width: 80 }, { title: 'Khách hàng', dataIndex: 'khachhang_hoten' }, { title: 'Dịch vụ', dataIndex: 'dichvu_ten' },
           ...(!staff ? [{ title: 'Nhân viên', dataIndex: 'nhanvien_hoten' }] : []), { title: 'Trạng thái', render: (_: unknown, row: Appointment) => badge(row) },
-          { title: 'Thao tác', render: () => <Button href={href}>Mở lịch hẹn</Button> }]} /></div>
-          <div className="mobile-cards">{visible.map(row => <article className="business-appointment" key={row.malh}><div className="card-head"><strong>{time(row.ngaygio)} · #{row.malh}</strong>{badge(row)}</div><h3>{row.khachhang_hoten}</h3><p>{row.dichvu_ten}</p>{!staff && <p className="muted">{row.nhanvien_hoten || 'Chưa phân công'}</p>}<Button href={href}>Mở lịch hẹn</Button></article>)}</div>
+          { title: 'Thao tác', render: (_: unknown, row: Appointment) => <Button href={detailHref(row)}>Mở lịch hẹn</Button> }]} /></div>
+          <div className="mobile-cards">{visible.map(row => <article className="business-appointment" key={row.malh}><div className="card-head"><strong>{time(row.ngaygio)} · #{row.malh}</strong>{badge(row)}</div><h3>{row.khachhang_hoten}</h3><p>{row.dichvu_ten}</p>{!staff && <p className="muted">{row.nhanvien_hoten || 'Chưa phân công'}</p>}<Button href={detailHref(row)}>Mở lịch hẹn</Button></article>)}</div>
         </> : <Empty description={rows.length ? 'Không có lịch khớp bộ lọc' : 'Hôm nay chưa có lịch hẹn'} />}
       </Card></>}
   </section>;

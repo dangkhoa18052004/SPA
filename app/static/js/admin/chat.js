@@ -3,6 +3,8 @@ let currentConversation = null;
 let messages = [];
 let refreshInterval = null;
 let isSending = false; 
+let conversationsVersion=0,messagesVersion=0,messageController;
+document.addEventListener('binspa:inbox',event=>{conversations=event.detail.conversations||[];renderConversationsList();});
 
 // ===================================
 // ======= KHỞI TẠO & SỰ KIỆN =========
@@ -18,14 +20,21 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     
     // Thiết lập làm mới định kỳ
-    refreshInterval = setInterval(() => {
+    startLegacyChatPolling();
+});
 
-        loadConversations(false); 
+function startLegacyChatPolling(){
+    clearInterval(refreshInterval);
+    refreshInterval = setInterval(() => {
+        if(document.hidden)return;
+        if(!window.AdminChatInbox)loadConversations(false);
         if (currentConversation) {
             loadMessages(currentConversation.maht, false); 
         }
     }, 5000); // 5 giây 1 lần
-});
+}
+window.addEventListener('pagehide',()=>{clearInterval(refreshInterval);messageController?.abort();++messagesVersion;});
+window.addEventListener('pageshow',event=>{if(event.persisted)startLegacyChatPolling();});
 
 // ====== SETUP EVENT LISTENERS ======
 function setupEventListeners() {
@@ -79,6 +88,7 @@ window.addEventListener('beforeunload', function() {
 
 // ====== ĐÓNG HỘI THOẠI ======
 function closeConversation() {
+    ++messagesVersion;messageController?.abort();
     currentConversation = null;
     messages = [];
 
@@ -184,19 +194,22 @@ async function sendMessage() {
 
 // ====== TẢI DANH SÁCH HỘI THOẠI ======
 async function loadConversations(showLoading = true) {
+    if(document.hidden)return;
+    const version=++conversationsVersion;
     if (showLoading) {
         const container = document.getElementById('conversations-list');
         if (container) container.innerHTML = '<div class="loading-messages"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
     }
     
     try {
+        if(window.AdminChatInbox){const data=await window.AdminChatInbox.refresh();if(data&&version===conversationsVersion){conversations=data.conversations||[];renderConversationsList();}return;}
         const response = await fetch('/api/chat/conversations', {
             headers: getAuthHeaders(false)
         });
         const data = await response.json();
         
-        if (data.success) {
-            conversations = data.conversations || [];
+        if (data.success && version===conversationsVersion) {
+            conversations = (data.conversations || []).sort((a,b)=>(Date.parse(b.last_message_time)||0)-(Date.parse(a.last_message_time)||0)||b.maht-a.maht);
             renderConversationsList();
         } else {
             if (showLoading) showError(data.message || 'Không thể tải danh sách hội thoại');
@@ -236,7 +249,7 @@ function renderConversationsList() {
             : '';
             
         return `
-            <div class="conversation-item ${currentSelectedId && currentSelectedId === conv.maht ? 'active' : ''}" 
+            <div class="conversation-item ${conv.unread_count?'is-unread ':''}${currentSelectedId && currentSelectedId === conv.maht ? 'active' : ''}"
                  onclick="selectConversation(${conv.maht})">
                 
                 <div class="conversation-avatar">
@@ -259,6 +272,8 @@ function renderConversationsList() {
 
 // ====== TẢI TIN NHẮN ======
 async function loadMessages(maht, showLoadingIndicator = true) {
+    if(document.hidden||currentConversation?.maht!==maht)return;
+    const version=++messagesVersion;messageController?.abort();messageController=new AbortController();
     try {
         if (showLoadingIndicator) {
             const container = document.getElementById('messages-container');
@@ -268,12 +283,13 @@ async function loadMessages(maht, showLoadingIndicator = true) {
         }
         
         const response = await fetch(`/api/chat/conversations/${maht}/messages`, {
-            headers: getAuthHeaders(false)
+            headers: getAuthHeaders(false),signal:messageController.signal
         });
         
         const data = await response.json();
         
-        if (data.success) {
+        if (data.success && version===messagesVersion && currentConversation?.maht===maht) {
+            if(conversations.find(c=>c.maht===maht)?.unread_count){if(window.AdminChatInbox)window.AdminChatInbox.refresh(true).catch(()=>{});else loadConversations(false);}
             // Chỉ render nếu tin nhắn thực sự thay đổi (tránh giật)
             if (JSON.stringify(messages) !== JSON.stringify(data.messages)) {
                 messages = data.messages || [];
@@ -283,6 +299,7 @@ async function loadMessages(maht, showLoadingIndicator = true) {
             if (showLoadingIndicator) showError(data.message || 'Không thể tải tin nhắn');
         }
     } catch (error) {
+        if(error.name==='AbortError'||version!==messagesVersion)return;
         console.error('Lỗi tải tin nhắn:', error);
         if (showLoadingIndicator) showError('Không thể tải tin nhắn');
     }

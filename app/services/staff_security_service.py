@@ -20,7 +20,7 @@ from ..extensions import db
 from ..security_models import StaffMFA, StaffRecoveryCode, StaffStepUp, StaffSecurityAudit
 from .runtime_service import consume_limit, insert_for
 
-ELEVATION_SECONDS = 600
+ELEVATION_SECONDS = 3600
 
 
 class SecurityError(Exception):

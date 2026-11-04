@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, App, Button, Card, Empty, Form, Input, Radio, Result, Select, Space, Table, Tag } from 'antd';
+import { Alert, App, Button, Card, Empty, Form, Input, Pagination, Radio, Result, Select, Space, Table, Tag } from 'antd';
 import { api, ApiError, post } from '../../api';
 import { ResourceState, useResource } from '../../components';
 import { useQuery } from '../../router';
@@ -12,7 +12,10 @@ import { findCreatedPurchase, validityText } from './model';
 import type { SalePackage } from './model';
 import { PackagePayment, purchaseMethod, purchaseStatus } from './PackagePayment';
 import type { Purchase } from './PackagePayment';
+import { TreatmentDrawer } from '../catalog/Packages';
 import '../booking/booking.css';
+
+type HistoryPage = { purchases: Purchase[]; has_more?: boolean; next_before_id?: number | null };
 
 type SaleCustomer = { makh: number; hoten: string; sdt: string | null };
 const when = (v: string | null) => v ? new Date(v).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -36,11 +39,25 @@ function Sales({ me }: { me: Me }) {
   const [query, setQuery] = useQuery();
   const historySearch = query.get('q') || '';
   const historyStatus = query.get('status') || '';
+  const [historyPage, setHistoryPage] = useState(1);
+  useEffect(() => setHistoryPage(1), [historySearch, historyStatus]);
   const [historyDraft, setHistoryDraft] = useState(historySearch);
   useEffect(() => setHistoryDraft(historySearch), [historySearch]);
   const packages = useResource<{ packages: SalePackage[] }>('/api/admin/package-sales/packages');
   const options = useResource<{ vietqr_available: boolean }>('/api/packages/payment-options');
-  const history = useResource<{ purchases: Purchase[] }>(`/api/admin/package-sales?${new URLSearchParams({ search: historySearch, status: historyStatus })}`);
+  const historyQuery = new URLSearchParams({ search: historySearch, status: historyStatus }).toString();
+  const history = useResource<HistoryPage>(`/api/admin/package-sales?${historyQuery}`);
+  // The API returns 200 receipts per page; older pages are appended on demand and dropped on any reload.
+  const [older, setOlder] = useState<{ purchases: Purchase[]; next: number | null; loading: boolean; error: string }>({ purchases: [], next: null, loading: false, error: '' });
+  useEffect(() => setOlder({ purchases: [], next: history.data?.next_before_id ?? null, loading: false, error: '' }), [history.data]);
+  async function loadOlder() {
+    if (!older.next || older.loading) return;
+    setOlder(o => ({ ...o, loading: true, error: '' }));
+    try {
+      const page = await api<HistoryPage>(`/api/admin/package-sales?${historyQuery}&before_id=${older.next}`);
+      setOlder(o => ({ purchases: [...o.purchases, ...page.purchases], next: page.next_before_id ?? null, loading: false, error: '' }));
+    } catch (e) { setOlder(o => ({ ...o, loading: false, error: (e as Error).message })); }
+  }
   const [customers, setCustomers] = useState<SaleCustomer[]>([]);
   const [customer, setCustomer] = useState<number>();
   const [magoi, setMagoi] = useState<number>();
@@ -51,6 +68,8 @@ function Sales({ me }: { me: Me }) {
   const [quick, setQuick] = useState(false);
   const [paying, setPaying] = useState<number | null>(null);
   const [receipt, setReceipt] = useState<ReceiptTarget | null>(null);
+  const [giftTreatment, setGiftTreatment] = useState<number | null>(null);
+  const canGift = ['admin', 'manager'].includes(me.user.role);
   const searchVersion = useRef(0);
   const searchTimer = useRef(0);
   async function searchCustomers(term: string, select?: number) {
@@ -103,16 +122,19 @@ function Sales({ me }: { me: Me }) {
       setError(err.message);
     } finally { setBusy(false); }
   }
-  const rows = history.data?.purchases || [];
+  const rows = [...(history.data?.purchases || []), ...older.purchases];
+  const currentPage = Math.min(historyPage, Math.max(1, Math.ceil(rows.length / 10)));
+  const pageRows = rows.slice((currentPage - 1) * 10, currentPage * 10);
   const actions = (p: Purchase) => <Space wrap size={6}>
     <Button size="small" onClick={() => setReceipt({ kind: 'package', id: p.id })}>Xem phiếu</Button>
     {p.status === 'pending' && <Button size="small" type="primary" onClick={() => setPaying(p.id)}>Thu tiền</Button>}
+    {canGift && p.status === 'paid' && p.mathe && <Button size="small" onClick={() => setGiftTreatment(p.mathe)}>Tặng thêm dịch vụ</Button>}
   </Space>;
   const statusTag = (s: string) => <Tag color={purchaseStatus[s]?.color}>{purchaseStatus[s]?.label || s}</Tag>;
   return <>
     <div className="page-heading section-toolbar">
       <div><span className="eyebrow">VẬN HÀNH</span><h1>Bán gói tại quầy</h1><p>Tạo phiếu, thu tiền mặt hoặc VietQR; liệu trình kích hoạt sau khi thanh toán.</p></div>
-      <Space wrap><Button href="/admin/packages">Gói dịch vụ</Button><Button href="/admin/invoices?type=package">Hóa đơn gói</Button></Space>
+      <Space wrap>{canGift && <Button href="/admin/packages?tab=treatments">Liệu trình / dịch vụ tặng</Button>}<Button href="/admin/invoices?type=package">Hóa đơn gói</Button></Space>
     </div>
     <Card title="Tạo phiếu bán gói">
       <Form layout="vertical" onFinish={create} disabled={busy} className="sale-form">
@@ -130,6 +152,7 @@ function Sales({ me }: { me: Me }) {
           </Form.Item>
         </div>
         {chosen && <PackageCard p={chosen} />}
+        {canGift && <p className="muted">Sau khi thanh toán, chọn “Tặng thêm dịch vụ” để thêm dịch vụ, số buổi và thời hạn tặng cho khách. Buổi tặng không làm tăng giá gói.</p>}
         <Form.Item label="Phương thức thanh toán" className="section-title">
           <Radio.Group value={method} onChange={e => setMethod(e.target.value)} optionType="button" options={[{ value: 'cash', label: 'Tiền mặt' },
             { value: 'vietqr', label: vietqr ? 'VietQR' : 'VietQR (tạm chưa khả dụng)', disabled: !vietqr }]} />
@@ -152,7 +175,7 @@ function Sales({ me }: { me: Me }) {
       </div>
       <ResourceState {...history} />
       {!history.loading && !history.error && (!rows.length ? <Empty className="section-title" description="Chưa có phiếu bán gói" /> : <>
-        <div className="desktop-table section-title"><Table rowKey="id" dataSource={rows} pagination={{ pageSize: 10, showSizeChanger: false }} columns={[
+        <div className="desktop-table section-title"><Table rowKey="id" dataSource={pageRows} pagination={false} columns={[
           { title: 'Mã phiếu', dataIndex: 'receipt_code', render: (v: string) => <strong>{v}</strong> },
           { title: 'Khách hàng', render: (_: unknown, p: Purchase) => <>{p.customer_name}<div className="muted">{p.phone || ''}</div></> },
           { title: 'Gói', dataIndex: 'tengoi' }, { title: 'Số tiền', align: 'right' as const, render: (_: unknown, p: Purchase) => vnd(p.payable_amount ?? p.amount) },
@@ -161,10 +184,13 @@ function Sales({ me }: { me: Me }) {
           { title: 'Tạo / thanh toán', render: (_: unknown, p: Purchase) => <>{when(p.created_at)}<div className="muted">{p.paid_at ? when(p.paid_at) : ''}</div></> },
           { title: 'Nhân viên', dataIndex: 'staff_name', render: (v: string | null) => v || 'Online' },
           { title: 'Thao tác', render: (_: unknown, p: Purchase) => actions(p) }]} /></div>
-        <div className="mobile-cards section-title">{rows.slice(0, 30).map(p => <Card key={p.id} className="small-card">
+        <div className="mobile-cards section-title">{pageRows.map(p => <Card key={p.id} className="small-card">
           <div className="card-head"><strong>{p.receipt_code}</strong>{statusTag(p.status)}</div>
           <h2>{p.customer_name}</h2><p>{p.tengoi} · <strong>{vnd(p.payable_amount ?? p.amount)}</strong> · {purchaseMethod[p.payment_method] || p.payment_method}</p>
           <p className="muted">{when(p.created_at)}</p>{actions(p)}</Card>)}</div>
+        <Pagination className="section-title" current={currentPage} pageSize={10} total={rows.length} onChange={setHistoryPage} showSizeChanger={false} hideOnSinglePage />
+        {older.error && <Alert className="section-title" type="error" showIcon message={older.error} />}
+        {older.next !== null && <Button className="section-title" loading={older.loading} onClick={loadOlder}>Tải thêm phiếu cũ hơn ({rows.length} phiếu đang hiển thị)</Button>}
       </>)}
     </Card>
     <QuickCustomer open={quick} onClose={() => setQuick(false)} onCreated={async makh => {
@@ -173,12 +199,14 @@ function Sales({ me }: { me: Me }) {
       try { const d = await api<SaleCustomer>(`/api/admin/customers/detail/${makh}`); await searchCustomers(d.sdt || d.hoten, makh); }
       catch (e) { setError((e as Error).message); } }} />
     <PackagePayment purchaseId={paying} onClose={() => { setPaying(null); history.reload(); }} onPaid={history.reload}
+      onGift={canGift ? mathe => { setPaying(null); setGiftTreatment(mathe); } : undefined}
       onReceipt={id => { setPaying(null); setReceipt({ kind: 'package', id }); }} />
+    <TreatmentDrawer key={giftTreatment} mathe={giftTreatment} startGift onClose={() => setGiftTreatment(null)} onChanged={history.reload} />
     <ReceiptModal target={receipt} onClose={() => setReceipt(null)} onPay={t => setPaying(t.id)} />
   </>;
 }
 
 export default function PackageSales({ me }: { me: Me }) {
-  if (!['admin', 'manager', 'letan'].includes(me.user.role)) return <Result status="403" title="Không có quyền bán gói tại quầy" />;
+  if (!['admin', 'manager', 'letan'].includes(me.user.role)) return <Result status="403" title="Không có quyền bán gói tại quầy" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
   return <Sales me={me} />;
 }

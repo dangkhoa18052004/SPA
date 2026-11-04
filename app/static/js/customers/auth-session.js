@@ -4,6 +4,8 @@
     const ACCESS_TOKEN_KEY = 'access_token';
     const USER_INFO_KEY = 'user_info';
     let restorePromise = null;
+    // The server said there is no session: guests make one restore call per page, not one per caller.
+    let noSession = false;
 
     function getAccessToken() {
         return localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -33,6 +35,7 @@
         if (!force) {
             const currentToken = getAccessToken();
             if (currentToken) return currentToken;
+            if (noSession) return null;
         }
 
         if (restorePromise) return restorePromise;
@@ -48,16 +51,19 @@
                 });
 
                 if (!response.ok) {
+                    noSession = true;
                     clearLocalSession();
                     return null;
                 }
 
                 const data = await response.json();
                 if (!data.success || !data.access_token) {
+                    noSession = true;
                     clearLocalSession();
                     return null;
                 }
 
+                noSession = false;
                 setAccessToken(data.access_token);
                 return data.access_token;
             } catch (error) {

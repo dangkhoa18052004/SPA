@@ -36,7 +36,13 @@ def _actor():
 
 @ai_bp.errorhandler(ai_service.AIError)
 def ai_error(error):
-    return jsonify(success=False, msg=error.message, configured=ai_service.is_configured()), error.status_code
+    message = error.message
+    if request.endpoint == 'ai.ai_business_summary':
+        if error.status_code == 504:
+            message = 'Chưa tạo được tóm tắt kinh doanh vì AI phản hồi quá chậm. Bạn vẫn xem được số liệu và báo cáo; có thể tạo lại sau.'
+        elif error.status_code == 502:
+            message = 'Chưa tạo được tóm tắt kinh doanh do dịch vụ AI tạm thời gặp lỗi. Số liệu và báo cáo vẫn xem được bình thường.'
+    return jsonify(success=False, msg=message, configured=ai_service.is_configured()), error.status_code
 
 
 @ai_bp.route('/status')

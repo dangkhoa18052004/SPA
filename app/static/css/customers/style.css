@@ -818,7 +818,7 @@ h1, h2, h3, h4, .brand-font {
 
 /* Chat Header Redesign */
 .chat-box .chat-header {
-    background: linear-gradient(135deg, #253E30 0%, #1A2F24 100%) !important;
+    background: var(--binspa-chat-human-head, #315e4b) !important;
     color: #FFFFFF !important;
     padding: 14px 18px !important;
     border-radius: 16px 16px 0 0 !important;
@@ -826,7 +826,7 @@ h1, h2, h3, h4, .brand-font {
     flex-direction: row !important;
     justify-content: space-between !important;
     align-items: center !important;
-    border-bottom: 2px solid #D4AF37 !important;
+    border-bottom: 1px solid var(--binspa-chat-border, #dee7e0) !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
     flex-shrink: 0 !important;
     margin: 0 !important;
@@ -974,17 +974,17 @@ h1, h2, h3, h4, .brand-font {
 
 /* Bot / Staff Message Bubble (Left - Pure White) */
 .chat-box .bot-message .message-content {
-    background: #FFFFFF !important;
-    border: 1px solid #E2E8F0 !important;
-    color: #1E293B !important;
+    background: var(--binspa-chat-received, #eef3ef) !important;
+    border: 1px solid var(--binspa-chat-border, #dee7e0) !important;
+    color: var(--binspa-chat-text, #243d31) !important;
     border-radius: 16px 16px 16px 4px !important;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
 }
 
 /* Customer User Message Bubble (Right - Spa Emerald Green & Gold Theme) */
 .chat-box .user-message .message-content {
-    background: linear-gradient(135deg, #3D5A45 0%, #25392B 100%) !important;
-    border: 1px solid rgba(212, 175, 55, 0.3) !important;
+    background: var(--binspa-chat-sent, #315e4b) !important;
+    border: 1px solid var(--binspa-chat-sent, #315e4b) !important;
     color: #FFFFFF !important;
     border-radius: 16px 16px 4px 16px !important;
     box-shadow: 0 3px 10px rgba(61, 90, 69, 0.25) !important;
@@ -1036,7 +1036,7 @@ h1, h2, h3, h4, .brand-font {
 }
 
 .chat-box .bot-message .message-time {
-    color: #94A3B8 !important;
+    color: var(--binspa-chat-muted, #55675c) !important;
 }
 
 /* Quick Reply Chips Container */
@@ -1415,6 +1415,18 @@ body.dark-theme .service-picker-item:hover {
 .services-header p {
     font-size: 18px;
     color: var(--text-light);
+}
+
+.services-header .services-skin-link {
+    margin-top: 12px;
+    font-size: 15px;
+}
+
+.services-skin-link a {
+    color: var(--primary-green);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
 .services-filter-section {
@@ -2681,9 +2693,9 @@ body.dark-theme .chat-box .chat-messages {
 }
 
 body.dark-theme .chat-box .bot-message .message-content {
-    background: #1A221E !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-    color: #F1F5F9 !important;
+    background: var(--binspa-chat-received) !important;
+    border-color: var(--binspa-chat-border) !important;
+    color: var(--binspa-chat-text) !important;
 }
 
 body.dark-theme .chat-box .chat-quick-replies {

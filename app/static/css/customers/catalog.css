@@ -1,0 +1,58 @@
+/* Shared catalog behavior also serves the flag-off Jinja interface. */
+#servicesGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; align-items:stretch; }
+#servicesGrid .service-card { display:flex; flex-direction:column; min-width:0; cursor:default; border:1px solid var(--customer-border,#dee7e0); box-shadow:none; }
+#servicesGrid .service-card:hover { transform:none; }
+#servicesGrid .service-image-container { display:block; height:auto; aspect-ratio:4/3; }
+#servicesGrid .service-image { display:block; height:100%; width:100%; object-fit:cover; }
+#servicesGrid .service-content { display:flex; flex-direction:column; flex:1; min-width:0; }
+#servicesGrid .service-name, #servicesGrid .service-description { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; overflow-wrap:anywhere; }
+#servicesGrid .service-name a { color:inherit; }
+#servicesGrid .service-meta { margin-top:auto; flex-wrap:wrap; }
+#servicesGrid .service-actions { display:flex; gap:8px; flex-wrap:wrap; }
+#servicesGrid .btn, .services-filter-section button, .catalog-pagination button { min-height:44px; }
+#servicesGrid .btn-primary { background:var(--customer-primary,#315e4b); color:#fff; border-color:var(--customer-primary,#315e4b); }
+#servicesGrid .btn-outline { color:var(--customer-primary,#315e4b); border-color:var(--customer-primary,#315e4b); }
+/* The ID rule above outranks the shared .btn-outline:hover, which still fills the background; keep the text readable. */
+#servicesGrid .btn-outline:is(:hover,:focus-visible,:active) { background:var(--customer-primary,#315e4b); color:#fff; }
+.filter-categories, .smart-filters { display:flex; flex-wrap:nowrap; overflow-x:auto; max-width:100%; gap:8px; padding:4px; }
+.filter-categories button, .smart-filters button { flex-shrink:0; min-height:44px; white-space:nowrap; }
+.services-filter-section .filter-container { display:flex; flex-direction:column; align-items:stretch; min-width:0; }
+.services-filter-section .filter-container > .btn { align-self:flex-start; width:auto; }
+.services-filter-section :is(input,select,button), .catalog-advanced { font:inherit; }
+.catalog-advanced summary { cursor:pointer; min-height:44px; padding:10px 0; color:var(--customer-primary,#315e4b); }
+.catalog-range-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.catalog-range-grid label { display:block; font-size:14px; margin-bottom:6px; }
+.catalog-range-grid input { width:100%; min-width:0; min-height:44px; padding:8px 12px; border:1px solid var(--customer-border,#dee7e0); border-radius:8px; }
+.catalog-pagination { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; margin:24px 0; }
+.catalog-pagination button { min-width:44px; padding:8px 12px; font:inherit; }
+.catalog-pagination [aria-current=page] { background:var(--customer-primary,#315e4b); color:#fff; }
+.catalog-pagination button:disabled { opacity:.5; cursor:not-allowed; }
+.catalog-state { grid-column:1/-1; padding:32px 0; }
+#catalogResultCount { scroll-margin-top:100px; margin:16px 0; }
+#noResults[hidden] { display:none; }
+#noResults:not([hidden]) { display:block; }
+:is(.catalog-pagination,.catalog-advanced,.filter-categories,.smart-filters) :focus-visible { outline:2px solid var(--customer-primary,#315e4b); outline-offset:3px; }
+@media(max-width:1023px) { #servicesGrid { grid-template-columns:repeat(2,minmax(0,1fr)); } .catalog-range-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:639px) { #servicesGrid { grid-template-columns:minmax(0,1fr); } .services-filter-section .filter-controls { flex-wrap:wrap; } .services-filter-section .search-box { flex-basis:100%; min-width:0; } }
+@media(prefers-reduced-motion:reduce) { #servicesGrid * { transition:none; } }
+
+/* Keep the active flag-off customer interface on the same accessible actions. */
+body .btn-primary { background:var(--customer-primary,#425f49); color:#fff; border-color:var(--customer-primary,#425f49); }
+body .btn-primary:hover { background:#354d3b; color:#fff; border-color:#354d3b; }
+body .btn { min-height:44px; border-radius:10px; }
+body .service-category-badge { display:inline-flex; padding:6px 12px; border-radius:8px; background:var(--customer-secondary,#eef3ef); color:var(--customer-text,#243d31); }
+body .service-price, body .service-detail-price { color:var(--customer-text,var(--text-dark,#243d31)); }
+body .service-actions-detail { display:flex; gap:12px; flex-wrap:wrap; }
+.catalog-mobile-filter { display:none; }
+.catalog-filter-dialog { position:fixed; inset:auto 0 0; margin:0; width:100%; max-width:100%; max-height:85dvh; overflow-y:auto; box-sizing:border-box; padding:24px 16px calc(24px + env(safe-area-inset-bottom)); border:0; border-radius:20px 20px 0 0; background:var(--customer-surface,#fff); color:var(--customer-text,#243d31); }
+.catalog-filter-dialog::backdrop { background:#182e2580; }
+.catalog-filter-dialog header { display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:20px; }
+.catalog-filter-dialog .catalog-range-grid { margin-bottom:24px; }
+body:has(.catalog-filter-dialog:modal) { overflow:hidden; }
+@media(max-width:639px) { .catalog-advanced { display:none; } .services-filter-section .catalog-mobile-filter { display:inline-flex; } }
+
+body:not(.customer-ui):has(#homeCategories) .hero-section { height:auto; min-height:0; padding:140px 24px 80px; }
+body:not(.customer-ui):has(#homeCategories) .hero-title { font-family:var(--customer-font,system-ui,sans-serif); font-size:clamp(30px,4vw,52px); line-height:1.2; }
+body:not(.customer-ui) .mobile-nav-item.active, body:not(.customer-ui) .nav-link:hover { color:#425f49; }
+body:not(.customer-ui) .mobile-nav-icon-circle { background:#425f49; color:#fff; }
+@media(max-width:639px) { body:not(.customer-ui):has(#homeCategories) .hero-section { padding:112px 16px 56px; } }

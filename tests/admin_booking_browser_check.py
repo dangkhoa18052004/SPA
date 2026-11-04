@@ -161,12 +161,18 @@ class Browser:
         self.call('Emulation.setDeviceMetricsOverride', dict(width=width, height=900, deviceScaleFactor=1, mobile=width < 768))
 
     def click(self, selector):
-        for attempt in range(20):  # drawers/modals animate in; wait until the target is on top
+        for attempt in range(20):  # drawers/modals animate in; wait until the target is on top and has stopped moving
             self.js(f'document.querySelector({json.dumps(selector)}).scrollIntoView({{block:"center",behavior:"instant"}})')
             time.sleep(.15)
-            point = self.js(f'(()=>{{const e=document.querySelector({json.dumps(selector)}),r=e.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2,h=document.elementFromPoint(x,y);return {{x,y,covered:!(e===h||e.contains(h)||h?.contains(e))}}}})()')
-            if not point['covered']:
+            measure = f'(()=>{{const e=document.querySelector({json.dumps(selector)}),r=e.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2,h=document.elementFromPoint(x,y);return {{x,y,covered:!(e===h||e.contains(h)||h?.contains(e))}}}})()'
+            point = self.js(measure)
+            time.sleep(.1)
+            # A modal zooming in moves its content by hundreds of pixels; a click computed mid-animation can
+            # land on the mask and close the modal (the intermittent "after total" failure in change services).
+            again = self.js(measure)
+            if not point['covered'] and abs(point['x'] - again['x']) < 1 and abs(point['y'] - again['y']) < 1:
                 break
+            point = again
         assert not point['covered'], f'Element covered: {selector}'
         for kind in ['mousePressed', 'mouseReleased']:
             self.call('Input.dispatchMouseEvent', dict(type=kind, x=point['x'], y=point['y'], button='left', clickCount=1))

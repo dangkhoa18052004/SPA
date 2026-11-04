@@ -227,3 +227,23 @@ def test_package_form_explains_independent_sale_flags(client):
             'Liệu trình đã mua vẫn được sử dụng.'):
         assert text in page
     assert 'id="salePackageSearch"' in client.get('/admin/package-sales').get_data(as_text=True)
+
+
+def test_counter_history_pages_past_200_without_changing_first_page(app, client, catalog):
+    with app.app_context():
+        ids = [ps.create_purchase(catalog['package'], catalog['customer'], 'cash', sale_channel='staff').id for _ in range(205)]
+        db.session.commit()
+    first = client.get('/api/admin/package-sales', headers=catalog['headers']).json
+    # Unchanged contract: the newest 200 receipts. New fields say whether older ones exist.
+    assert [p['id'] for p in first['purchases']] == sorted(ids, reverse=True)[:200]
+    assert first['has_more'] is True and first['next_before_id'] == first['purchases'][-1]['id']
+    second = client.get('/api/admin/package-sales', headers=catalog['headers'],
+        query_string={'before_id': first['next_before_id']}).json
+    assert [p['id'] for p in second['purchases']] == sorted(ids, reverse=True)[200:]
+    assert second['has_more'] is False and second['next_before_id'] is None
+    # Filters keep applying on later pages; a bad cursor is ignored rather than failing.
+    filtered = client.get('/api/admin/package-sales', headers=catalog['headers'],
+        query_string={'status': 'paid', 'before_id': first['next_before_id']}).json
+    assert filtered['purchases'] == [] and filtered['has_more'] is False
+    assert len(client.get('/api/admin/package-sales', headers=catalog['headers'],
+        query_string={'before_id': 'abc'}).json['purchases']) == 200

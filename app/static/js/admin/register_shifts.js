@@ -19,14 +19,14 @@ function setupNavigation() {
     if (prevBtn) {
         prevBtn.addEventListener('click', () => {
             currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-            loadAvailableShifts(); // Chỉ cần tải lại ca
+            loadData(); // Trạng thái đăng ký phụ thuộc tuần đang xem
         });
     }
     
     if (nextBtn) {
         nextBtn.addEventListener('click', () => {
             currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-            loadAvailableShifts(); // Chỉ cần tải lại ca
+            loadData(); // Trạng thái đăng ký phụ thuộc tuần đang xem
         });
     }
 }
@@ -40,7 +40,11 @@ async function loadData() {
 // ====== HÀM MỚI: TẢI LỊCH LÀM CỦA TÔI ======
 async function loadMySchedule() {
     try {
-        const response = await fetch('/api/admin/my-schedule-list', {
+        // The API requires a date range; use the week being shown.
+        const weekEnd = new Date(currentWeekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        const range = `start_date=${formatDateForAPI(currentWeekStart)}&end_date=${formatDateForAPI(weekEnd)}`;
+        const response = await fetch(`/api/admin/my-schedule-list?${range}`, {
              headers: getAuthHeaders(false)
         });
         if (!response.ok) {

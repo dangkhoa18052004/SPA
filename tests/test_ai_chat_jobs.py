@@ -4,6 +4,7 @@ from uuid import uuid4
 import json
 import pytest
 from flask_jwt_extended import create_access_token
+from flask import g
 from app.extensions import db
 from app.models import AIChatJob, KhachHang, NhanVien, LichHen
 from app.services import ai_chat_jobs as jobs, ai_service
@@ -17,6 +18,28 @@ def queued(app):
 
 def payload(**kwargs):
     return dict(request_id=str(uuid4()), message='Spa có dịch vụ nào?', history=[], **kwargs)
+
+
+def test_provider_selection_is_isolated_between_worker_jobs(queued, client, customer_auth_headers, monkeypatch):
+    observed = []
+    def chat(message, **kwargs):
+        observed.append((g.get('ai_preferred_model'), g.get('ai_failed_models')))
+        g.ai_preferred_model = 'working'
+        g.ai_failed_models = {'slow'}
+        return dict(reply='Có dịch vụ chăm sóc da.', draft=None)
+    monkeypatch.setattr(ai_service, 'chat', chat)
+    ids = []
+    for _ in range(2):
+        body = payload()
+        ids.append(body['request_id'])
+        assert client.post('/api/ai/chat/jobs', headers=customer_auth_headers, json=body).status_code == 202
+    with queued.app_context():
+        g.ai_preferred_model = 'outer-context'
+        for request_id in ids:
+            assert jobs.process_next() == request_id
+            assert g.ai_preferred_model == 'outer-context'
+            assert g.get('ai_failed_models') is None
+    assert observed == [(None, None), (None, None)]
 
 
 def test_navigation_recovers_answer_from_another_page_request(queued, client, customer_auth_headers, monkeypatch):

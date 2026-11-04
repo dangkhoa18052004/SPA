@@ -39,7 +39,7 @@ export function StepUpGate() {
   }
   return <Modal title="Xác minh thao tác" open={open} onCancel={() => { if (!busy) cancel(); }} footer={null} maskClosable={false} closable={!busy} destroyOnHidden>
     <form className="security-form" onSubmit={e => { e.preventDefault(); void verify(); }}>
-      <p>{enrollment ? 'Thiết lập xác thực hai bước để tiếp tục. Trang đang thao tác sẽ giữ nguyên dữ liệu bạn đã nhập.' : 'Xác minh để tiếp tục với thao tác vừa chọn. Hiệu lực 10 phút trong phiên đăng nhập này.'}</p>
+      <p>{enrollment ? 'Thiết lập xác thực hai bước để tiếp tục. Trang đang thao tác sẽ giữ nguyên dữ liệu bạn đã nhập.' : 'Xác minh để tiếp tục với thao tác vừa chọn. Hiệu lực tối đa 60 phút hoặc đến khi phiên đăng nhập hết hạn.'}</p>
       {enrollment ? <Button href="/admin/security" target="_blank" rel="noopener noreferrer">Mở Bảo mật tài khoản</Button> : <label htmlFor="step-up-code">Mã xác thực<Input id="step-up-code" autoFocus autoComplete="one-time-code" maxLength={32} value={code} onChange={e => setCode(e.target.value)} disabled={busy} required aria-describedby="step-up-help" /></label>}
       {!enrollment && <p id="step-up-help" className="muted">{help}</p>}
       {error && <Alert role="alert" type="error" showIcon message={error} />}

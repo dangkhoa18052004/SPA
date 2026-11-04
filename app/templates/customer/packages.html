@@ -1,7 +1,7 @@
 {% extends "customer/layout.html" %}
 {% block title %}Gói dịch vụ - Bin Spa{% endblock %}
 {% block body_class %}is-subpage{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}?v=1.1">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}?v=1.2">{% endblock %}
 {% block content %}
 <section class="package-section customer-packages" data-package-page="customer" data-package-id="{{ package_id or '' }}"
          data-logged-in="{{ '1' if session.get('user_id') and session.get('user_type') == 'customer' else '0' }}"
@@ -10,7 +10,16 @@
     <p>Mua gói để sử dụng dịch vụ theo liệu trình. Hồ sơ của bạn được kích hoạt sau khi thanh toán được xác nhận.</p>
     <p><a href="/profile#treatments">Liệu trình của tôi</a></p>
     <p id="packageMessage" class="package-message" role="status"></p>
+    {% if not package_id %}
+    <div class="package-catalog-controls">
+        <label>Tìm gói dịch vụ<input id="packageSearch" type="search" placeholder="Tên gói, mô tả hoặc dịch vụ"></label>
+        <label>Sắp xếp<select id="packageSort"><option value="default">Mặc định</option><option value="price-asc">Giá tăng dần</option><option value="price-desc">Giá giảm dần</option><option value="name-asc">Tên A–Z</option><option value="name-desc">Tên Z–A</option></select></label>
+        <button type="button" class="btn btn-outline" id="packageClear">Xóa bộ lọc</button>
+    </div>
+    <p id="packageResultCount" role="status" aria-live="polite" tabindex="-1"></p>
+    {% endif %}
     <div id="packageList" class="{% if package_id %}package-detail{% else %}package-grid{% endif %}">Đang tải gói dịch vụ...</div>
+    {% if not package_id %}<nav id="packagePagination" class="catalog-pagination" aria-label="Phân trang gói dịch vụ"></nav>{% endif %}
     <!-- Khách chưa đăng nhập bấm "Mua gói": giống trang đặt lịch, yêu cầu đăng nhập rồi quay lại đúng gói -->
     <div class="login-required-modal package-login-modal" id="packageLoginModal" hidden role="dialog" aria-modal="true" aria-labelledby="packageLoginTitle">
         <div class="modal-content">
@@ -30,4 +39,4 @@
     </dialog>
 </section>
 {% endblock %}
-{% block extra_js %}<script src="{{ url_for('static', filename='js/packages.js') }}?v=1.4"></script>{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/packages.js') }}?v=1.5"></script>{% endblock %}

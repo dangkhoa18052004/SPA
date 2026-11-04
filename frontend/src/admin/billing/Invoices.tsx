@@ -104,6 +104,6 @@ function Billing({ me }: { me: Me }) {
 }
 
 export default function Invoices({ me }: { me: Me }) {
-  if (!['admin', 'manager', 'letan'].includes(me.user.role)) return <Result status="403" title="Không có quyền xem hóa đơn" />;
+  if (!['admin', 'manager', 'letan'].includes(me.user.role)) return <Result status="403" title="Không có quyền xem hóa đơn" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
   return <Billing me={me} />;
 }

@@ -145,7 +145,8 @@ def test_snapshot_keeps_terms_after_catalog_edit(app, client, admin_auth_headers
 def test_admin_form_has_voucher_and_gift_fields(client):
     page = client.get('/admin/loyalty').text
     for expected in ('data-voucher-fields', 'name="apply_to"', 'name="minimum_spend"', 'Giá trị giảm',
-                     '>Hóa đơn dịch vụ<', '>Mua gói<', '>Cả hai<', 'data-name-label', 'Đang cho đổi'):
+                     '>Hóa đơn dịch vụ<', '>Mua gói<', '>Cả hai<', 'data-name-label', 'Mẫu đang hoạt động',
+                     'name="active"', 'name="allow_points_redemption"', 'name="for_new_customers"'):
         assert expected in page, expected
     script = Path('app/static/js/admin/loyalty.js').read_text(encoding='utf-8')
     assert 'fields.hidden=!on;fields.disabled=!on' in script and "body.reward_type==='voucher_amount'?Number(f.elements.reward_value.value):0" in script

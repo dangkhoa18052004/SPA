@@ -39,9 +39,7 @@ function displayServiceDetail(service) {
     
     const container = document.getElementById('serviceDetailContainer');
     
-    // Detect category
-    const category = detectServiceCategory(service.tendv, service.mota);
-    const categoryLabel = getCategoryLabel(category);
+    const categoryLabel = esc(service.category_name || 'Chưa phân loại');
     
     // Create features list from description
     const features = generateFeaturesList(service.mota);
@@ -126,40 +124,6 @@ function formatPrice(price) {
         style: 'currency', 
         currency: 'VND' 
     }).format(price);
-}
-
-function detectServiceCategory(name, description) {
-    const text = (name + ' ' + (description || '')).toLowerCase();
-    
-    const serviceCategories = {
-        'massage': ['massage', 'thư giãn', 'body massage', 'foot massage'],
-        'facial': ['da mặt', 'facial', 'chăm sóc da', 'mặt nạ', 'tẩy da chết'],
-        'nail': ['nail', 'móng', 'manicure', 'pedicure'],
-        'hair': ['tóc', 'gội đầu', 'hair', 'chăm sóc tóc', 'duỗi', 'nhuộm'],
-        'body': ['tắm trắng', 'body', 'wax', 'triệt lông', 'điều trị']
-    };
-    
-    for (const [category, keywords] of Object.entries(serviceCategories)) {
-        for (const keyword of keywords) {
-            if (text.includes(keyword)) {
-                return category;
-            }
-        }
-    }
-    
-    return 'other';
-}
-
-function getCategoryLabel(category) {
-    const labels = {
-        'massage': 'Massage',
-        'facial': 'Chăm sóc da',
-        'nail': 'Nail & Móng',
-        'hair': 'Tóc & Đầu',
-        'body': 'Điều trị cơ thể',
-        'other': 'Dịch vụ spa'
-    };
-    return labels[category] || 'Dịch vụ spa';
 }
 
 function generateFeaturesList(description) {

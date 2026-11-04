@@ -82,3 +82,9 @@
   .customer-ui .profile-avatar p { margin: 0; }
   .customer-ui .avatar-upload { width: 44px; height: 44px; bottom: -4px; right: -4px; }
 }
+
+/* Same contrast fix as the admin portal: preset tag text shade 7 is below 4.5:1 on its tint. */
+.ant-tag.ant-tag-green { color:#237804; }
+.ant-tag.ant-tag-orange { color:#ad4e00; }
+.ant-tag.ant-tag-cyan { color:#006d75; }
+.ant-tag.ant-tag-gold { color:#874d00; }

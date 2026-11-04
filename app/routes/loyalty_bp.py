@@ -79,7 +79,7 @@ def transactions():
 @loyalty_bp.route('/api/loyalty/rewards')
 @customer_required
 def rewards():
-    query = LoyaltyReward.query.filter_by(active=True)
+    query = service.exclude_welcome_reward(LoyaltyReward.query.filter_by(active=True, allow_points_redemption=True))
     search = text_arg('search')
     if search:
         query = query.filter(LoyaltyReward.name.ilike(service.like_pattern(search), escape='!'))

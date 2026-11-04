@@ -13,8 +13,26 @@
     const deskOnly=role==='letan';
     const applyLabels={service_invoice:'Hóa đơn dịch vụ',package_purchase:'Mua gói',both:'Cả hai'};
     let tab=deskOnly||new URLSearchParams(location.search).get('tab')==='redemptions'?'redemptions':'overview',page=1,search='',version=0,rewards=[],editReward=null,adjustId=null,adjustKey=null;
+    let welcomeRewardId=null;
     const note=text=>el('loyaltyMessage').textContent=text;
     const date=value=>value?new Date(value).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Không hết hạn';
+    const localDate=value=>value?new Date(value).toLocaleString('sv-SE',{timeZone:'Asia/Ho_Chi_Minh'}).replace(' ','T').slice(0,16):'';
+    async function renderWelcome(content,config){
+        content.innerHTML=`<h3>Voucher chào mừng</h3><p>Nhận một lần khi khách tự đăng ký từ mốc bắt đầu và kích hoạt OTP. Thời gian nhập theo giờ Việt Nam.</p><p>Chọn Dành cho khách hàng mới trong form tạo/sửa voucher để tự tặng sau OTP. Mẫu tắt hoạt động vẫn tự tặng, tặng thủ công và sử dụng được. Tắt chương trình này mới ngừng tự tặng.</p><form data-welcome><label><input name="enabled" type="checkbox" ${config.enabled?'checked':''}> Bật chương trình</label><label>Mẫu voucher<select name="reward_id"><option value="">Chọn mẫu voucher</option></select></label><p>Mẫu thiếu hạn dùng được ghi rõ; vào Quà và voucher → Sửa mẫu để nhập số ngày hiệu lực.</p><div data-template-pager></div><label>Bắt đầu (giờ Việt Nam, để trống để bắt đầu khi lưu)<input type="datetime-local" name="starts_at" value="${localDate(config.starts_at)}"></label><label>Kết thúc (tùy chọn, giờ Việt Nam)<input type="datetime-local" name="ends_at" value="${localDate(config.ends_at)}"></label><p role="alert" data-error></p><button type="submit" class="btn btn-primary">Lưu chương trình chào mừng</button></form>`;
+        const form=content.querySelector('[data-welcome]');let templatePage=1,selected=config.reward_id;
+        form.elements.reward_id.onchange=()=>{selected=Number(form.elements.reward_id.value)||null;};
+        async function templates(){
+            const data=await api(`/api/admin/loyalty/rewards?per_page=20&page=${templatePage}`);
+            if(!form.isConnected)return;
+            const rows=data.items.filter(r=>r.reward_type!=='physical_gift');
+            form.elements.reward_id.innerHTML='<option value="">Chọn mẫu voucher</option>'+rows.map(r=>`<option value="${r.id}" ${r.validity_days?'':'disabled'}>${esc(r.name)} · ${esc(benefitText(r))} · ${r.validity_days?`${r.validity_days} ngày${r.active?'':' · tắt đổi điểm, vẫn nhận quà'}`:'chưa có hạn dùng — cần sửa mẫu'}</option>`).join('');
+            if(selected&&!rows.some(r=>r.id===selected))form.elements.reward_id.add(new Option('Mẫu đang chọn #'+selected,selected));form.elements.reward_id.value=selected||'';
+            const pager=form.querySelector('[data-template-pager]');pager.innerHTML=data.pages>1?`<button type="button" data-prev ${templatePage<=1?'disabled':''}>Trước</button> ${templatePage}/${data.pages} <button type="button" data-next ${templatePage>=data.pages?'disabled':''}>Sau</button>`:'';
+            const change=delta=>{templatePage+=delta;templates().catch(e=>{form.querySelector('[data-error]').textContent=e.message;});};pager.querySelector('[data-prev]')?.addEventListener('click',()=>change(-1));pager.querySelector('[data-next]')?.addEventListener('click',()=>change(1));
+        }
+        form.onsubmit=async e=>{e.preventDefault();const b=form.querySelector('[type=submit]');b.disabled=true;form.querySelector('[data-error]').textContent='';try{const utc=value=>value?new Date(value+':00+07:00').toISOString():null;await api('/api/admin/loyalty/welcome-config','PUT',{enabled:form.elements.enabled.checked,reward_id:selected,starts_at:utc(form.elements.starts_at.value),ends_at:utc(form.elements.ends_at.value)});note('Đã lưu chương trình chào mừng');}catch(error){form.querySelector('[data-error]').textContent=error.message;}finally{b.disabled=false;}};
+        await templates();
+    }
     const history=rows=>`<ul class="loyalty-history">${rows.map(r=>`<li><strong>${r.points_delta>0?'+':''}${r.points_delta} điểm</strong> · KH #${r.makh}<p>${esc(r.description)}</p><small>${date(r.created_at)}</small></li>`).join('')||'<li>Chưa có lịch sử.</li>'}</ul>`;
     function pager(data,callback){
         if(data.pages<2)return;
@@ -77,17 +95,25 @@
             }
             if(tab==='transactions')content.innerHTML=history(data.items);
             if(tab==='rewards'){
-                rewards=data.items;content.innerHTML='<button class="btn btn-primary" data-new>Tạo quà đổi thưởng</button><div class="loyalty-cards">'+rewards.map(r=>`<article class="loyalty-card"><h3>${esc(r.name)}</h3><p>${esc(r.description)}</p><strong>${r.points_cost} điểm</strong><p>${r.reward_type==='physical_gift'?'Quà tại cửa hàng':`${esc(benefitText(r))} · ${applyLabels[r.apply_to]||applyLabels.both}${Number(r.minimum_spend)?` · Đơn từ ${money(r.minimum_spend)}`:''}`}</p><p>Còn: ${r.stock??'Không giới hạn'} · ${r.active?'Đang cho đổi':'Ngừng đổi'}</p><button class="btn btn-secondary" data-edit="${r.id}">Sửa</button><button class="btn btn-secondary" data-stop="${r.id}">Ngừng đổi</button></article>`).join('')+'</div>';
+                const welcomeConfig=(await api('/api/admin/loyalty/welcome-config')).config;welcomeRewardId=welcomeConfig.enabled?welcomeConfig.reward_id:null;if(token!==version)return;
+                rewards=data.items;content.innerHTML='<p>Quản lý mẫu đổi điểm, voucher riêng cho khách mới và quà nhân viên tặng.</p><button class="btn btn-primary" data-new>Tạo quà / voucher</button><div class="loyalty-cards">'+rewards.map(r=>`<article class="loyalty-card"><h3>${esc(r.name)}</h3><p>${esc(r.description)}</p><p>${(r.id===welcomeRewardId?'Dành cho khách hàng mới · ':'')+(r.reward_type!=='physical_gift'?'Nhân viên được tặng':r.allow_points_redemption?'Khách đổi bằng điểm':'Chưa mở đổi điểm')}</p><strong>${r.allow_points_redemption&&r.id!==welcomeRewardId?r.points_cost+' điểm':'Không trừ điểm'}</strong><p>${r.reward_type==='physical_gift'?'Quà tại cửa hàng':`${esc(benefitText(r))} · ${applyLabels[r.apply_to]||applyLabels.both}${Number(r.minimum_spend)?` · Đơn từ ${money(r.minimum_spend)}`:''}`}</p><p>Còn: ${r.stock??'Không giới hạn'} · ${r.active?'Đang hoạt động':'Đã tắt'}</p><button class="btn btn-secondary" data-edit="${r.id}">Sửa mẫu</button><button class="btn btn-secondary" data-stop="${r.id}">${r.active?'Tắt mẫu':'Bật mẫu'}</button></article>`).join('')+'</div>';
                 content.querySelector('[data-new]').onclick=()=>edit(null);content.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>edit(rewards.find(r=>r.id===Number(b.dataset.edit))));
-                content.querySelectorAll('[data-stop]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api(`/api/admin/loyalty/rewards/${b.dataset.stop}`,'DELETE');await load();}catch(e){note(e.message);b.disabled=false;}});
+                content.querySelectorAll('[data-stop]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=rewards.find(r=>r.id===Number(b.dataset.stop));await api(`/api/admin/loyalty/rewards/${r.id}`,r.active?'DELETE':'PUT',r.active?undefined:{active:true});await load();}catch(e){note(e.message);b.disabled=false;}});
             }
             if(tab==='redemptions')renderDesk(data);
+            if(tab==='welcome-config')await renderWelcome(content,data.config);
             if(data.items)pager(data,p=>{page=p;load();});
         }catch(error){if(token===version)showLoadError(error);}
     }
     // Voucher-only fields are disabled (not just hidden) for gifts so the browser skips their validation.
     function syncRewardType(){
         const form=el('rewardForm'),kind=form.elements.reward_type.value,voucher=kind!=='physical_gift';
+        const welcomeOnly=voucher&&form.elements.for_new_customers.checked;
+        form.elements.for_new_customers.disabled=!voucher;
+        form.elements.allow_points_redemption.disabled=welcomeOnly;
+        if(welcomeOnly){form.elements.allow_points_redemption.checked=false;form.elements.points_cost.value=0;}
+        const pointsOn=form.elements.allow_points_redemption.checked;form.elements.points_cost.min=pointsOn?'1':'0';form.elements.points_cost.required=pointsOn;form.elements.points_cost.closest('label').hidden=!pointsOn;
+        form.elements.validity_days.required=welcomeOnly;
         // Hidden groups are also disabled so the browser skips their required/min validation.
         for(const [selector,on] of [['[data-amount-fields]',kind==='voucher_amount'],['[data-percent-fields]',kind==='voucher_percent'],['[data-voucher-fields]',voucher]]){
             const fields=form.querySelector(selector);fields.hidden=!on;fields.disabled=!on;
@@ -99,11 +125,11 @@
         const option=(value,label,current)=>`<option value="${value}" ${value===current?'selected':''}>${label}</option>`;
         const cell=(label,html)=>`<td data-label="${label}"><div>${html}</div></td>`;
         const row=r=>{
-            const handover=r.reward.reward_type==='physical_gift'&&r.status==='available';
+            const handover=r.reward.reward_type==='physical_gift'&&r.status==='available'&&(!r.expires_at||Date.parse(r.expires_at)>Date.now());
             // The handover action sits next to the status so it is never scrolled out of view.
             return `<tr data-redemption="${r.id}">`+cell('Khách',`${esc(r.customer.hoten)}<br><small>${esc(r.customer.sdt||'')}${r.customer.email?' · '+esc(r.customer.email):''}</small>`)+
-                cell('Phần thưởng',`${esc(r.reward.name)}<br><small>${esc(benefitText(r.reward))}</small>`)+
-                cell('Mã',`<code>${esc(r.code)}</code>`)+cell('Trạng thái',`<span class="loyalty-status loyalty-status--${esc(r.status)}">${esc(statusText(r))}</span>${handover?`<button class="btn btn-primary" data-fulfill="${r.id}">Xác nhận đã giao</button>`:''}`)+
+                cell('Phần thưởng',`<strong>${r.reward.reward_type==='physical_gift'?'Quà hiện vật':'Voucher'}</strong><br>${esc(r.reward.name)}<br><small>${esc(benefitText(r.reward))}</small>${r.reward.reward_type!=='physical_gift'?`<p>Voucher dùng khi thanh toán, không trao tại quầy.</p><details><summary>Xem điều kiện sử dụng</summary>${esc(applyLabels[r.reward.apply_to]||applyLabels.both)} · ${Number(r.reward.minimum_spend)>0?'Đơn từ '+money(r.reward.minimum_spend):'Không yêu cầu đơn tối thiểu'}</details>`:''}`)+
+                cell('Mã',`<code>${esc(r.code)}</code>`)+cell('Trạng thái',`<span class="loyalty-status loyalty-status--${esc(r.status)}">${esc(statusText(r))}</span>${handover?`<button class="btn btn-primary" data-fulfill="${r.id}">Trao quà</button>`:''}`)+
                 cell('Điểm đã dùng',r.points_spent)+cell('Ngày đổi',date(r.redeemed_at))+cell('Hạn',date(r.expires_at))+
                 cell('Ngày dùng / nhận',r.fulfilled_at?date(r.fulfilled_at):r.used_at?date(r.used_at):'—')+cell('Người giao',esc(r.fulfilled_by_name||'—'))+'</tr>';
         };
@@ -118,16 +144,18 @@
         content.querySelectorAll('[data-fulfill]').forEach(b=>b.onclick=()=>confirmHandover(data.items.find(r=>r.id===Number(b.dataset.fulfill))));
     }
     function confirmHandover(r){
+        if(r.reward.reward_type!=='physical_gift'||r.status!=='available'||(r.expires_at&&Date.parse(r.expires_at)<=Date.now()))return;
         const dialog=el('giftHandover');
         el('giftHandoverDetail').innerHTML=`<dl class="loyalty-facts"><dt>Khách</dt><dd>${esc(r.customer.hoten)} · ${esc(r.customer.sdt||'')}</dd><dt>Quà</dt><dd>${esc(r.reward.name)}</dd><dt>Mã</dt><dd><code>${esc(r.code)}</code></dd><dt>Hạn</dt><dd>${date(r.expires_at)}</dd></dl>`;
-        const button=el('giftHandoverConfirm');button.disabled=false;
+        const button=el('giftHandoverConfirm');button.disabled=false;let pending=false;
         button.onclick=async()=>{
+            if(pending)return;pending=true;
             button.disabled=true;
             try{
                 const result=await api(`/api/admin/loyalty/redemptions/${r.id}/fulfill`,'POST',{});
                 const done=result.redemption;dialog.close();await load();
                 note(result.already_fulfilled?`Quà ${done.code} đã được giao trước đó lúc ${date(done.fulfilled_at)} bởi ${done.fulfilled_by_name||'nhân viên khác'}.`:`Đã xác nhận giao “${done.reward.name}” (${done.code}) cho ${done.customer.hoten}.`);
-            }catch(error){dialog.close();await load();note(error.message);}
+            }catch(error){dialog.close();await load();note(error.message);}finally{pending=false;}
         };
         dialog.showModal();button.focus();
     }
@@ -139,7 +167,12 @@
             if(reward.reward_type==='voucher_percent'){form.elements.percentage_value.value=Number(reward.percentage_value);form.elements.max_discount_amount.value=reward.max_discount_amount?Number(reward.max_discount_amount):'';}
             if(reward.reward_type!=='physical_gift'){form.elements.minimum_spend.value=Number(reward.minimum_spend||0);form.elements.apply_to.value=reward.apply_to||'both';}
         }
-        form.elements.active.checked=reward?.active??true;syncRewardType();el('loyaltyRewardEditor').showModal();
+        form.elements.active.checked=reward?.active??true;
+        form.elements.allow_points_redemption.checked=reward?.allow_points_redemption??true;
+        form.elements.for_new_customers.checked=!!reward&&reward.id===welcomeRewardId;
+        form.elements.points_cost.min=form.elements.allow_points_redemption.checked?'1':'0';
+        if(!form.elements.allow_points_redemption.checked)form.elements.points_cost.value=0;
+        syncRewardType();el('loyaltyRewardEditor').showModal();
     }
     document.addEventListener('DOMContentLoaded',()=>{
         el('adminLoyalty').querySelectorAll('[data-tab]').forEach(b=>{
@@ -147,9 +180,11 @@
             b.onclick=()=>{tab=b.dataset.tab;page=1;el('loyaltyContent').innerHTML='<p class="loyalty-state">Đang tải...</p>';load();};
         });
         el('rewardForm').elements.reward_type.onchange=syncRewardType;
+        el('rewardForm').elements.for_new_customers.onchange=syncRewardType;
+        el('rewardForm').elements.allow_points_redemption.onchange=e=>{const f=el('rewardForm');f.elements.points_cost.min=e.target.checked?'1':'0';if(!e.target.checked)f.elements.points_cost.value=0;syncRewardType();};
         el('adminLoyalty').querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
         el('adjustForm').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('[type=submit]');b.disabled=true;try{await api(`/api/admin/loyalty/customers/${adjustId}/adjust`,'POST',{points_delta:Number(f.elements.points.value)*Number(f.elements.direction.value),reason:f.elements.reason.value,idempotency_key:adjustKey});el('loyaltyAdjust').close();await load();note('Đã lưu điều chỉnh và lịch sử điểm.');}catch(error){note(error.message);}finally{b.disabled=false;}};
-        el('rewardForm').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('[type=submit]');b.disabled=true;try{const body={};for(const k of ['name','description','reward_type'])body[k]=f.elements[k].value;body.points_cost=Number(f.elements.points_cost.value);body.reward_value=body.reward_type==='voucher_amount'?Number(f.elements.reward_value.value):0;if(body.reward_type==='voucher_percent'){body.percentage_value=Number(f.elements.percentage_value.value);body.max_discount_amount=f.elements.max_discount_amount.value===''?null:Number(f.elements.max_discount_amount.value);}if(body.reward_type!=='physical_gift'){body.minimum_spend=Number(f.elements.minimum_spend.value||0);body.apply_to=f.elements.apply_to.value;}for(const k of ['stock','validity_days'])body[k]=f.elements[k].value===''?null:Number(f.elements[k].value);body.active=f.elements.active.checked;await api('/api/admin/loyalty/rewards'+(editReward?'/'+editReward:''),editReward?'PUT':'POST',body);el('loyaltyRewardEditor').close();await load();}catch(error){note(error.message);}finally{b.disabled=false;}};
+        el('rewardForm').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('[type=submit]');b.disabled=true;try{const body={};for(const k of ['name','description','reward_type'])body[k]=f.elements[k].value;body.points_cost=Number(f.elements.points_cost.value);body.reward_value=body.reward_type==='voucher_amount'?Number(f.elements.reward_value.value):0;if(body.reward_type==='voucher_percent'){body.percentage_value=Number(f.elements.percentage_value.value);body.max_discount_amount=f.elements.max_discount_amount.value===''?null:Number(f.elements.max_discount_amount.value);}if(body.reward_type!=='physical_gift'){body.minimum_spend=Number(f.elements.minimum_spend.value||0);body.apply_to=f.elements.apply_to.value;}for(const k of ['stock','validity_days'])body[k]=f.elements[k].value===''?null:Number(f.elements[k].value);body.active=f.elements.active.checked;body.allow_points_redemption=f.elements.allow_points_redemption.checked;body.allow_manual_gift=body.reward_type!=='physical_gift';body.for_new_customers=body.reward_type!=='physical_gift'&&f.elements.for_new_customers.checked;await api('/api/admin/loyalty/rewards'+(editReward?'/'+editReward:''),editReward?'PUT':'POST',body);el('loyaltyRewardEditor').close();await load();}catch(error){note(error.message);}finally{b.disabled=false;}};
         load();
     });
 })();

@@ -173,7 +173,7 @@ function ApproveList() {
 }
 
 export function ApproveShifts({ me }: { me: Me }) {
-  return manage(me) ? <ApproveList /> : <Result status="403" title="Chỉ quản lý duyệt đăng ký ca" />;
+  return manage(me) ? <ApproveList /> : <Result status="403" title="Chỉ quản lý duyệt đăng ký ca" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
 }
 
 export default function Shifts({ me }: { me: Me }) {

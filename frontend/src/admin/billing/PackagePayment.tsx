@@ -19,8 +19,8 @@ const due = (p: Purchase) => Number(p.payable_amount ?? p.amount);
  * Collects payment for one counter package sale. Treatment sessions are activated by the server only
  * after payment; a repeated confirmation returns the already-paid purchase, so retries are safe.
  */
-export function PackagePayment({ purchaseId, onClose, onPaid, onReceipt }: { purchaseId: number | null; onClose: () => void;
-  onPaid?: () => void; onReceipt?: (id: number) => void }) {
+export function PackagePayment({ purchaseId, onClose, onPaid, onReceipt, onGift }: { purchaseId: number | null; onClose: () => void;
+  onPaid?: () => void; onReceipt?: (id: number) => void; onGift?: (mathe: number) => void }) {
   const { message } = App.useApp();
   const [purchase, setPurchase] = useState<Purchase>();
   const [error, setError] = useState('');
@@ -75,7 +75,9 @@ export function PackagePayment({ purchaseId, onClose, onPaid, onReceipt }: { pur
     {error ? <Alert type="error" showIcon message={error} action={<Button onClick={() => purchaseId !== null && load(purchaseId).then(() => setError('')).catch(e => setError(e.message))}>Thử lại</Button>} />
       : !p ? <Skeleton active /> : p.status === 'paid' ? <div data-testid="package-paid"><Result status="success" title="Đã thanh toán"
         subTitle={`${p.tengoi} · ${p.customer_name}. Liệu trình${p.mathe ? ` #${p.mathe}` : ''} đã được kích hoạt.`}
-        extra={<Space wrap>{onReceipt && <Button type="primary" onClick={() => onReceipt(p.id)}>Xem / in phiếu</Button>}<Button onClick={onClose}>Đóng</Button></Space>} /></div>
+        extra={<Space wrap>{onReceipt && <Button type="primary" onClick={() => onReceipt(p.id)}>Xem / in phiếu</Button>}
+          {onGift && p.mathe && <Button onClick={() => onGift(p.mathe!)}>Tặng thêm dịch vụ</Button>}
+          <Button onClick={onClose}>Đóng</Button></Space>} /></div>
       : p.status !== 'pending' ? <Alert type="warning" showIcon message={`Phiếu ${purchaseStatus[p.status]?.label.toLowerCase() || p.status}; không thể thu tiền.`} />
       : <div className="invoice-payment">
         <p>Khách hàng: <strong>{p.customer_name}</strong>{p.phone ? ` · ${p.phone}` : ''}</p>

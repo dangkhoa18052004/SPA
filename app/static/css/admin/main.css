@@ -20,3 +20,7 @@
 
 @import url('utilities.css');
 
+
+.legacy-chat-unread { display:inline-block; margin-left:8px; padding:0 6px; min-width:20px; border-radius:12px; background:#a52d22; color:#fff; font-size:12px; text-align:center; }
+.legacy-chat-unread[hidden] { display:none; }
+.conversation-item.is-unread :is(.conversation-name,.conversation-preview) { font-weight:700; }

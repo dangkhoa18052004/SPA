@@ -22,7 +22,7 @@
 .package-card-body { padding: 22px; flex: 1; min-width: 0; }
 .package-card h3, .treatment-card h3 { margin: 12px 0; }
 .package-badge { display: inline-block; padding: 5px 12px; border-radius: 30px; background: var(--gold-light, #f4e8c1); color: var(--primary-green, #3d5a45); font-size: .85rem; }
-.package-description { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.package-description { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap:anywhere; }
 .package-service-list { padding: 0 !important; list-style: none; margin: 18px 0; }
 .package-service-list li { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; border-bottom: 1px solid #eee5de; padding: 10px 0; }
 .package-service-list small { grid-column: 1/-1; opacity: .75; }
@@ -134,3 +134,20 @@
     font-size: 22px;
     cursor: pointer;
 }
+
+/* Public catalog has bounded columns even for one matching package. */
+.customer-packages .package-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
+.customer-packages .package-grid .package-card { min-width:0; display:flex; flex-direction:column; }
+.customer-packages .package-grid .package-card-body { flex:1; }
+.customer-packages .package-grid .package-cover { height:auto; aspect-ratio:4/3; object-fit:cover; }
+.customer-packages .package-grid h3 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+.package-preview { padding-left:18px; font-size:14px; }
+.package-preview li { overflow-wrap:anywhere; }
+.package-catalog-controls { display:flex; flex-wrap:wrap; align-items:end; gap:16px; margin:24px 0; }
+.package-catalog-controls label { flex:1 1 240px; }
+.package-catalog-controls :is(input,select) { display:block; width:100%; min-width:0; min-height:44px; padding:8px 12px; border:1px solid var(--customer-border,#dee7e0); border-radius:8px; font:inherit; }
+.customer-packages .btn { min-height:44px; }
+.customer-packages .btn-primary { background:var(--customer-primary,#315e4b); color:white; }
+#packageResultCount { margin:16px 0; scroll-margin-top:100px; }
+@media(max-width:1023px) { .customer-packages .package-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:639px) { .customer-packages .package-grid { grid-template-columns:minmax(0,1fr); } }

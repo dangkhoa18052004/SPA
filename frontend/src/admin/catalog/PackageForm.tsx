@@ -181,9 +181,9 @@ function Detail({ id }: { id: number }) {
 }
 
 export default function PackagePage({ me, path }: { me: Me; path: string }) {
-  if (!['admin', 'manager'].includes(me.user.role)) return <Result status="403" title="Không có quyền quản lý gói dịch vụ" />;
+  if (!['admin', 'manager'].includes(me.user.role)) return <Result status="403" title="Không có quyền quản lý gói dịch vụ" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
   const match = path.match(/^\/admin\/packages\/(?:new|(\d+)(\/edit)?)$/);
-  if (!match) return <Result status="404" title="Không tìm thấy trang" />;
+  if (!match) return <Result status="404" title="Không tìm thấy trang" extra={<AppLink href="/admin/packages">Về danh sách gói</AppLink>} />;
   if (path.endsWith('/new')) return <Editor key="new" id={null} />;
   return match[2] ? <Editor key={`edit-${match[1]}`} id={Number(match[1])} /> : <Detail id={Number(match[1])} />;
 }

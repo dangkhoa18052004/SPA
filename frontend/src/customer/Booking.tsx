@@ -99,6 +99,18 @@ export default function BookingPage() {
   const [notice, setNotice] = useState('');
   const heading = useRef<HTMLDivElement>(null);
   const serviceList = useRef<HTMLDivElement>(null);
+  const summaryDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const sync = () => {
+      const dialog = summaryDialog.current;
+      if (!dialog) return;
+      if (dialog.open) dialog.close();
+      if (!media.matches) dialog.show();
+    };
+    sync(); media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, [catalogue, loading, guest, result, pending]);
   const initialized = useRef(false);
   useEffect(() => { heading.current?.focus(); }, [step]);
   useEffect(() => {
@@ -223,15 +235,7 @@ export default function BookingPage() {
       {!!filtered.length && <div className="mt-5 border-t border-border pt-4"><p className="mb-3 text-sm text-muted-foreground" role="status">Hiển thị {pageStart + 1}–{Math.min(pageStart + servicesPerPage, filtered.length)} / {filtered.length} dịch vụ</p>
         {pageCount > 1 && <nav className="flex flex-wrap items-center justify-between gap-2" aria-label="Phân trang dịch vụ"><Button variant="outline" aria-controls="booking-service-list" aria-label="Trang dịch vụ trước" disabled={currentPage === 1} onClick={() => changeServicePage(currentPage - 1)}>← Trước</Button><span className="text-sm" aria-live="polite">Trang {currentPage} / {pageCount}</span><Button variant="outline" aria-controls="booking-service-list" aria-label="Trang dịch vụ sau" disabled={currentPage === pageCount} onClick={() => changeServicePage(currentPage + 1)}>Sau →</Button></nav>}
       </div>}
-      {!!picked.length && <section className="mt-6 border-t border-border pt-5"><h3 className="mb-3 font-semibold">Dịch vụ đã chọn & lượt liệu trình</h3>{picked.map(s => {
-        const available = choices(catalogue.treatments, s.madv, date);
-        const usage = usages.find(u => u.madv === s.madv);
-        return <label key={s.madv} className="mb-4 block text-sm font-medium">{s.tendv}<select data-treatment-service={s.madv} className={cn(selectClass, 'mt-2')} value={usage?.the_item_id || ''} onChange={e => {
-          const choice = available.find(c => c.item.id === Number(e.target.value));
-          setUsages(prev => [...prev.filter(u => u.madv !== s.madv), ...(choice ? [{ mathe: choice.treatment.mathe, the_item_id: choice.item.id, madv: s.madv, quantity: 1 as const }] : [])]);
-        }}><option value="">Thanh toán bình thường · {money(s.gia)}</option>{usage && !available.some(c => c.item.id === usage.the_item_id) && <option value={usage.the_item_id} disabled>Lượt đã chọn không dùng được vào ngày hẹn</option>}
-          {available.map(c => <option key={c.item.id} value={c.item.id}>{c.item.source_type === 'gift' ? 'Quà tặng' : 'Dùng 1 buổi'} · {c.treatment.tengoi} · còn {c.item.available_sessions} buổi</option>)}</select></label>;
-      })}</section>}
+
     </>}
     {step === 2 && <TimeSelection disabled={busy} selected={selected} date={date} setDate={changeDate} time={time} setTime={v => { setTime(v); setStaff(null); }} staff={staff} setStaff={setStaff} />}
     {step === 3 && <><h2 className="mb-5 text-xl font-semibold">Kiểm tra trước khi đặt</h2><div data-testid="booking-recap" className="mb-6 rounded-xl bg-secondary p-5"><strong className="block">{date.split('-').reverse().join('/')} · {time}</strong><p className="mt-2">{staffName} · {duration} phút</p><ul className="my-4 space-y-3">{picked.map(s => <li key={s.madv} className="flex justify-between gap-3"><span>{s.tendv}<small className="block text-muted-foreground">{usages.some(u => u.madv === s.madv) ? 'Dùng 1 buổi gói / quà tặng' : 'Thanh toán dịch vụ'}</small></span><b className="whitespace-nowrap">{money(usages.some(u => u.madv === s.madv) ? 0 : s.gia)}</b></li>)}</ul><div className="flex justify-between border-t border-border pt-3 font-semibold"><span>Còn phải trả</span><span>{money(amount)}</span></div></div>
@@ -247,7 +251,20 @@ export default function BookingPage() {
       {step === 3 && <Button data-testid="booking-submit" disabled={busy || invalidUsages} onClick={submit}>{busy ? 'Đang đặt lịch…' : 'Xác nhận đặt lịch'}</Button>}
     </div>
   </Card></section>
-  <aside className="booking-summary"><Card><h2 className="mb-5 text-lg font-semibold">Lịch hẹn của bạn</h2>{picked.length ? <ul className="space-y-4">{picked.map(s => <li className="flex items-start justify-between gap-3" key={s.madv}><div><span className="font-medium">{s.tendv}</span><small className="mt-1 block text-muted-foreground">{usages.some(u => u.madv === s.madv) ? 'Dùng 1 buổi liệu trình / quà tặng' : `${s.thoiluong || 60} phút`}</small></div><button aria-label={`Bỏ ${s.tendv}`} disabled={busy} className="min-h-11 min-w-11 text-muted-foreground" onClick={() => { toggleService(s.madv); setStep(1); }}>×</button></li>)}</ul> : <p className="text-sm text-muted-foreground">Chưa chọn dịch vụ.</p>}
+  <button type="button" className="booking-mobile-summary" data-testid="booking-summary-open" aria-haspopup="dialog" disabled={!picked.length} onClick={() => summaryDialog.current?.showModal()}><span>Đã chọn {picked.length} · {money(amount)}</span><span>Xem lựa chọn ↑</span></button>
+  <aside className="booking-summary"><dialog ref={summaryDialog} className="booking-summary-dialog" aria-label="Lịch hẹn của bạn"><Card><div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold">Lịch hẹn của bạn</h2><Button variant="outline" className="booking-summary-close" onClick={() => summaryDialog.current?.close()}>Đóng</Button></div>
+      {!!picked.length && <section className="mt-6 border-t border-border pt-5"><h3 className="mb-3 font-semibold">Dịch vụ đã chọn & lượt liệu trình</h3>{picked.map(s => {
+        const available = choices(catalogue.treatments, s.madv, date);
+        const usage = usages.find(u => u.madv === s.madv);
+        return <label key={s.madv} className="mb-4 block text-sm font-medium">{s.tendv}<select disabled={busy} data-treatment-service={s.madv} className={cn(selectClass, 'mt-2')} value={usage?.the_item_id || ''} onChange={e => {
+          const choice = available.find(c => c.item.id === Number(e.target.value));
+          setUsages(prev => [...prev.filter(u => u.madv !== s.madv), ...(choice ? [{ mathe: choice.treatment.mathe, the_item_id: choice.item.id, madv: s.madv, quantity: 1 as const }] : [])]);
+        }}><option value="">Thanh toán bình thường · {money(s.gia)}</option>{usage && !available.some(c => c.item.id === usage.the_item_id) && <option value={usage.the_item_id} disabled>Lượt đã chọn không dùng được vào ngày hẹn</option>}
+          {available.map(c => <option key={c.item.id} value={c.item.id}>{c.item.source_type === 'gift' ? 'Quà tặng' : 'Dùng 1 buổi'} · {c.treatment.tengoi} · còn {c.item.available_sessions} buổi</option>)}</select></label>;
+      })}</section>}
+    {!picked.length && <p className="mt-4 text-sm text-muted-foreground">Chưa chọn dịch vụ.</p>}
+    {picked.length > 0 && <div className="flex flex-wrap gap-2">{picked.map(s => <button type="button" key={s.madv} disabled={busy} className="min-h-11 text-sm text-primary underline" onClick={() => { toggleService(s.madv); setStep(1); }}>Bỏ {s.tendv}</button>)}</div>}
+
     <div className="mt-6 border-t border-border pt-5 text-sm"><p>{date.split('-').reverse().join('/')} {time && `· ${time}`}</p><p className="mt-2 text-muted-foreground">Tổng thời lượng: {duration} phút</p></div><div className="mt-5 flex justify-between gap-2 border-t border-border pt-5"><span>Tạm tính</span><strong data-testid="booking-total" className="text-lg text-primary">{money(amount)}</strong></div><p className="mt-3 text-xs text-muted-foreground">Điểm thưởng và voucher được áp dụng ở bước thanh toán VietQR, hoặc khi thanh toán tại spa.</p>
-  </Card><a className="mt-4 inline-flex min-h-11 items-center text-sm text-primary underline" href="/profile#treatments">Xem liệu trình của tôi</a></aside></div>;
+  </Card><a className="mt-4 inline-flex min-h-11 items-center text-sm text-primary underline" href="/profile#treatments">Xem liệu trình của tôi</a></dialog></aside></div>;
 }

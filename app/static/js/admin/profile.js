@@ -238,9 +238,11 @@ async function handlePasswordChange(e) {
 
 // ====== MY SCHEDULE LOGIC (GET) ======
 async function loadMySchedule() {
+    const tbody = document.querySelector('#my-schedule-table tbody');
+    // The profile template no longer has a schedule tab; schedules live on /admin/my-schedule.
+    if (!tbody) return;
     const startDate = document.getElementById('schedule-start-date').value;
     const endDate = document.getElementById('schedule-end-date').value;
-    const tbody = document.querySelector('#my-schedule-table tbody');
 
     if (!startDate || !endDate) {
         tbody.innerHTML = `<tr><td colspan="5" class="text-center">Vui lòng chọn ngày để xem lịch hẹn.</td></tr>`;

@@ -71,6 +71,12 @@ def admin_chat_page():
     """Trang chat (yêu cầu JS xác thực)."""
     return _admin_portal('Tin nhắn', 'ADMIN_CARE_REACT_ENABLED') or render_template('admin/chat.html')
 
+
+@admin_bp.route('/skin-service-map')
+def admin_skin_service_map_page():
+    """Both shells use the same admin/manager API and explicit approval workflow."""
+    return _admin_portal('Dịch vụ theo loại mụn', 'ADMIN_CARE_REACT_ENABLED') or render_template('admin/skin_service_map.html')
+
 @admin_bp.route('/roles')
 def admin_roles_page():
     """Trang quản lý chức vụ (yêu cầu JS xác thực)."""

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, App, Button, Card, Descriptions, Drawer, Empty, Form, Input, InputNumber, Modal, Progress, Radio, Result, Select, Skeleton, Space, Statistic, Table, Tabs, Tag } from 'antd';
-import { api, post } from '../../api';
+import { api, ApiError, post } from '../../api';
 import { ResourceState, useResource } from '../../components';
 import { useQuery } from '../../router';
 import type { Me } from '../../types';
@@ -20,14 +20,24 @@ function GiftForm({ treatment, services, onClose, onDone }: { treatment: Custome
   const { message } = App.useApp();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const submitting = useRef(false);
+  const [uncertain, setUncertain] = useState(false);
   const mode = Form.useWatch('mode', form) || 'unlimited';
   async function save(values: { madv: number; quantity: number; mode: string; validity_days?: number; expires_at?: string; gift_note?: string }) {
+    if (submitting.current || uncertain) return;
+    submitting.current = true;
     setBusy(true); setError('');
     const body: Record<string, unknown> = { makh: treatment.makh, madv: values.madv, quantity: values.quantity, gift_note: values.gift_note?.trim() || '' };
     if (values.mode === 'days') body.validity_days = values.validity_days;
     if (values.mode === 'date') body.expires_at = values.expires_at;
     try { await post(`/api/admin/packages/treatments/${treatment.mathe}/gifts`, body); message.success('Đã tặng dịch vụ vào liệu trình.'); onDone(); }
-    catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+    catch (e) {
+      const err = e as ApiError;
+      if (err.status === 0 || err.status >= 500) {
+        setUncertain(true);
+        setError('Chưa nhận được kết quả tặng. Kiểm tra các buổi trong liệu trình trước khi tặng lại để tránh tặng trùng.');
+      } else setError(err.message);
+    } finally { setBusy(false); submitting.current = false; }
   }
   return <Modal open title="Tặng dịch vụ" onCancel={() => { if (!busy) onClose(); }} footer={null} destroyOnHidden>
     <p className="muted">{treatment.customer_name} · {treatment.tengoi} (#{treatment.mathe})</p>
@@ -40,16 +50,25 @@ function GiftForm({ treatment, services, onClose, onDone }: { treatment: Custome
       {mode === 'date' && <Form.Item label="Ngày hết hạn" name="expires_at" rules={[{ required: true, message: 'Chọn ngày' }]}><Input type="date" min={spaToday()} aria-label="Ngày hết hạn" /></Form.Item>}
       <Form.Item label="Ghi chú" name="gift_note" rules={[{ max: 2000 }]}><Input.TextArea rows={3} maxLength={2000} /></Form.Item>
       {error && <Alert role="alert" type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
-      <Space><Button onClick={onClose} disabled={busy}>Hủy</Button><Button type="primary" htmlType="submit" loading={busy}>Xác nhận tặng</Button></Space>
+      <Space wrap><Button onClick={onClose} disabled={busy}>Hủy</Button>
+        {uncertain ? <Button type="primary" onClick={onDone}>Kiểm tra liệu trình</Button>
+          : <Button type="primary" htmlType="submit" loading={busy}>Xác nhận tặng</Button>}</Space>
     </Form>
   </Modal>;
 }
 
-export function TreatmentDrawer({ mathe, onClose, onChanged }: { mathe: number | null; onClose: () => void; onChanged: () => void }) {
+export function TreatmentDrawer({ mathe, onClose, onChanged, startGift = false, onGiftClosed }: { mathe: number | null; onClose: () => void; onChanged: () => void; startGift?: boolean; onGiftClosed?: () => void }) {
   const [data, setData] = useState<{ treatment: CustomerTreatment; can_gift: boolean; services: { madv: number; tendv: string }[] }>();
   const [error, setError] = useState('');
   const [gifting, setGifting] = useState(false);
   const [revision, setRevision] = useState(0);
+  // The drawer focuses its panel once it has opened; a gift form shown before that would sit behind the focus.
+  // While the form is open the drawer ignores Escape (React bubbles it out of the portaled modal), so Escape closes one layer.
+  const [opened, setOpened] = useState(false);
+  const panel = useRef<HTMLDivElement>(null);
+  // The form unmounts on close, so the modal cannot restore focus; hand it back to the drawer.
+  const closeGift = () => { setGifting(false); onGiftClosed?.(); panel.current?.closest<HTMLElement>('.ant-drawer')?.focus(); };
+  useEffect(() => { setGifting(startGift && mathe !== null); }, [mathe, startGift]);
   useEffect(() => {
     let active = true; setData(undefined); setError('');
     if (mathe !== null) api<NonNullable<typeof data>>(`/api/admin/packages/treatments/${mathe}`).then(d => { if (active) setData(d); }).catch(e => { if (active) setError(e.message); });
@@ -57,7 +76,7 @@ export function TreatmentDrawer({ mathe, onClose, onChanged }: { mathe: number |
   }, [mathe, revision]);
   const t = data?.treatment;
   const names = new Map((t?.items || []).map(i => [i.id, `${i.tendv} · ${i.source_type === 'gift' ? 'Tặng' : 'Trong gói'}`]));
-  return <Drawer open={mathe !== null} onClose={onClose} width={720} title={mathe !== null ? `Liệu trình #${mathe}` : ''} destroyOnHidden
+  return <Drawer open={mathe !== null} onClose={onClose} afterOpenChange={setOpened} panelRef={panel} keyboard={!gifting} width={720} title={mathe !== null ? `Liệu trình #${mathe}` : ''} destroyOnHidden
     extra={t && data?.can_gift && t.status !== 'cancelled' && <Button type="primary" onClick={() => setGifting(true)}>Tặng dịch vụ</Button>}>
     {error ? <Alert type="error" showIcon message={error} /> : !t ? <Skeleton active /> : <>
       <h2 style={{ marginTop: 0 }}>{t.tengoi}</h2>
@@ -76,7 +95,8 @@ export function TreatmentDrawer({ mathe, onClose, onChanged }: { mathe: number |
         <div><strong>{names.get(h.the_item_id) || h.tendv}</strong><div className="muted">Lịch hẹn <a href={`/admin/appointments?q=${h.malh}`}>#{h.malh}</a></div></div>
         <span>{usageLabels[h.state] || h.state} · {dayText(h.consumed_at || h.released_at || h.reserved_at, '')}</span></li>)}</ul>}
     </>}
-    {gifting && t && <GiftForm treatment={t} services={data?.services || []} onClose={() => setGifting(false)} onDone={() => { setGifting(false); setRevision(n => n + 1); onChanged(); }} />}
+    {gifting && opened && mathe !== null && t && data?.can_gift && t.status !== 'cancelled' && <GiftForm treatment={t} services={data?.services || []}
+      onClose={closeGift} onDone={() => { closeGift(); setRevision(n => n + 1); onChanged(); }} />}
   </Drawer>;
 }
 
@@ -129,6 +149,10 @@ function TreatmentList() {
   useEffect(() => setDraft(search), [search]);
   const resource = useResource<{ treatments: CustomerTreatment[] }>(`/api/admin/packages/treatments?${new URLSearchParams({ ...(search ? { search } : {}), ...(status ? { status } : {}) })}`);
   const viewing = Number(query.get('mathe')) || null;
+  const actions = (t: CustomerTreatment) => <Space wrap>
+    <Button size="small" onClick={() => setQuery({ mathe: t.mathe, gift: null })}>Chi tiết</Button>
+    {t.status !== 'cancelled' && <Button size="small" onClick={() => setQuery({ mathe: t.mathe, gift: '1' })}>Tặng thêm dịch vụ</Button>}
+  </Space>;
   const rows = resource.data?.treatments || [];
   const bar = (t: CustomerTreatment) => { const p = progress(t); return <div className="treatment-progress">{p.used}/{p.total} buổi<Progress percent={p.percent} showInfo={false} size="small" /></div>; };
   return <Card>
@@ -147,11 +171,12 @@ function TreatmentList() {
         { title: 'Gói', dataIndex: 'tengoi' }, { title: 'Tiến độ', render: (_: unknown, t: CustomerTreatment) => bar(t), width: 170 },
         { title: 'Hạn dùng', render: (_: unknown, t: CustomerTreatment) => dayText(t.expires_at) },
         { title: 'Trạng thái', dataIndex: 'status', render: treatmentTag },
-        { title: 'Thao tác', render: (_: unknown, t: CustomerTreatment) => <Button size="small" onClick={() => setQuery({ mathe: t.mathe })}>Chi tiết</Button> }]} /></div>
+        { title: 'Thao tác', render: (_: unknown, t: CustomerTreatment) => actions(t) }]} /></div>
       <div className="mobile-cards section-title">{rows.map(t => <Card key={t.mathe} className="small-card"><div className="card-head"><strong>#{t.mathe} · {t.customer_name}</strong>{treatmentTag(t.status)}</div>
-        <p>{t.tengoi}</p>{bar(t)}<p className="muted">Hạn {dayText(t.expires_at)}</p><Button size="small" onClick={() => setQuery({ mathe: t.mathe })}>Chi tiết</Button></Card>)}</div>
+        <p>{t.tengoi}</p>{bar(t)}<p className="muted">Hạn {dayText(t.expires_at)}</p>{actions(t)}</Card>)}</div>
     </>)}
-    <TreatmentDrawer mathe={viewing} onClose={() => setQuery({ mathe: null })} onChanged={resource.reload} />
+    <TreatmentDrawer key={viewing} mathe={viewing} startGift={query.get('gift') === '1'} onClose={() => setQuery({ mathe: null, gift: null })} onChanged={resource.reload}
+      onGiftClosed={() => setQuery({ gift: null }, true)} />
   </Card>;
 }
 

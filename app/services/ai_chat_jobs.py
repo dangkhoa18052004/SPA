@@ -116,6 +116,7 @@ def process_next():
     job = db.session.get(AIChatJob, request_id)
     lease = job.started_at
     previous_deadline = g.get('ai_deadline')
+    previous_provider_state = {key: g.pop(key, None) for key in ('ai_preferred_model', 'ai_failed_models')}
     try:
         actor = actor_for(job)
         g.ai_deadline = time.monotonic() + 22
@@ -133,4 +134,7 @@ def process_next():
     finally:
         if previous_deadline is None: g.pop('ai_deadline', None)
         else: g.ai_deadline = previous_deadline
+        for key, value in previous_provider_state.items():
+            if value is None: g.pop(key, None)
+            else: setattr(g, key, value)
     return request_id

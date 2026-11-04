@@ -78,6 +78,14 @@ def test_gift_role_service_and_customer_checks(app, client, staff_auth_headers, 
     assert gift(client,staff_auth_headers,treatment,package_data['service']).status_code==403
 
 
+def test_gift_rejected_for_inactive_customer(app, client, staff_auth_headers, package_data, treatment):
+    with app.app_context():
+        db.session.get(KhachHang,app.config['TEST_CUSTOMER_ID']).trangthai='blocked';db.session.commit()
+    r=gift(client,staff_auth_headers,treatment,package_data['service'])
+    assert r.status_code==400 and 'ngừng hoạt động' in r.json['message'], r.json
+    with app.app_context(): assert TheLieuTrinhItem.query.count()==1
+
+
 @pytest.mark.parametrize('action', ['cancel', 'complete'])
 def test_exact_gift_ledger_and_free_invoice(app, client, customer_auth_headers, admin_auth_headers,
                                          package_data, treatment, action):

@@ -125,6 +125,15 @@ class Config:
     GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "30"))
     # Model dự phòng (phân tách bằng dấu phẩy) khi model chính quá tải 429/5xx.
     GEMINI_FALLBACK_MODELS = os.getenv("GEMINI_FALLBACK_MODELS", "")
+    # Phân tích mụn qua dịch vụ AI cục bộ (repo BinSpa_AI, api/server.py). Tắt mặc định.
+    SKIN_ANALYSIS_ENABLED = _is_truthy(os.getenv('SKIN_ANALYSIS_ENABLED', 'false'))
+    AI_SKIN_URL = os.getenv("AI_SKIN_URL", "http://127.0.0.1:8008")
+    AI_SKIN_KEY = os.getenv("AI_SKIN_KEY", "")
+    AI_SKIN_TIMEOUT = int(os.getenv("AI_SKIN_TIMEOUT", "60"))
+    # Gemini gợi ý dịch vụ từ kết quả soi da. Tắt mặc định; chỉ gợi ý các dịch vụ spa đã duyệt cho từng loại mụn,
+    # JSON dạng {"papule": [madv, ...], "pustule": [...]} (để trống = không có dịch vụ để gợi ý).
+    SKIN_RECOMMENDATIONS_ENABLED = _is_truthy(os.getenv('SKIN_RECOMMENDATIONS_ENABLED', 'false'))
+    SKIN_SERVICE_MAP = os.getenv("SKIN_SERVICE_MAP", "")
     # Lịch lỡ cũ hơn số giờ này chỉ tự hủy, không gửi email (tránh gửi thư cho lịch tồn đọng).
     NO_SHOW_EMAIL_MAX_AGE_HOURS = int(os.getenv("NO_SHOW_EMAIL_MAX_AGE_HOURS", "24"))
     

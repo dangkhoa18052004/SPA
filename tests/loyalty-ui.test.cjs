@@ -49,14 +49,14 @@ test('zero payable offers point settlement and never asks for a QR',async()=>{
 function mountPayment(base,{vouchers=[],extra={}}={}){
     const calls=[];
     class Element{
-        constructor(){this.parts=new Map();this.isConnected=true;this.innerHTML='';}
-        querySelector(selector){if(!this.parts.has(selector))this.parts.set(selector,new Element());return this.parts.get(selector);}
+        constructor(){this.parts=new Map();this.isConnected=true;this.innerHTML='';this.dataset={};}
+        querySelector(selector){if(selector===':scope > .loyalty-payment')return this.child||null;if(!this.parts.has(selector))this.parts.set(selector,new Element());return this.parts.get(selector);}
         prepend(node){this.child=node;}
     }
     const state={wallet:{available_points:300,reserved_points:100},original_total:'500000',payable_amount:'500000',redeem_enabled:true,max_points_allowed:250,points_used:0,...extra};
     const respond=url=>url.includes('/vouchers')||url.includes('/my-rewards')?{items:vouchers}:state;
     const fetcher=async url=>{calls.push(url);return {ok:true,status:200,json:async()=>respond(url)};};
-    const context={window:{getAuthHeaders:()=>({}),CustomerAuth:{fetch:fetcher}},document:{createElement:()=>new Element()},fetch:fetcher,Intl};
+    const context={AbortController,setTimeout,clearTimeout,window:{getAuthHeaders:()=>({}),CustomerAuth:{fetch:fetcher}},document:{createElement:()=>new Element()},fetch:fetcher,Intl};
     vm.runInNewContext(fs.readFileSync('app/static/js/loyalty-payment.js','utf8'),context);
     const root=new Element();
     return context.window.LoyaltyPayment.mount(root,base,7,async()=>{}).then(()=>({html:root.child.innerHTML,vouchersHtml:root.child.querySelector('[data-vouchers]').innerHTML,calls}));
@@ -79,7 +79,7 @@ test('customer payment shows only available points; staff still sees reserved ba
 });
 
 test('api errors carry the HTTP status and tolerate non-JSON bodies',async()=>{
-    const context={window:{CustomerAuth:{fetch:async()=>({ok:false,status:502,json:async()=>{throw new SyntaxError('html');}})}},document:{},Intl};
+    const context={AbortController,setTimeout,clearTimeout,window:{CustomerAuth:{fetch:async()=>({ok:false,status:502,json:async()=>{throw new SyntaxError('html');}})}},document:{},Intl};
     vm.runInNewContext(fs.readFileSync('app/static/js/loyalty-payment.js','utf8'),context);
     await assert.rejects(context.window.LoyaltyPayment.api('/api/loyalty/me'),e=>e.status===502&&e.message==='Không thể cập nhật điểm');
 });
@@ -96,8 +96,9 @@ test('voucher picker shows terms, disables vouchers under the minimum and hides 
         voucher(3,{name:'V-pkg',minimum_spend:'0.00',apply_to:'package_purchase'}),voucher(4,{name:'V-legacy'}),
         {id:5,code:'BIN-5',status:'available',reward:{reward_type:'physical_gift',name:'Khăn'}}];
     const {vouchersHtml}=await mountPayment('/api/payment/invoices/31',{vouchers});
-    assert.match(vouchersHtml,/V50 · BIN-1 · Giảm 50\.000\s₫ · Không yêu cầu đơn tối thiểu · Cả hai/);
-    assert.match(vouchersHtml,/<option value="2" disabled>V-min · BIN-2 · Giảm 50\.000\s₫ · Đơn từ 600\.000\s₫ · Hóa đơn dịch vụ \(chưa đạt đơn tối thiểu\)/);
+    assert.match(plainText(vouchersHtml),/V50.*BIN-1.*Giảm 50\.000\s₫ · Không yêu cầu đơn tối thiểu · Cả hai/);
+    assert.match(vouchersHtml,/data-voucher value="2" disabled/);
+    assert.match(plainText(vouchersHtml),/V-min.*BIN-2.*Giảm 50\.000\s₫ · Đơn từ 600\.000\s₫ · Hóa đơn dịch vụ · Chưa đạt đơn tối thiểu/);
     assert.ok(vouchersHtml.includes('V-legacy')&&!vouchersHtml.includes('V-pkg')&&!vouchersHtml.includes('Khăn'),vouchersHtml);
     const applied=await mountPayment('/api/payment/invoices/31',{vouchers,extra:{reward_redemption_id:1,reward_name:'V50',reward_code:'BIN-1'}});
     assert.match(applied.vouchersHtml,/Voucher đang áp dụng: V50 · BIN-1/);
@@ -152,6 +153,20 @@ test('my rewards card shows code, value, scope, minimum, dates and status labels
     for(const [status,base,label] of labels)assert.equal(statusLabel({...base,status}),label);
 });
 
+test('gift vouchers show their source and escape messages without spending zero points or exposing internal reasons',()=>{
+    const {offerCard}=customerRender();
+    for(const [issuance_source,label] of [['welcome','Quà chào mừng'],['staff_gift','Được spa tặng']]){
+        const html=offerCard({id:20,code:'BIN-GIFT',status:'available',points_spent:0,issuance_source,
+            issued_at:'2026-10-23T03:00:00Z',redeemed_at:'2026-10-23T03:00:00Z',expires_at:null,
+            customer_message:'<img src=x onerror=alert(1)>',gift_reason:'PRIVATE INTERNAL REASON',
+            reward:{name:'Voucher tặng',reward_type:'voucher_amount',reward_value:'50000',apply_to:'both',minimum_spend:0}});
+        const text=plainText(html);
+        assert.ok(text.includes(label)&&text.includes('Ngày nhận'),text);
+        assert.ok(!text.includes('0 điểm')&&!text.includes('PRIVATE INTERNAL REASON'),text);
+        assert.ok(html.includes('&lt;img')&&!html.includes('<img src=x'),html);
+    }
+});
+
 test('physical gift card guides pickup and shows the received date',()=>{
     const {offerCard}=customerRender();
     const gift={id:3,code:'BIN-GIFT',points_spent:100,redeemed_at:'2026-10-04T03:00:00Z',expires_at:null,reward:{name:'Khăn tắm',reward_type:'physical_gift'}};
@@ -174,6 +189,6 @@ test('percent voucher card, offer and payment picker show percent, cap, scope an
     assert.match(offer,/Giảm 10%.*Tối đa 100\.000\s₫.*Áp dụng Dịch vụ và gói.*Đơn tối thiểu 300\.000\s₫/);
     const vouchers=[{id:11,code:'BIN-P',status:'available',reward},{id:12,code:'BIN-Q',status:'available',reward:{...reward,name:'Giảm 5%',percentage_value:'5.00',max_discount_amount:null,minimum_spend:'0.00'}}];
     const {vouchersHtml}=await mountPayment('/api/payment/invoices/31',{vouchers});
-    assert.match(vouchersHtml,/GIẢM 10% · BIN-P · Giảm 10% \(tối đa 100\.000\s₫\) · Đơn từ 300\.000\s₫ · Cả hai/);
-    assert.match(vouchersHtml,/Giảm 5% · BIN-Q · Giảm 5% · Không yêu cầu đơn tối thiểu · Cả hai/);
+    assert.match(plainText(vouchersHtml),/GIẢM 10%.*BIN-P.*Giảm 10% \(tối đa 100\.000\s₫\) · Đơn từ 300\.000\s₫ · Cả hai/);
+    assert.match(plainText(vouchersHtml),/Giảm 5%.*BIN-Q.*Giảm 5% · Không yêu cầu đơn tối thiểu · Cả hai/);
 });

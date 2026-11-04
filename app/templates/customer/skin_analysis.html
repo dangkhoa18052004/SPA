@@ -1,0 +1,121 @@
+{% extends "customer/layout.html" %}
+
+{% block body_class %}is-subpage{% endblock %}
+
+{% block title %}{{ 'Chi tiết kết quả soi da' if analysis_id else 'Soi da bằng AI' }} - Bin Spa{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/customers/skin-analysis.css', v='3.0') }}">
+{% endblock %}
+
+{% block content %}
+<div class="skin-page" data-analysis-id="{{ analysis_id or '' }}">
+    <header class="skin-head">
+        <h1 class="page-title">{{ 'Chi tiết kết quả soi da' if analysis_id else 'Soi da bằng AI' }}</h1>
+        {% if analysis_id %}
+        <p class="skin-lead">Toàn bộ điểm AI tìm thấy, sắp xếp theo độ tin cậy cao đến thấp.</p>
+        <a class="skin-btn skin-btn-ghost" href="{{ url_for('skin.page', analysis=analysis_id) }}">Quay lại kết quả nổi bật</a>
+        <p class="skin-status" id="skinStatus" role="status" aria-live="polite"></p>
+        {% else %}
+        <p class="skin-lead">Chụp hoặc tải ảnh khuôn mặt, AI sẽ đánh dấu các điểm mụn nổi bật để bạn tham khảo.</p>
+        {% endif %}
+    </header>
+
+    <section class="skin-card skin-capture" id="skinCapture" aria-labelledby="skin-capture-title" {% if analysis_id %}hidden{% endif %}>
+        <h2 id="skin-capture-title">Ảnh mới</h2>
+        <form id="skinForm" class="skin-capture-grid" novalidate>
+            <label class="skin-drop" for="skinFile">
+                <img id="skinPreview" alt="Ảnh đã chọn" hidden>
+                <span class="skin-drop-icon" id="skinDropIcon" aria-hidden="true"><i class="fas fa-camera"></i></span>
+                <span id="skinDropText">Chọn hoặc chụp ảnh khuôn mặt</span>
+            </label>
+            <input type="file" id="skinFile" accept="image/jpeg,image/png,image/webp" class="visually-hidden">
+
+            <div class="skin-capture-side">
+                <details class="skin-tips">
+                    <summary>Mẹo chụp ảnh để AI nhận diện tốt hơn</summary>
+                    <ul>
+                        <li>Chụp chính diện, cả khuôn mặt nằm trong khung, mặt chiếm phần lớn ảnh.</li>
+                        <li>Ánh sáng ban ngày chiếu đều, không đèn flash, không bộ lọc làm đẹp.</li>
+                        <li>Giữ máy chắc tay; nên dùng camera sau hoặc nhờ người chụp.</li>
+                    </ul>
+                </details>
+
+                <label class="skin-consent">
+                    <input type="checkbox" id="skinConsent" value="{{ consent_version }}">
+                    <span>Tôi đồng ý cho Bin Spa lưu ảnh khuôn mặt và kết quả phân tích này vào tài khoản của tôi để theo dõi tình trạng da. Ảnh chỉ tôi xem được và tôi có thể xóa bất cứ lúc nào.</span>
+                </label>
+
+                <button type="submit" class="skin-btn skin-submit" id="skinSubmit" disabled>Phân tích</button>
+                {% if not analysis_id %}<p class="skin-status" id="skinStatus" role="status" aria-live="polite"></p>{% endif %}
+            </div>
+        </form>
+    </section>
+
+    <section class="skin-card skin-result" id="skinResult" aria-labelledby="skin-result-title" hidden>
+        <div class="skin-section-head">
+            <h2 id="skin-result-title">{{ 'Toàn bộ kết quả' if analysis_id else 'Kết quả nổi bật' }}</h2>
+            <button type="button" class="skin-btn skin-btn-ghost" id="skinAgain" {% if analysis_id %}hidden{% endif %}>Phân tích ảnh khác</button>
+        </div>
+        <div class="skin-banner" id="skinBanner" hidden></div>
+
+        <div id="skinResultBody">
+            <p class="skin-note">{{ 'Chọn số điểm để đối chiếu vị trí trên ảnh.' if analysis_id else 'Hiển thị tối đa 8 điểm có độ tin cậy cao nhất trong ảnh. Mở chi tiết để xem toàn bộ kết quả.' }}</p>
+            <div class="skin-result-grid">
+                <figure class="skin-figure" id="skinFigure">
+                    <div class="skin-stage">
+                        <img id="skinImage" alt="Ảnh khuôn mặt đã phân tích">
+                        <svg id="skinBoxes" aria-hidden="true"></svg>
+                    </div>
+                    <figcaption class="skin-coverage" id="skinCoverage"></figcaption>
+                </figure>
+                <div class="skin-highlights">
+                    <div id="skinHighlights"></div>
+                    <a class="skin-btn skin-detail-link" id="skinDetailLink" hidden>Xem chi tiết</a>
+                </div>
+            </div>
+
+            <div class="skin-detail" id="skinDetail" hidden>
+                <div class="skin-detail-head">
+                    <p>Sắp xếp theo độ tin cậy cao → thấp; điểm chưa có mức đánh giá nằm cuối.</p>
+                    <label class="skin-switch"><input type="checkbox" id="skinShowAll"> Hiện tất cả điểm trên ảnh</label>
+                </div>
+                <table class="skin-table">
+                    <caption class="visually-hidden">Chi tiết từng điểm AI tìm thấy</caption>
+                    <thead><tr><th scope="col">Điểm</th><th scope="col">Loại</th><th scope="col">Độ tin cậy của AI</th><th scope="col">Khả năng khác</th></tr></thead>
+                    <tbody id="skinTable"></tbody>
+                </table>
+                <div class="skin-more">
+                    <span id="skinPageInfo"></span>
+                    <button type="button" class="skin-btn skin-btn-ghost" id="skinMore">Xem thêm</button>
+                </div>
+            </div>
+        </div>
+        <p class="skin-disclaimer">Kết quả AI mang tính tham khảo, không thay thế đánh giá chuyên môn.</p>
+    </section>
+
+    {% if recommendations_enabled %}
+    <section class="skin-card skin-recs" id="skinRecs" aria-labelledby="skin-recs-title"
+             data-consent-version="{{ recommendation_consent_version }}" hidden>
+        <h2 id="skin-recs-title">Dịch vụ gợi ý cho bạn</h2>
+        <div id="skinRecsBody" aria-live="polite"></div>
+    </section>
+    {% endif %}
+
+    <section class="skin-card skin-history" aria-labelledby="skin-history-title" {% if analysis_id %}hidden{% endif %}>
+        <div class="skin-section-head">
+            <h2 id="skin-history-title">Lịch sử phân tích</h2>
+            <button type="button" class="skin-btn skin-btn-ghost" id="skinHistoryToggle" aria-expanded="false" aria-controls="skinHistoryPanel">Xem lịch sử</button>
+        </div>
+        <div id="skinHistoryPanel" hidden>
+            <p class="skin-empty" id="skinEmpty">Chưa có lần phân tích nào.</p>
+            <ul id="skinHistory" class="skin-history-list"></ul>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/customers/skin-analysis-view.js', v='2.0') }}"></script>
+<script src="{{ url_for('static', filename='js/customers/skin-analysis.js', v='3.1') }}"></script>
+{% endblock %}

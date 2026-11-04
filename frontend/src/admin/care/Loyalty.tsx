@@ -8,6 +8,8 @@ import { vnd } from '../booking/model';
 import { canFulfill, options, redemptionGroups, redemptionLabels, rewardKinds, rewardPayload, utcDate } from './model';
 import type { Ledger, Redemption, Reward } from './model';
 import './care.css';
+import WelcomeVoucher from './WelcomeVoucher';
+import { issuanceLabels } from './VoucherGifts';
 
 type Wallet = { available_points: number; reserved_points: number; lifetime_earned: number; lifetime_redeemed: number };
 type Customer = Wallet & { makh: number; hoten: string; sdt: string; email: string };
@@ -31,7 +33,7 @@ function Rules() {
   const fields = { earn_amount_unit: 'Mỗi bao nhiêu tiền được tích điểm (đ)', earn_points: 'Số điểm tích mỗi lần', point_value: 'Giá trị một điểm khi dùng (đ)', minimum_redeem_points: 'Số điểm dùng tối thiểu', maximum_redeem_percent: 'Giảm bằng điểm tối đa (%)' };
   const switches = { earn_on_service_invoice: 'Tích điểm khi trả tiền dịch vụ', earn_on_package_purchase: 'Tích điểm khi mua gói', redeem_on_service_invoice: 'Cho dùng điểm trả tiền dịch vụ', redeem_on_package_purchase: 'Cho dùng điểm mua gói' };
   async function save(path: string, body: unknown) { setBusy(true); try { await put(path, body); message.success('Đã lưu quy tắc'); r.reload(); tier.reload(); } catch (e) { message.error((e as Error).message); } finally { setBusy(false); } }
-  return <><ResourceState {...r} />{!r.loading && !r.error && r.data && <Card title="Tích và dùng điểm"><p>Điểm hiện không hết hạn. Thay đổi quy tắc áp dụng cho những giao dịch tiếp theo.</p>
+  return <><WelcomeVoucher /><ResourceState {...r} />{!r.loading && !r.error && r.data && <Card title="Tích và dùng điểm"><p>Điểm hiện không hết hạn. Thay đổi quy tắc áp dụng cho những giao dịch tiếp theo.</p>
     <Form layout="vertical" initialValues={r.data.config} disabled={busy} onFinish={v => modal.confirm({ title: 'Lưu quy tắc tích và dùng điểm?', content: 'Kiểm tra các giá trị trước khi áp dụng cho khách hàng.', okText: 'Lưu quy tắc', cancelText: 'Kiểm tra lại', onOk: () => save('/api/admin/loyalty/config', v) })}>
       <div className="care-rule-grid">{Object.entries(fields).map(([name, label]) => <Form.Item key={name} name={name} label={label} rules={[{ required: true }]}><InputNumber min={['earn_points', 'maximum_redeem_percent'].includes(name) ? 0 : 1} max={name === 'maximum_redeem_percent' ? 100 : 1000000000} precision={name === 'maximum_redeem_percent' ? 2 : 0} /></Form.Item>)}</div>
       {Object.entries(switches).map(([name, label]) => <Form.Item key={name} name={name} label={label} valuePropName="checked"><Switch /></Form.Item>)}<Button type="primary" htmlType="submit" loading={busy}>Lưu quy tắc</Button>
@@ -47,34 +49,45 @@ function Rules() {
       </Form></Card>}</div>
   </>;
 }
-function RewardEditor({ reward, close, saved }: { reward: Reward | 'new'; close: () => void; saved: () => void }) {
+function RewardEditor({ reward, welcomeOnly, close, saved }: { reward: Reward | 'new'; welcomeOnly: boolean; close: () => void; saved: () => void }) {
   const [form] = Form.useForm(); const [busy, setBusy] = useState(false); const { message, modal } = App.useApp();
   const kind = Form.useWatch('reward_type', form) || (reward === 'new' ? 'voucher_amount' : reward.reward_type);
+  const pointsEnabled = Form.useWatch('allow_points_redemption', form) !== false;
+  const forNew = Form.useWatch('for_new_customers', form) ?? welcomeOnly;
   const numeric = (r: Reward) => Object.fromEntries(Object.entries(r).map(([k, v]) => ['reward_value', 'percentage_value', 'max_discount_amount', 'minimum_spend'].includes(k) ? [k, v == null ? null : Number(v)] : [k, v]));
   const onClose = () => { if (busy) return; if (!form.isFieldsTouched()) close(); else modal.confirm({ title: 'Bỏ thay đổi chưa lưu?', okText: 'Bỏ thay đổi', cancelText: 'Tiếp tục sửa', onOk: close }); };
-  return <Drawer open title={reward === 'new' ? 'Thêm quà hoặc voucher' : 'Sửa quà đổi thưởng'} onClose={onClose} width={560} maskClosable={!busy}>
-    <Form form={form} layout="vertical" disabled={busy} initialValues={reward === 'new' ? { active: true, reward_type: 'voucher_amount', apply_to: 'both', minimum_spend: 0 } : numeric(reward)} onFinish={async v => {
+  return <Drawer open title={reward === 'new' ? 'Thêm quà hoặc voucher' : 'Sửa mẫu quà / voucher'} onClose={onClose} width="min(560px, 100vw)" maskClosable={!busy}>
+    <Form form={form} layout="vertical" disabled={busy} initialValues={reward === 'new' ? { active: true, allow_points_redemption: true, for_new_customers: false, points_cost: 0, reward_type: 'voucher_amount', apply_to: 'both', minimum_spend: 0 } : { ...numeric(reward), for_new_customers: welcomeOnly }} onFinish={async v => {
       setBusy(true); try { await api('/api/admin/loyalty/rewards' + (reward === 'new' ? '' : '/' + reward.id), { method: reward === 'new' ? 'POST' : 'PUT', body: JSON.stringify(rewardPayload(v)) }); saved(); message.success('Đã lưu quà đổi thưởng'); } catch (e) { message.error((e as Error).message); } finally { setBusy(false); }
     }}>
       <Form.Item name="reward_type" label="Loại quà" rules={[{ required: true }]}><Select options={options(rewardKinds)} /></Form.Item>
       <Form.Item name="name" label={kind === 'physical_gift' ? 'Tên quà' : 'Tên voucher'} rules={[{ required: true, whitespace: true, max: 200 }]}><Input /></Form.Item>
       <Form.Item name="description" label="Mô tả"><Input.TextArea rows={3} maxLength={5000} /></Form.Item>
-      <Form.Item name="points_cost" label="Điểm cần đổi" rules={[{ required: true }]}><InputNumber min={1} precision={0} /></Form.Item>
+      {kind !== 'physical_gift' && <Form.Item name="for_new_customers" label="Dành cho khách hàng mới" extra="Tự tặng một lần sau OTP, kể cả khi mẫu tắt hoạt động. Chọn mẫu này sẽ thay mẫu chào mừng hiện tại; voucher đã cấp giữ nguyên." valuePropName="checked"><Switch onChange={enabled => { if (enabled) form.setFieldsValue({ allow_points_redemption: false, points_cost: 0 }); }} /></Form.Item>}
+      <Form.Item name="allow_points_redemption" label="Cho khách đổi bằng điểm" extra="Khách chỉ đổi được khi mẫu cũng đang hoạt động. Voucher vẫn tặng và sử dụng được khi tắt hoạt động." valuePropName="checked"><Switch disabled={busy || (forNew && kind !== 'physical_gift')} onChange={enabled => { if (!enabled) form.setFieldValue('points_cost', 0); }} /></Form.Item>
+      {pointsEnabled && !(forNew && kind !== 'physical_gift') && <Form.Item name="points_cost" label="Điểm cần đổi" rules={[{ required: true }, { type: 'number', min: 1 }]}><InputNumber min={1} precision={0} /></Form.Item>}
       {kind === 'voucher_amount' && <Form.Item name="reward_value" label="Số tiền giảm (đ)" rules={[{ required: true }]}><InputNumber min={1} precision={0} /></Form.Item>}
       {kind === 'voucher_percent' && <><Form.Item name="percentage_value" label="Phần trăm giảm (%)" rules={[{ required: true }]}><InputNumber min={0.01} max={100} precision={2} /></Form.Item><Form.Item name="max_discount_amount" label="Giảm tối đa (đ)" extra="Để trống nếu không giới hạn"><InputNumber min={1} precision={0} /></Form.Item></>}
       {kind !== 'physical_gift' && <><Form.Item name="minimum_spend" label="Đơn tối thiểu (đ)"><InputNumber min={0} precision={0} /></Form.Item><Form.Item name="apply_to" label="Áp dụng cho"><Select options={options({ both: 'Dịch vụ và gói', service_invoice: 'Hóa đơn dịch vụ', package_purchase: 'Mua gói' })} /></Form.Item></>}
-      <Form.Item name="stock" label="Số lượng còn cho đổi" extra="Để trống nếu không giới hạn"><InputNumber min={0} precision={0} /></Form.Item>
-      <Form.Item name="validity_days" label="Hiệu lực từ lúc đổi (ngày)" extra="Để trống nếu không hết hạn"><InputNumber min={1} precision={0} /></Form.Item>
-      <Form.Item name="active" label="Đang cho đổi" valuePropName="checked"><Switch /></Form.Item><Space><Button type="primary" htmlType="submit" loading={busy}>Lưu quà</Button><Button onClick={onClose}>Hủy</Button></Space>
+      <Form.Item name="stock" label="Số lượng còn để cấp" extra="Để trống nếu không giới hạn"><InputNumber min={0} precision={0} /></Form.Item>
+      <Form.Item name="validity_days" label="Hiệu lực từ lúc nhận (ngày)" extra={forNew && kind !== 'physical_gift' ? 'Voucher cho khách mới cần hạn dùng.' : 'Để trống nếu không hết hạn'} rules={forNew && kind !== 'physical_gift' ? [{ required: true, message: 'Nhập hạn dùng cho voucher khách mới' }] : []}><InputNumber min={1} precision={0} /></Form.Item>
+      <Form.Item name="active" label="Mẫu đang hoạt động" extra="Tắt chỉ ẩn khỏi đổi điểm; nhân viên vẫn tặng được và khách vẫn dùng được voucher đã nhận." valuePropName="checked"><Switch /></Form.Item><Space><Button type="primary" htmlType="submit" loading={busy}>Lưu quà</Button><Button onClick={onClose}>Hủy</Button></Space>
     </Form>
   </Drawer>;
 }
 function Rewards() {
   const [q, query] = useQuery(); const [editing, edit] = useState<Reward | 'new' | null>(null); const { modal, message } = App.useApp();
   const r = useResource<Page<Reward>>(`/api/admin/loyalty/rewards?page=${q.get('page') || 1}`);
-  return <><div className="section-toolbar"><p>Voucher và quà khách có thể đổi bằng điểm.</p><Button type="primary" onClick={() => edit('new')}>Thêm quà / voucher</Button></div><ResourceState {...r} empty={!r.data?.items.length} />
-    {!r.loading && !r.error && <div className="care-list">{r.data?.items.map(reward => <Card key={reward.id}><div className="card-head"><h3>{reward.name}</h3><Tag>{reward.active ? 'Đang cho đổi' : 'Đã ngừng'}</Tag></div><p>{rewardKinds[reward.reward_type]} · {benefit(reward)}</p><p>{reward.points_cost} điểm · {reward.stock == null ? 'Không giới hạn số lượng' : `Còn ${reward.stock}`} · {reward.validity_days == null ? 'Không hết hạn' : `Hiệu lực ${reward.validity_days} ngày`}</p><p className="care-text">{reward.description}</p><Space wrap><Button onClick={() => edit(reward)}>Sửa quà</Button>{reward.active && <Button danger onClick={() => modal.confirm({ title: `Ngừng cho đổi “${reward.name}”?`, content: 'Quà khách đã đổi vẫn giữ điều kiện và lịch sử.', okText: 'Ngừng cho đổi', cancelText: 'Quay lại', onOk: async () => { try { await del(`/api/admin/loyalty/rewards/${reward.id}`); r.reload(); } catch (e) { message.error((e as Error).message); } } })}>Ngừng cho đổi</Button>}</Space></Card>)}</div>}<PageNav data={r.data} onChange={page => query({ page })} />
-    {editing && <RewardEditor key={editing === 'new' ? 'new' : editing.id} reward={editing} close={() => edit(null)} saved={() => { edit(null); r.reload(); }} />}
+  const welcome = useResource<{ config: { reward_id: number | null; enabled: boolean } }>('/api/admin/loyalty/welcome-config');
+  const isWelcome = (reward: Reward) => welcome.data?.config.enabled === true && reward.id === welcome.data.config.reward_id;
+  return <><div className="section-toolbar"><p>Quản lý mẫu đổi điểm, voucher riêng cho khách mới và quà nhân viên tặng.</p><Button type="primary" onClick={() => edit('new')}>Thêm quà / voucher</Button></div><ResourceState {...r} empty={!r.data?.items.length} /><ResourceState {...welcome} />
+    {!r.loading && !r.error && <div className="care-list">{r.data?.items.map(reward => <Card key={reward.id}>
+      <div className="card-head"><h3>{reward.name}</h3><Tag>{reward.active ? 'Đang hoạt động' : 'Đã tắt'}</Tag></div>
+      <Space wrap>{isWelcome(reward) && <Tag color="blue">Dành cho khách hàng mới</Tag>}{reward.active && reward.allow_points_redemption && !isWelcome(reward) && <Tag>Khách đổi bằng điểm</Tag>}{reward.reward_type !== 'physical_gift' && <Tag>Nhân viên được tặng</Tag>}</Space>
+      <p>{rewardKinds[reward.reward_type]} · {benefit(reward)}</p><p>{reward.allow_points_redemption && !isWelcome(reward) ? `${reward.points_cost} điểm` : 'Không trừ điểm'} · {reward.stock == null ? 'Không giới hạn số lượng' : `Còn ${reward.stock}`} · {reward.validity_days == null ? 'Không hết hạn' : `Hiệu lực ${reward.validity_days} ngày`}</p><p className="care-text">{reward.description}</p>
+      <Space wrap><Button disabled={welcome.loading || !!welcome.error} onClick={() => edit(reward)}>Sửa mẫu</Button><Button danger={reward.active} onClick={() => modal.confirm({ title: `${reward.active ? 'Tắt' : 'Bật'} mẫu “${reward.name}”?`, content: 'Voucher đã cấp giữ nguyên điều kiện và lịch sử.', okText: reward.active ? 'Tắt mẫu' : 'Bật mẫu', cancelText: 'Quay lại', onOk: async () => { try { if (reward.active) await del(`/api/admin/loyalty/rewards/${reward.id}`); else await put(`/api/admin/loyalty/rewards/${reward.id}`, { active: true }); r.reload(); } catch (e) { message.error((e as Error).message); } } })}>{reward.active ? 'Tắt mẫu' : 'Bật mẫu'}</Button></Space>
+    </Card>)}</div>}<PageNav data={r.data} onChange={page => query({ page })} />
+    {editing && <RewardEditor key={editing === 'new' ? 'new' : editing.id} reward={editing} welcomeOnly={editing !== 'new' && isWelcome(editing)} close={() => edit(null)} saved={() => { edit(null); r.reload(); welcome.reload(); }} />}
   </>;
 }
 function CustomerDetail({ id, close }: { id: number; close: () => void }) {
@@ -112,17 +125,35 @@ function Transactions() {
 }
 function Redemptions() {
   const [q, query] = useQuery(); const [selected, select] = useState<Redemption | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const { message } = App.useApp();
+  const fulfillLock=useRef(false);
   const r = useResource<Page<Redemption>>(`/api/admin/loyalty/redemptions?${new URLSearchParams({ search: q.get('search') || '', status: q.get('status') || 'all', reward_type: q.get('reward_type') || '', page: q.get('page') || '1' })}`);
   return <><p>Tra tên khách hoặc mã quà. Chỉ xác nhận sau khi đã trao quà cho đúng khách.</p><div className="care-toolbar"><Input.Search key={q.get('search')} aria-label="Tra mã quà" placeholder="Tên, điện thoại hoặc mã BIN-…" defaultValue={q.get('search') || ''} onSearch={search => query({ search, page: 1 })} enterButton="Tìm" /><Select aria-label="Trạng thái đổi quà" value={q.get('status') || 'all'} options={options(redemptionGroups)} onChange={status => query({ status, page: 1 })} /><Select aria-label="Loại phần thưởng" value={q.get('reward_type') || ''} options={options({ '': 'Mọi loại', physical_gift: 'Quà tại cửa hàng', voucher: 'Voucher' })} onChange={reward_type => query({ reward_type, page: 1 })} /><Button onClick={() => query({ search: null, status: null, reward_type: null, page: 1 })}>Xóa bộ lọc</Button></div>
-    <ResourceState {...r} empty={!r.data?.items.length} />{!r.loading && !r.error && <div className="care-list">{r.data?.items.map(item => <Card key={item.id} data-testid={`redemption-${item.id}`}><div className="card-head"><h3>{item.customer.hoten}</h3><Tag>{canFulfill(item) ? 'Chờ nhận quà' : redemptionLabels[item.status] || item.status}</Tag></div><p>{item.customer.sdt}</p><p><b>{item.reward.name}</b> · {benefit(item.reward)}</p><p>Mã <code className="care-code">{item.code}</code> · {item.points_spent} điểm</p><p>Đổi lúc {utcDate(item.redeemed_at)} · Hạn: {item.expires_at ? utcDate(item.expires_at) : 'Không hết hạn'}</p>{item.fulfilled_at && <p>Đã giao lúc {utcDate(item.fulfilled_at)} bởi {item.fulfilled_by_name || 'Nhân viên'}</p>}{item.used_at && <p>Đã dùng lúc {utcDate(item.used_at)}</p>}{canFulfill(item) && <Button type="primary" onClick={() => { select(item); setError(''); }}>Xác nhận giao quà</Button>}</Card>)}</div>}<PageNav data={r.data} onChange={page => query({ page })} />
-    <Modal open={!!selected} title="Xác nhận đã giao quà" onCancel={() => { if (!busy) select(null); }} confirmLoading={busy} okText="Đã trao quà cho khách" cancelText="Chưa giao" onOk={async () => {
-      setBusy(true); setError(''); try { const result = await post<{ already_fulfilled: boolean }>(`/api/admin/loyalty/redemptions/${selected!.id}/fulfill`, {}); select(null); r.reload(); message.success(result.already_fulfilled ? 'Quà đã được xác nhận giao trước đó' : 'Đã ghi nhận giao quà'); } catch (e) { setError((e as Error).message); r.reload(); } finally { setBusy(false); }
-    }}><p>{selected?.customer.hoten} · {selected?.customer.sdt}</p><p>{selected?.reward.name} · <code>{selected?.code}</code></p><p>Kiểm tra khách và mã trước khi xác nhận.</p>{error && <Alert type="error" message={error} />}</Modal>
+    <ResourceState {...r} empty={!r.data?.items.length} />{!r.loading && !r.error && <div className="care-list care-redemptions">{r.data?.items.map(item => <Card size="small" key={item.id} data-testid={`redemption-${item.id}`}>
+      <div className="card-head"><h3>{item.customer.hoten}</h3><Tag color={canFulfill(item)?'green':undefined}>{canFulfill(item) ? 'Chờ nhận quà' : redemptionLabels[item.status] || item.status}</Tag></div>
+      {item.customer.sdt && <p>{item.customer.sdt}</p>}<Tag>{item.reward.reward_type==='physical_gift'?'Quà hiện vật':'Voucher'}</Tag>
+      <p><b>{item.reward.name}</b> · {benefit(item.reward)}</p><p>Mã <code className="care-code">{item.code}</code> · {issuanceLabels[item.issuance_source || 'points_redemption']}{item.points_spent > 0 ? ` · ${item.points_spent} điểm` : ''}</p>
+      <p className="care-redemption-dates">Đổi lúc {utcDate(item.redeemed_at)}<br/>Hạn: {item.expires_at ? utcDate(item.expires_at) : 'Không hết hạn'}</p>
+      {item.reward.reward_type!=='physical_gift' && <><p className="care-voucher-help">Voucher dùng khi thanh toán, không trao tại quầy.</p><details><summary>Xem điều kiện sử dụng</summary><p>{benefit(item.reward)} · {({both:'Dịch vụ và gói',service_invoice:'Hóa đơn dịch vụ',package_purchase:'Mua gói'} as Record<string,string>)[item.reward.apply_to||'both']} · {Number(item.reward.minimum_spend)>0?`Đơn từ ${vnd(item.reward.minimum_spend!)}`:'Không yêu cầu đơn tối thiểu'}</p></details></>}
+      {item.fulfilled_at && <p>Đã trao lúc {utcDate(item.fulfilled_at)} bởi {item.fulfilled_by_name || 'Nhân viên'}</p>}{item.used_at && <p>Đã dùng lúc {utcDate(item.used_at)}</p>}
+      {canFulfill(item) && <Button type="primary" disabled={busy} onClick={() => { select(item); setError(''); }}>Trao quà</Button>}
+    </Card>)}</div>}<PageNav data={r.data} onChange={page => query({ page })} />
+    <Modal open={!!selected} title="Xác nhận đã trao quà" onCancel={() => { if (!busy) select(null); }} confirmLoading={busy} cancelButtonProps={{disabled:busy}} maskClosable={!busy} okText="Đã trao quà cho khách" cancelText="Chưa giao" onOk={async () => {
+      if(fulfillLock.current||!selected)return;
+      if(!canFulfill(selected)){setError('Quà không còn trong hạn chờ nhận. Vui lòng tra lại mã.');r.reload();return;}
+      fulfillLock.current=true;setBusy(true); setError('');
+      try { const result = await post<{ already_fulfilled: boolean }>(`/api/admin/loyalty/redemptions/${selected.id}/fulfill`, {}); select(null); r.reload(); message.success(result.already_fulfilled ? 'Quà đã được xác nhận giao trước đó' : 'Đã ghi nhận trao quà'); }
+      catch (e) {
+        // A lost response may follow a committed handover. Only a successful
+        // list GET can offer another confirmation; discard the stale selection.
+        select(null); r.reload(); message.error((e as Error).message);
+      }
+      finally { fulfillLock.current=false;setBusy(false); }
+    }}><p>{selected?.customer.hoten} · {selected?.customer.sdt}</p><p>{selected?.reward.name} · <code>{selected?.code}</code></p><p>Hạn: {selected?.expires_at?utcDate(selected.expires_at):'Không hết hạn'}</p><p>Chỉ xác nhận sau khi đã kiểm tra mã và trao quà thực tế cho đúng khách.</p>{error && <Alert type="error" message={error} />}</Modal>
   </>;
 }
 export default function Loyalty({ me }: { me: Me }) {
   const [q, query] = useQuery(); const desk = me.user.role === 'letan';
-  if (!['admin', 'manager', 'letan'].includes(me.user.role)) return <Result status="403" title="Bạn không có quyền quản lý điểm thưởng" />;
+  if (!['admin', 'manager', 'letan'].includes(me.user.role)) return <Result status="403" title="Bạn không có quyền quản lý điểm thưởng" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
   const tabs: Record<string, string> = desk ? { redemptions: 'Tra mã và giao quà' } : { overview: 'Tổng quan', customers: 'Điểm của khách', redemptions: 'Tra mã và giao quà', rewards: 'Quà và voucher', transactions: 'Lịch sử điểm', config: 'Quy tắc và hạng' };
   const tab = q.get('tab') && q.get('tab')! in tabs ? q.get('tab')! : desk ? 'redemptions' : 'overview';
   const screens: Record<string, React.ReactNode> = { overview: <Overview />, customers: <Customers actorId={me.user.id} />, redemptions: <Redemptions />, rewards: <Rewards />, transactions: <Transactions />, config: <Rules /> };

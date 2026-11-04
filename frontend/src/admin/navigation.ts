@@ -55,6 +55,7 @@ export function adminMenu(me: Me): NavGroup[] {
       ...(!frontDesk ? [{ href: '/admin/packages', label: role === 'staff' ? 'Liệu trình khách hàng' : 'Gói dịch vụ' }] : [])] },
     { key: 'care', label: 'Chăm sóc', icon: 'K', items: [
       ...(internal && f.crm ? [{ href: '/admin/crm', label: 'Chăm sóc khách hàng' }] : []),
+      ...(finance ? [{ href: '/admin/skin-service-map', label: 'Dịch vụ theo loại mụn' }] : []),
       ...(internal ? [{ href: '/admin/loyalty', label: 'Điểm thưởng' }, { href: '/admin/chat', label: 'Tin nhắn' }] : f.admin_care ? [{ href: '/admin/chat', label: 'Tin nhắn của tôi' }] : []),
       ...(!frontDesk ? [{ href: '/admin/reviews', label: 'Đánh giá' }] : [])] },
     { key: 'reports', label: 'Báo cáo', icon: 'B', items: finance && f.bi ? [{ href: '/admin/reports', label: 'Kinh doanh và vận hành' }] : [] },
@@ -82,7 +83,7 @@ export function isAppPath(href: string, me: Me) {
     '/admin/staff': !!f.admin_people, '/admin/roles': !!f.admin_people, '/admin/shifts': !!f.admin_people, '/admin/approve-shifts': !!f.admin_people,
     '/admin/my-schedule': !!f.admin_people, '/admin/register-shift': !!f.admin_people, '/admin/salary': !!f.admin_people,
     '/admin/crm': !!f.crm, '/admin/reports': !!f.bi, '/admin/security': !!f.staff_security,
-    '/admin/loyalty': !!f.admin_care, '/admin/reviews': !!f.admin_care, '/admin/chat': !!f.admin_care,
+    '/admin/loyalty': !!f.admin_care, '/admin/reviews': !!f.admin_care, '/admin/chat': !!f.admin_care, '/admin/skin-service-map': !!f.admin_care,
   } as Record<string, boolean>)[path] ?? false;
 }
 

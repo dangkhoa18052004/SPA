@@ -28,9 +28,11 @@ export function expireSession() {
 
 export async function logout() {
   const token = localStorage.getItem('admin_token');
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 5000);
   try {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin',
-      headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      signal: controller.signal, headers: token ? { Authorization: `Bearer ${token}` } : {} });
   } catch { /* Signing out locally must still happen when the server is unreachable. */ }
-  finally { clearSession(); window.location.assign(LOGIN_PATH); }
+  finally { window.clearTimeout(timeout); clearSession(); window.location.assign(LOGIN_PATH); }
 }

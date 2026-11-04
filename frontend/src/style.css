@@ -14,3 +14,20 @@
 @media(max-width:1100px){.business-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.business-range{width:100%}.business-portal .section-toolbar{flex-wrap:wrap}.business-filters{grid-template-columns:minmax(0,1fr) 180px}.business-filters>button{grid-column:1/-1;justify-self:start}.business-portal .desktop-table{display:none}.business-portal .mobile-cards{display:block}}
 @media(max-width:767px){.business-portal .header-actions{gap:6px}.business-portal .header-actions .ant-tag{display:none}.business-filters{grid-template-columns:1fr}.business-filters>button{grid-column:auto}.business-range{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.business-range input{max-width:100%}.business-range button{grid-column:1/-1}.business-portal .appointment-summary .ant-statistic-title{font-size:12px}.business-portal .appointment-summary .ant-statistic-content{font-size:22px}.business-kpis{grid-template-columns:1fr 1fr}.business-kpis .ant-card-body{padding:14px!important}.business-kpis .ant-statistic-content{font-size:19px}.revenue-bars{gap:2px}.revenue-bar:nth-child(2n) small{display:none}}
 .no-shift h2{margin-top:0}.no-shift p{color:var(--muted)}.no-shift p b{color:var(--ink)}
+
+.employee-portal .employee-profile-link { display:inline-flex; align-items:center; min-height:44px; white-space:nowrap; }
+.employee-portal .employee-account-menu { display:none; }
+.employee-portal .header-actions { flex-wrap:wrap; gap:14px; }
+.employee-portal .employee-profile-link:focus-visible { outline:2px solid var(--brand); outline-offset:4px; }
+@media(max-width:767px) {
+  .employee-portal .employee-profile-link,.employee-portal .employee-logout { display:none; }
+  .employee-portal .employee-account-menu { display:inline-flex; min-height:44px; }
+  .employee-portal .header-actions { gap:8px; flex-wrap:nowrap; }
+  .employee-portal .header-actions .user-name,.employee-portal .header-actions>a:last-child:not(.chat-inbox-link) { display:none; }
+}
+
+/* Ant Design preset tags use shade 7 text on shade 1 (green/orange/cyan ≈3.4:1, gold 2.8:1); darker text reaches 4.5:1. */
+.ant-tag.ant-tag-green { color:#237804; }
+.ant-tag.ant-tag-orange { color:#ad4e00; }
+.ant-tag.ant-tag-cyan { color:#006d75; }
+.ant-tag.ant-tag-gold { color:#874d00; }

@@ -1,8 +1,8 @@
 import os
 from flask_cors import CORS
-from flask import Flask, jsonify, request, g
+from flask import Flask, jsonify, request, g, render_template
 from uuid import uuid4
-from werkzeug.exceptions import RequestEntityTooLarge
+from werkzeug.exceptions import NotFound, RequestEntityTooLarge
 from .config import Config, validate_production_config
 from .extensions import db, migrate, jwt, mail
 
@@ -43,6 +43,14 @@ def create_app(config_overrides=None):
             response.headers['Referrer-Policy'] = 'same-origin'
             response.headers['Permissions-Policy'] = 'geolocation=(self)'
         return response
+
+    @app.errorhandler(NotFound)
+    def handle_page_not_found(error):
+        # Pages get a Vietnamese 404 with ways back; APIs, assets and health checks keep their responses.
+        if request.path.startswith(('/api/', '/static/', '/health', '/__qa/')) or not request.accept_mimetypes.accept_html:
+            return error
+        message = error.description if error.description != NotFound.description else None
+        return render_template('customer/not_found.html', message=message), 404
 
     @app.errorhandler(RequestEntityTooLarge)
     def handle_file_too_large(_error):
@@ -90,6 +98,8 @@ def create_app(config_overrides=None):
     app.register_blueprint(recommendation_bp)
     from .routes.crm_bp import crm_bp
     app.register_blueprint(crm_bp)
+    from .routes.skin_bp import skin_bp
+    app.register_blueprint(skin_bp)
     from .routes.release_bp import release_bp
     app.register_blueprint(release_bp)
     from .routes.operations_bp import operations_bp, register_commands as register_operations_commands
@@ -100,6 +110,7 @@ def create_app(config_overrides=None):
     # Đăng ký blueprints admin
     from .admin.staff_manage_bp import staff_manage_bp
     from .admin.service_manage_bp import service_manage_bp
+    from .admin.skin_service_map_bp import skin_service_map_bp
     from .admin.shift_manage_bp import shift_manage_bp
     from .admin.role_manage_bp import role_manage_bp
     from .admin.salary_manage_bp import salary_manage_bp
@@ -111,6 +122,7 @@ def create_app(config_overrides=None):
     app.register_blueprint(admin_bp, url_prefix="/admin")    
     app.register_blueprint(staff_manage_bp, url_prefix="/api/admin")
     app.register_blueprint(service_manage_bp, url_prefix="/api/admin")
+    app.register_blueprint(skin_service_map_bp, url_prefix="/api/admin")
     app.register_blueprint(shift_manage_bp, url_prefix="/api/admin")
     app.register_blueprint(role_manage_bp, url_prefix="/api/admin")
     app.register_blueprint(salary_manage_bp, url_prefix="/api/admin")

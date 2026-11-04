@@ -313,6 +313,7 @@ function renderCustomersTable() {
             <td>
                 <div class="action-buttons">
                     <button class="btn btn-info btn-sm" data-action="view" data-id="${customer.makh}" title="Xem chi tiết"><i class="fas fa-eye"></i></button>
+                    ${['admin', 'manager', 'letan'].includes(userRole) ? `<button class="btn btn-primary btn-sm" data-action="gift" data-id="${customer.makh}" ${customer.trangthai === 'active' ? '' : 'disabled'} title="${customer.trangthai === 'active' ? 'Tặng voucher cho khách' : 'Chỉ tặng voucher cho khách đang hoạt động'}"><i class="fas fa-gift" aria-hidden="true"></i> Tặng voucher</button>` : ''}
                     <button class="btn btn-warning btn-sm" data-action="edit" data-id="${customer.makh}" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>
                     <button class="btn btn-primary btn-sm" data-action="appointments" data-id="${customer.makh}" title="Xem lịch hẹn"><i class="fas fa-calendar-alt"></i></button>
                     <button class="btn btn-danger btn-sm" data-action="block" data-id="${customer.makh}" data-state="${customer.trangthai}" title="${isBlocked ? 'Mở khóa' : 'Khóa'}">
@@ -349,6 +350,7 @@ function handleActionClick(e) {
     
     switch(action) {
         case 'view': viewCustomerDetail(id); break;
+        case 'gift': viewCustomerDetail(id, true); break;
         case 'edit': openEditModal(id); break;
         case 'appointments': viewCustomerAppointments(id); break;
         case 'block': toggleBlockCustomer(id, state); break;
@@ -395,7 +397,7 @@ function renderPagination() {
     
     // Nút Previous
     html += `<button class="page-btn ${currentPage === 1 ? 'disabled' : ''}" 
-             onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+             onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} aria-label="Trang trước">
              <i class="fas fa-chevron-left"></i>
              </button>`;
     
@@ -413,7 +415,7 @@ function renderPagination() {
     
     // Nút Next
     html += `<button class="page-btn ${currentPage === totalPages ? 'disabled' : ''}" 
-             onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+             onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} aria-label="Trang sau">
              <i class="fas fa-chevron-right"></i>
              </button>`;
     
@@ -436,6 +438,8 @@ function changePage(page) {
 
 // ====== CÁC HÀM MODAL ======
 function resetModalForm() {
+    const voucherGifts = document.getElementById('customer-voucher-gifts');
+    if (voucherGifts) { voucherGifts.hidden = true; voucherGifts.replaceChildren(); }
     document.getElementById('customer-form').reset();
     document.getElementById('customer-id').value = '';
     document.getElementById('detail-view-container').style.display = 'none';
@@ -448,7 +452,7 @@ function closeModal() {
     }
 }
 
-async function viewCustomerDetail(makh) {
+async function viewCustomerDetail(makh, openGift = false) {
     try {
         const customer = await loadCustomerDetails(makh);
         if (!customer) return showError('Không tìm thấy thông tin khách hàng');
@@ -475,10 +479,16 @@ async function viewCustomerDetail(makh) {
         `;
         
         document.getElementById('detail-view-container').innerHTML = content;
+        const voucherGifts = document.getElementById('customer-voucher-gifts');
+        voucherGifts.hidden = false;
+        const giftPanel = window.AdminVoucherGifts?.mount(voucherGifts, customer);
         document.getElementById('form-edit-container').style.display = 'none';
         document.getElementById('detail-view-container').style.display = 'grid';
         document.getElementById('save-button').style.display = 'none';
         
+        if (openGift && customer.trangthai === 'active' && giftPanel) {
+            document.getElementById('customerModal').addEventListener('shown.bs.modal', () => giftPanel.openGift(), { once: true });
+        }
         customerModal.show();
     } catch (error) {
         console.error('❌ Lỗi xem chi tiết:', error);

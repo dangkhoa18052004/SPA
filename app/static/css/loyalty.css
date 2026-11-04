@@ -20,6 +20,20 @@
 .loyalty-page [role=status]{color:#795c27}.loyalty-history{list-style:none;padding:0}.loyalty-history li{padding:14px 0;border-bottom:1px solid #eee}
 .loyalty-payment [hidden]{display:none!important}.loyalty-page .btn:disabled{opacity:.5;cursor:not-allowed}
 /* Customer Điểm thưởng (profile). Scoped to #loyalty-section / reward dialog so admin pages are unchanged. */
+.loyalty-voucher-list { min-width:0; border:0; margin:16px 0; padding:0; max-height:280px; overflow-y:auto; }
+.loyalty-payment .loyalty-voucher-option { display:flex; gap:12px; align-items:flex-start; padding:12px; border:1px solid var(--customer-border,#dee7e0); border-radius:10px; cursor:pointer; min-width:0; }
+.loyalty-payment .loyalty-voucher-option > input { width:18px; height:18px; flex:0 0 18px; margin-top:4px; accent-color:var(--customer-primary,#315e4b); }
+.loyalty-voucher-option > span { display:block; min-width:0; overflow-wrap:anywhere; }
+.loyalty-voucher-option :is(strong,small,span span) { display:block; }
+.loyalty-voucher-option:has(input:checked) { border-color:var(--customer-primary,#315e4b); background:var(--customer-secondary,#eef3ef); }
+.loyalty-voucher-option:has(input:disabled) { opacity:.6; cursor:not-allowed; }
+.loyalty-voucher-option:focus-within { outline:2px solid var(--customer-primary,#315e4b); outline-offset:2px; }
+.loyalty-payment { min-width:0; overflow-wrap:anywhere; }
+.loyalty-dialog,.package-dialog { max-height:calc(100dvh - 32px); overscroll-behavior:contain; }
+.loyalty-payment-header { position:sticky; top:-25px; z-index:2; background:var(--customer-surface,#fff); display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; }
+.loyalty-payment-footer { position:sticky; bottom:-25px; background:var(--customer-surface,#fff); padding:8px 0; z-index:2; }
+body:has(:is(.loyalty-dialog,.package-dialog):modal) { overflow:hidden; }
+.package-dialog .package-dialog-close { position:sticky; top:0; z-index:3; min-width:44px; min-height:44px; background:var(--customer-surface,#fff); }
 #loyalty-section .loyalty-wallet{grid-template-columns:repeat(3,minmax(0,1fr))}
 #loyalty-section .loyalty-wallet .loyalty-card span{display:block;font-size:14px;color:#6b6257}
 #loyalty-section .loyalty-tabs{gap:8px;border-bottom:1px solid #ede4d5;padding-bottom:12px}

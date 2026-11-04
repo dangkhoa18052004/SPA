@@ -6,7 +6,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/modals.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css', v='1.2') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/invoice-receipt.css') }}">
 {% endblock %}
 
@@ -58,7 +58,7 @@
             </select>
         </div>
         <div class="filter-container">
-            <select id="timeRangeFilter" class="form-control" onchange="applyFilters()">
+            <select id="timeRangeFilter" class="form-control" onchange="applyFilters()" aria-label="Khoảng thời gian">
                 <option value="all">Tổng toàn bộ</option>
                 <option value="today">Hôm nay</option>
                 <option value="this_month">Tháng này</option>
@@ -66,7 +66,7 @@
         </div>
         
         <div class="filter-container">
-            <select id="statusFilter" class="form-control" onchange="applyFilters()">
+            <select id="statusFilter" class="form-control" onchange="applyFilters()" aria-label="Trạng thái hóa đơn">
                 <option value="all">Tất cả trạng thái</option>
                 <option value="Đã thanh toán">Đã thanh toán</option>
                 <option value="Chưa thanh toán">Chưa thanh toán</option>
@@ -149,5 +149,5 @@
 <script src="{{ url_for('static', filename='js/admin/invoice-receipt.js', v='2.1') }}"></script>
 <script src="{{ url_for('static', filename='js/admin/invoices.js') }}"></script>
 <script src="{{ url_for('static', filename='js/admin/invoice-payment.js') }}"></script>
-<script src="{{ url_for('static', filename='js/packages.js') }}"></script>
+<script src="{{ url_for('static', filename='js/packages.js', v='1.5') }}"></script>
 {% endblock %}

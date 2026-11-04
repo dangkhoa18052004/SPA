@@ -4,6 +4,7 @@ import { ApiError, api, post, put } from '../../api';
 import { ResourceState, useResource } from '../../components';
 import { useQuery } from '../../router';
 import type { Me } from '../../types';
+import { useChatConversations } from '../../chat-state';
 import { fold, vnd } from '../booking/model';
 import { reconcileMessage, richMessage, utcDate } from './model';
 import type { ChatMessage, Conversation } from './model';
@@ -21,10 +22,11 @@ function Thread({ conversation, me, close, refresh }: { conversation: Conversati
   const [saved, setSaved] = useState<Saved>(() => read(key)); const [messages, setMessages] = useState<ChatMessage[]>([]); const [error, setError] = useState('');
   const [loading, setLoading] = useState(true); const [sending, setSending] = useState(false); const [uncertain, setUncertain] = useState(!!saved.pending);
   const active = useRef(true); const flight = useRef(false); const box = useRef<HTMLDivElement>(null); const savedRef = useRef(saved);
+  const sendLock = useRef(false);
   const { modal } = App.useApp(); const desk = ['admin', 'manager', 'letan'].includes(me.user.role);
   function persist(next: Saved) { savedRef.current = next; setSaved(next); write(key, next); }
   async function load() {
-    if (flight.current) return;
+    if (flight.current || document.visibilityState !== 'visible') return;
     flight.current = true;
     try {
       const data = await api<{ messages: ChatMessage[] }>(`/api/chat/conversations/${id}/messages`);
@@ -41,11 +43,14 @@ function Thread({ conversation, me, close, refresh }: { conversation: Conversati
   }
   useEffect(() => {
     active.current = true; void load();
-    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 5000);
-    return () => { active.current = false; window.clearInterval(timer); };
+    const resume = () => { if (document.visibilityState === 'visible') void load(); };
+    document.addEventListener('visibilitychange', resume);
+    const timer = window.setInterval(resume, 5000);
+    return () => { active.current = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', resume); };
   }, [id]);
   async function send() {
-    const text = (savedRef.current.text || '').trim(); if (!text || sending || uncertain || loading || error) return;
+    const text = (savedRef.current.text || '').trim(); if (!text || sendLock.current || sending || uncertain || loading || error) return;
+    sendLock.current = true;
     const pending = { text, baseline: messages.map(m => m.matn) }; persist({ text, pending }); setSending(true);
     try { await post(`/api/chat/conversations/${id}/messages`, { noidung: text }); write(key, { text: '' }); if (active.current) { persist({ text: '' }); setUncertain(false); await load(); } }
     catch (e) {
@@ -53,7 +58,7 @@ function Thread({ conversation, me, close, refresh }: { conversation: Conversati
       if (e instanceof ApiError && e.status >= 400 && e.status < 500) {
         write(key, { text }); if (active.current) { persist({ text }); setUncertain(false); setError((e as Error).message); }
       } else if (active.current) { setUncertain(true); setError((e as Error).message); await load(); }
-    } finally { if (active.current) setSending(false); }
+    } finally { sendLock.current = false; if (active.current) setSending(false); }
   }
   return <Card className="care-chat-thread"><Space wrap><Button className="care-chat-back" onClick={close}>← Danh sách</Button><h2>{conversation.customer_name}</h2></Space>
     <p>{conversation.assigned_staff_name ? `Phụ trách: ${conversation.assigned_staff_name}` : 'Hộp thư chăm sóc chung'}</p>
@@ -73,19 +78,22 @@ function Assignment({ conversation, refresh }: { conversation: Conversation; ref
   return <><ResourceState {...people} /><Space wrap className="care-section"><Select aria-label="Nhân viên nhận hội thoại" placeholder="Chọn kỹ thuật viên" value={assigned} onChange={setAssigned} style={{ minWidth: 180 }} options={(people.data?.items || []).map(p => ({ value: p.manv, label: p.hoten }))} /><Button disabled={!assigned} loading={busy} onClick={() => { void assign(); }}>Giao phụ trách</Button>{conversation.assigned_staff_id && <Button disabled={busy} onClick={() => { void assign(true); }}>Về hộp thư chung</Button>}</Space></>;
 }
 function Inbox({ me }: { me: Me }) {
-  const [q, query] = useQuery(); const r = useResource<{ conversations: Conversation[] }>('/api/chat/conversations');
-  useEffect(() => { const timer = window.setInterval(() => { if (document.visibilityState === 'visible') r.reload(); }, 15000); return () => window.clearInterval(timer); }, [r.reload]);
+  const [q, query] = useQuery(); const r = useChatConversations(me);
   const selectedId = Number(q.get('conversation')); const selected = r.data?.conversations.find(c => c.maht === selectedId);
   const rows = (r.data?.conversations || []).filter(c => (!q.get('unread') || c.unread_count > 0 || c.maht === selectedId) && fold(c.customer_name + ' ' + c.last_message).includes(fold(q.get('q') || '')));
-  const page = Math.max(1, Number(q.get('page')) || 1); const visible = rows.slice((page - 1) * 15, page * 15);
+  const [latest, setLatest] = useState<string>();
+  const newest = r.data?.conversations[0];
+  const stamp = newest ? `${newest.maht}:${newest.last_message_time}` : '';
+  useEffect(() => { if (!r.data) return; if (latest !== undefined && latest !== stamp && Number(q.get('page')) > 1) query({ page: 1 }); setLatest(stamp); }, [stamp]);
+  const page = Math.min(Math.max(1, Number(q.get('page')) || 1), Math.max(1, Math.ceil(rows.length / 15))); const visible = rows.slice((page - 1) * 15, page * 15);
   return <><div className="page-heading"><h1>Tin nhắn khách hàng</h1><p>Chọn hội thoại để đọc và trả lời khách.</p></div>
     {!r.data && <ResourceState {...r} />}{r.error && r.data && <Alert type="error" message={r.error} action={<Button onClick={r.reload}>Thử lại</Button>} />}
     <div className={`care-chat-grid${selected ? ' has-selection' : ''}`}><Card className="care-chat-sidebar"><div className="care-list"><Input.Search aria-label="Tìm hội thoại" key={q.get('q')} defaultValue={q.get('q') || ''} placeholder="Tên khách hoặc tin nhắn" enterButton="Tìm" onSearch={value => query({ q: value, page: 1 })} /><Select aria-label="Lọc hội thoại" value={q.get('unread') || ''} options={[{ value: '', label: 'Tất cả hội thoại' }, { value: '1', label: 'Có tin chưa đọc' }]} onChange={unread => query({ unread, page: 1 })} />
-      <div className="care-conversations">{visible.map(c => <button className="care-conversation" key={c.maht} aria-current={selectedId === c.maht ? 'page' : undefined} onClick={() => query({ conversation: c.maht })}><b>{c.customer_name}</b> <Badge count={c.unread_count} /><p>{c.last_message || 'Chưa có tin nhắn'}</p><small>{utcDate(c.last_message_time)}</small></button>)}{!r.loading && !rows.length && <Empty description="Không có hội thoại phù hợp" />}</div><Pagination simple current={page} total={rows.length} pageSize={15} showSizeChanger={false} onChange={page => query({ page })} /></div></Card>
+      <div className="care-conversations">{visible.map(c => <button className={`care-conversation${c.unread_count ? ' is-unread' : ''}`} key={c.maht} aria-current={selectedId === c.maht ? 'page' : undefined} onClick={() => query({ conversation: c.maht })}><span className="care-conversation-avatar" aria-hidden="true">{c.customer_name?.charAt(0) || 'K'}</span><span className="care-conversation-name">{c.customer_name}</span> <Badge count={c.unread_count} overflowCount={99} /><p>{c.last_message || 'Chưa có tin nhắn'}</p><small>{utcDate(c.last_message_time)}</small></button>)}{!r.loading && !rows.length && <Empty description="Không có hội thoại phù hợp" />}</div><Pagination simple current={page} total={rows.length} pageSize={15} showSizeChanger={false} onChange={page => query({ page })} /></div></Card>
       {selected ? <Thread key={selected.maht} conversation={selected} me={me} close={() => query({ conversation: null })} refresh={r.reload} /> : <Card className="care-chat-thread"><Empty description={selectedId ? 'Hội thoại không tồn tại hoặc bạn không còn quyền xem' : 'Chọn khách ở danh sách bên cạnh'} /></Card>}
     </div>
   </>;
 }
 export default function Chat({ me }: { me: Me }) {
-  return ['admin', 'manager', 'letan', 'staff'].includes(me.user.role) ? <Inbox me={me} /> : <Result status="403" title="Bạn không có quyền xem tin nhắn" />;
+  return ['admin', 'manager', 'letan', 'staff'].includes(me.user.role) ? <Inbox me={me} /> : <Result status="403" title="Bạn không có quyền xem tin nhắn" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
 }

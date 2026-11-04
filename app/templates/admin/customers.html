@@ -3,6 +3,7 @@
 {% block title %}Quản lý Khách hàng - Bin Spa{% endblock %}
 
 {% block page_title %}Quản lý Khách hàng{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css', v='2.3') }}">{% endblock %}
 
 {% block content %}
 
@@ -28,7 +29,7 @@
     
     <div class="filter-container">
         <i class="fas fa-filter filter-icon"></i>
-        <select id="status-filter" class="form-control">
+        <select id="status-filter" class="form-control" aria-label="Lọc trạng thái khách hàng">
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Hoạt động</option>
             <option value="pending">Chờ xác thực</option>
@@ -118,6 +119,7 @@
                         </div>
                     </div>
                 </form>
+                <section id="customer-voucher-gifts" hidden></section>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
@@ -185,10 +187,8 @@
 
 {% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin/customers.css') }}">
-{% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/admin/customers.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin/voucher-gifts.js', v='20261024-gift-actions') }}"></script>
+<script src="{{ url_for('static', filename='js/admin/customers.js', v='20261024-gift-actions') }}"></script>
 {% endblock %}

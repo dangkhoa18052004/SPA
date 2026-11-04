@@ -177,7 +177,7 @@ def main():
         # T13/T14: customer invoice payment hides reserved points; voucher applies and shows "Đang áp dụng".
         b.evaluate(f'LoyaltyPayment.openCustomerInvoice({iid})'); b.wait('!!document.querySelector("#customerLoyaltyPayment [data-apply-voucher]")')
         assert 'Khả dụng: 400 điểm' in text('#customerLoyaltyPayment'); no_reserved('#customerLoyaltyPayment')
-        b.evaluate('document.querySelector("#customerLoyaltyPayment [data-voucher]").selectedIndex=1'); click('#customerLoyaltyPayment [data-apply-voucher]')
+        click('#customerLoyaltyPayment [data-voucher]'); click('#customerLoyaltyPayment [data-apply-voucher]')
         b.wait('!!document.querySelector("#customerLoyaltyPayment [data-remove-voucher]")'); no_reserved('#customerLoyaltyPayment')
         screenshot('customer-payment.png'); click('#customerLoyaltyPayment [data-close]')
         b.wait('!document.getElementById("customerLoyaltyPayment")')

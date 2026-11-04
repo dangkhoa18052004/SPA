@@ -134,8 +134,18 @@ def main():
             (artifacts / 'failure.txt').write_text(browser.evaluate('document.body.innerText'), encoding='utf-8')
         raise
     finally:
+        if browser:
+            try:
+                browser.call('Browser.close')
+            except Exception:
+                pass  # The CDP socket can close before the Browser.close reply.
         if ws: ws.close()
-        server.shutdown(); process.terminate(); process.wait(timeout=10)
+        server.shutdown()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)
 
 
 if __name__ == '__main__': main()

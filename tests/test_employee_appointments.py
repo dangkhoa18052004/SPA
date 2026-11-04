@@ -67,6 +67,14 @@ def test_filters_and_pagination_keep_ownership(client, staff_auth_headers, booki
     assert not {item['id'] for item in first['items']} & {item['id'] for item in second['items']}
 
 
+def test_id_deep_link_is_limited_to_own_appointments(client, staff_auth_headers, bookings):
+    own = client.get(f"/api/me/appointments?id={bookings['ids'][1]}", headers=staff_auth_headers).json
+    assert own['total'] == 1 and own['items'][0]['id'] == bookings['ids'][1]
+    for other in (bookings['foreign_id'], bookings['unassigned_id'], 999999):
+        result = client.get(f'/api/me/appointments?id={other}', headers=staff_auth_headers)
+        assert result.status_code == 200 and result.json['total'] == 0 and 'PRIVATE' not in result.get_data(as_text=True)
+
+
 def test_customer_search_is_case_insensitive_and_escapes_wildcards(client, staff_auth_headers, bookings):
     for value in ['khách', '0900000002']:
         result = client.get('/api/me/appointments', query_string=dict(q=value), headers=staff_auth_headers)
@@ -75,7 +83,7 @@ def test_customer_search_is_case_insensitive_and_escapes_wildcards(client, staff
 
 
 @pytest.mark.parametrize('query', ['from_date=wrong', 'to_date=wrong', 'from_date=2026-10-16&to_date=2026-10-15',
-    'status=unknown', 'page=0', 'per_page=101'])
+    'status=unknown', 'page=0', 'per_page=101', 'id=abc', 'id=-1'])
 def test_invalid_filters_return_actionable_error(client, staff_auth_headers, bookings, query):
     result = client.get('/api/me/appointments?' + query, headers=staff_auth_headers)
     assert result.status_code == 400 and result.json['message']

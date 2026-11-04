@@ -39,7 +39,9 @@
                 localStorage.removeItem('admin_token');
                 window.location.href = '/admin/login';
             }
-            throw new Error(data.message || data.msg || `Không thể xử lý yêu cầu (${response.status})`);
+            const error = new Error(data.message || data.msg || `Không thể xử lý yêu cầu (${response.status})`);
+            error.status = response.status;
+            throw error;
         }
         return data;
     }
@@ -114,7 +116,8 @@
             if (name === 'treatments' && !document.getElementById('adminTreatmentRows').dataset.loaded) loadTreatments();
         };
         tabButtons.forEach((button) => button.addEventListener('click', () => activateTab(button.dataset.packageTab)));
-        activateTab(treatmentOnly || location.hash === '#treatments' ? 'treatments' : 'packages', false);
+        const query = new URLSearchParams(location.search);
+        activateTab(treatmentOnly || location.hash === '#treatments' || query.get('tab') === 'treatments' ? 'treatments' : 'packages', false);
 
         document.getElementById('packageSearch').addEventListener('input', renderPackages);
         document.getElementById('packageStatusFilter').addEventListener('change', renderPackages);
@@ -137,6 +140,7 @@
             const button = event.target.closest('[data-treatment-id]');
             if (button) openTreatment(button.dataset.treatmentId);
         });
+        if (Number(query.get('mathe')) > 0) await openTreatment(Number(query.get('mathe')), query.get('gift') === '1');
 
         try {
             if(treatmentOnly)return;
@@ -223,7 +227,7 @@
         }).join('');
     }
 
-    async function openTreatment(id) {
+    async function openTreatment(id, startGift = false) {
         const dialog = document.getElementById('treatmentDetailDialog');
         const content = document.getElementById('treatmentDetailContent');
         content.innerHTML = '<div class="package-loading"><i class="fas fa-spinner fa-spin"></i> Đang tải chi tiết...</div>';
@@ -241,6 +245,11 @@
             if(can_gift && treatment.status!=='cancelled'){
                 const button=document.createElement('button');button.className='btn btn-primary';button.textContent='🎁 Tặng dịch vụ';button.id='giftServiceButton';
                 button.onclick=()=>openGift(treatment,giftServices||[]);content.querySelector('.treatment-detail-header').append(button);
+                if (startGift) {
+                    // Reload must not reopen the gift form after a gift was saved.
+                    const url = new URL(location.href); url.searchParams.delete('gift'); history.replaceState(null, '', url);
+                    openGift(treatment, giftServices || []);
+                }
             }
         } catch (error) {
             content.innerHTML = `<div class="package-empty">${escapeHtml(error.message)}</div>`;
@@ -258,15 +267,25 @@
             form.elements.validity_days.required=mode==='days';form.elements.expires_at.required=mode==='date';
         };
         dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();
+        let uncertain=false;
         form.onsubmit=async event=>{
-            event.preventDefault();const button=form.querySelector('[type="submit"]');button.disabled=true;
+            event.preventDefault();if(uncertain)return;const button=form.querySelector('[type="submit"]');button.disabled=true;
             const mode=form.elements.expiryMode.value;
             const data={makh:treatment.makh,madv:Number(form.elements.madv.value),quantity:Number(form.elements.quantity.value),gift_note:form.elements.gift_note.value};
             if(mode==='days')data.validity_days=Number(form.elements.validity_days.value);
             if(mode==='date')data.expires_at=form.elements.expires_at.value;
             try{await api(`/api/admin/packages/treatments/${treatment.mathe}/gifts`,{method:'POST',body:JSON.stringify(data)});dialog.close();if(document.getElementById('treatmentDetailDialog').open)await openTreatment(treatment.mathe);await loadTreatments();showMessage('Đã tặng dịch vụ vào liệu trình.');}
-            catch(error){dialog.querySelector('[data-error]').textContent=error.message;}
-            finally{button.disabled=false;}
+            catch(error){
+                if(!error.status||error.status>=500){
+                    // The gift may already be saved: never let the same form post again.
+                    uncertain=true;dialog.querySelector('[data-error]').textContent='Chưa nhận được kết quả tặng. Kiểm tra các buổi trong liệu trình trước khi tặng lại để tránh tặng trùng.';
+                    button.textContent='Kiểm tra liệu trình';button.type='button';button.disabled=false;
+                    button.onclick=async()=>{dialog.close();await openTreatment(treatment.mathe);await loadTreatments();};
+                    return;
+                }
+                dialog.querySelector('[data-error]').textContent=error.message;
+                button.disabled=false;
+            }
         };
         dialog.showModal();
     }

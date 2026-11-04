@@ -5,6 +5,7 @@ import { ResourceState, useResource } from '../../components';
 import { navigate, useQuery } from '../../router';
 import type { Me } from '../../types';
 import { QuickCustomer } from './BookingDrawer';
+import VoucherGifts, { VoucherGiftDialog } from '../care/VoucherGifts';
 import { customerStatus, treatmentStatus, dateTime, dayLabel, matchesCustomer, statusColor, statusLabel } from './model';
 import type { AppointmentRow, Customer, Treatment } from './model';
 import './booking.css';
@@ -79,7 +80,7 @@ function Profile({ makh, revision, me, onClose, onEdit }: { makh: number | null;
       if (tab === 'treatments' && !treatments) setTreatments((await api<{ treatments: Treatment[] }>(`/api/admin/appointments/customers/${makh}/treatments`)).treatments);
     } catch (e) { setTabError((e as Error).message); }
   }
-  return <Drawer open={makh !== null} onClose={onClose} width={620} title="Hồ sơ khách hàng" destroyOnHidden>
+  return <Drawer open={makh !== null} onClose={onClose} width="min(620px, 100vw)" title="Hồ sơ khách hàng" destroyOnHidden>
     {error ? <Alert type="error" showIcon message={error} /> : !data ? <Skeleton active /> : <>
       <div className="profile-head"><img className="profile-avatar" src={avatar(data)} alt="" onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/static/images/default-avatar.svg'; }} />
         <div><h2>{data.hoten}</h2><p className="muted">#{data.makh} · {data.sdt || 'Chưa có SĐT'}</p>{statusTag(data.trangthai)}</div></div>
@@ -89,6 +90,7 @@ function Profile({ makh, revision, me, onClose, onEdit }: { makh: number | null;
         {canManage && <Button onClick={() => onEdit(data)}>Sửa thông tin</Button>}
       </Space>
       <Tabs className="section-title" onChange={key => { setTabError(''); void load(key); }} items={[
+        { key: 'voucher-gifts', label: 'Voucher tặng', children: <VoucherGifts key={data.makh} recipient={data} me={me} /> },
         { key: 'info', label: 'Thông tin', children: <Descriptions column={1} size="small" items={[
           { key: 'email', label: 'Email', children: data.email || 'Chưa có' }, { key: 'account', label: 'Tài khoản', children: data.taikhoan },
           { key: 'address', label: 'Địa chỉ', children: data.diachi || 'Chưa có' }]} /> },
@@ -110,7 +112,7 @@ function Profile({ makh, revision, me, onClose, onEdit }: { makh: number | null;
  * admin/manager/front desk, full add/edit/lock for admin and manager.
  */
 export default function Customers({ me }: { me: Me }) {
-  if (!['admin', 'manager', 'letan'].includes(me.user.role)) return <Result status="403" title="Không có quyền xem danh sách khách hàng" />;
+  if (!['admin', 'manager', 'letan'].includes(me.user.role)) return <Result status="403" title="Không có quyền xem danh sách khách hàng" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
   return <CustomerList me={me} />;
 }
 
@@ -128,6 +130,7 @@ function CustomerList({ me }: { me: Me }) {
   useEffect(() => setDraft(search), [search]);
   const [editing, setEditing] = useState<CustomerDetail | 'new' | null>(null);
   const [quick, setQuick] = useState(false);
+  const [gifting, setGifting] = useState<Customer | null>(null);
   const [revision, setRevision] = useState(0);
   const rows = (resource.data || []).filter(c => (!statusFilter || c.trangthai === statusFilter) && matchesCustomer(c, search))
     .sort((a, b) => b.makh - a.makh);
@@ -144,13 +147,14 @@ function CustomerList({ me }: { me: Me }) {
   }
   const actions = (c: Customer) => <Space wrap size={6}>
     <Button size="small" onClick={() => setQuery({ view: c.makh })}>Hồ sơ</Button>
+    <Button size="small" type="primary" disabled={c.trangthai !== 'active'} title={c.trangthai !== 'active' ? 'Chỉ tặng voucher cho khách đang hoạt động' : `Tặng voucher cho ${c.hoten}`} onClick={() => setGifting(c)}>Tặng voucher</Button>
     <Button size="small" onClick={() => navigate(`/admin/appointments?makh=${c.makh}`)}>Lịch hẹn</Button>
     {canManage && <Button size="small" onClick={() => openEdit(c.makh)}>Sửa</Button>}
     {canManage && <Button size="small" danger={c.trangthai !== 'blocked'} onClick={() => toggleLock(c)}>{c.trangthai === 'blocked' ? 'Mở khóa' : 'Khóa'}</Button>}
   </Space>;
   return <>
     <div className="page-heading section-toolbar">
-      <div><span className="eyebrow">VẬN HÀNH</span><h1>Khách hàng</h1><p>Tìm khách, thêm khách mới và xem lịch sử phục vụ.</p></div>
+      <div><span className="eyebrow">VẬN HÀNH</span><h1>Khách hàng</h1><p>Tìm khách, tặng voucher và xem lịch sử phục vụ.</p></div>
       <Space wrap>{canQuick && <Button onClick={() => setQuick(true)}>+ Khách vãng lai</Button>}{canManage && <Button type="primary" onClick={() => setEditing('new')}>+ Thêm khách hàng</Button>}</Space>
     </div>
     <div className="appointment-summary admin-stats">
@@ -180,6 +184,7 @@ function CustomerList({ me }: { me: Me }) {
       </>)}
     </Card>
     <Profile makh={viewing} revision={revision} me={me} onClose={() => setQuery({ view: null })} onEdit={c => setEditing(c)} />
+    {gifting && <VoucherGiftDialog key={gifting.makh} recipient={gifting} actorId={me.user.id} canManage={canManage} close={() => setGifting(null)} saved={() => { setGifting(null); setRevision(n => n + 1); }} />}
     <CustomerForm key={editing === 'new' ? 'new' : editing?.makh ?? 'none'} editing={editing} onClose={() => setEditing(null)}
       onSaved={makh => { setEditing(null); resource.reload(); setRevision(n => n + 1); if (makh) setQuery({ view: makh }); }} />
     <QuickCustomer open={quick} onClose={() => setQuick(false)} onCreated={makh => { setQuick(false); resource.reload(); setQuery({ view: makh }); }} />

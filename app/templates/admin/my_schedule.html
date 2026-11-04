@@ -5,7 +5,7 @@
 {% block page_title %}Lịch làm của tôi{% endblock %}
 
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+<div class="page-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
     <div>
         <p style="margin: 0;">Xem lịch làm của bạn theo tuần:</p>
         <p id="my-rating" class="my-rating" aria-live="polite" style="margin: 4px 0 0; font-size: 14px;"></p>
@@ -15,7 +15,7 @@
         <button id="prev-week" class="btn btn-secondary" title="Tuần trước">
             <i class="fas fa-chevron-left"></i>
         </button>
-        <strong id="current-week" style="min-width: 250px; text-align: center;">Đang tải...</strong>
+        <strong id="current-week" style="min-width: 0; flex: 1; text-align: center;">Đang tải...</strong>
         <button id="next-week" class="btn btn-secondary" title="Tuần sau">
             <i class="fas fa-chevron-right"></i>
         </button>

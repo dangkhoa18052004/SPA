@@ -79,9 +79,9 @@ def main():
         b.wait('!document.getElementById("loyaltyAdjust").open');screenshot('admin-loyalty.png');errors()
         navigate('/admin/invoices');b.wait('!!window.openInvoicePayment')
         b.evaluate(f'openInvoicePayment({iid})');b.wait('!!document.querySelector("[data-apply-voucher]")')
-        options=b.evaluate('[...document.querySelectorAll("[data-voucher] option")].map(o=>o.textContent)')
+        options=b.evaluate('[...document.querySelectorAll(".loyalty-voucher-option")].map(o=>o.textContent)')
         assert any('Voucher 50.000' in o and 'Giảm 50.000' in o and 'Cả hai' in o for o in options) and not any('Voucher gói' in o for o in options),options
-        b.evaluate('document.querySelector("[data-voucher]").selectedIndex=1');click('[data-apply-voucher]')
+        click('[data-voucher]');click('[data-apply-voucher]')
         b.wait('!!document.querySelector("[data-remove-voucher]")')
         click('[data-enable]');b.evaluate('document.querySelector("[data-points]").value="100"');click('[data-preview]')
         b.wait('document.querySelector("[data-result]").textContent.includes("350.000")');click('[data-apply]')
@@ -109,7 +109,7 @@ def main():
         app.config['PACKAGE_CUSTOMER_CASH_ENABLED'] = True
         legacy = b.evaluate(f"fetch('/api/packages/{pid}/purchase',{{method:'POST',headers:{{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('access_token')}},body:JSON.stringify({{payment_method:'cash'}})}}).then(r=>r.json()).then(j=>j.purchase.id)")
         navigate(f'/packages/{pid}?purchase={legacy}')
-        b.wait('[...document.querySelectorAll("[data-voucher] option")].some(o=>o.textContent.includes("Voucher gói 100.000") && o.textContent.includes("Mua gói"))')
+        b.wait('[...document.querySelectorAll(".loyalty-voucher-option")].some(o=>o.textContent.includes("Voucher gói 100.000") && o.textContent.includes("Mua gói"))')
         b.wait('!!document.querySelector("[data-enable]")');click('[data-enable]')
         b.evaluate('document.querySelector("[data-points]").value="200"');click('[data-apply]')
         b.wait('document.querySelector("[data-points]")?.value==="200" && !!document.querySelector("[data-remove]")')

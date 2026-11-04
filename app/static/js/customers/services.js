@@ -1,287 +1,87 @@
-// Global variables
-let servicesPageAllServices = [];  
-let servicesPageFilteredServices = [];
-const servicesPageDefaultOrder = new Map();
-let currentCategory = 'all';
-
-// Service categories mapping - Đã đặt ở GLOBAL SCOPE
-const serviceCategories = {
-    'massage': ['massage', 'thư giãn', 'body massage', 'foot massage', 'bấm huyệt', 'đá nóng', 'cổ vai gáy'],
-    'facial': ['da mặt', 'facial', 'chăm sóc da', 'mặt nạ', 'tẩy da chết', 'làm sạch da', 'trẻ hóa', 'lão hóa', 'da mụn', 'phục hồi da'],
-    'nail': ['nail', 'móng', 'manicure', 'pedicure', 'sơn gel', 'sơn móng', 'vẽ móng', '3d nail', 'đắp móng', 'làm nail', 'chăm sóc móng'],
-    'hair': ['tóc', 'gội đầu', 'hair', 'chăm sóc tóc', 'duỗi', 'nhuộm', 'hấp dầu', 'gội dưỡng sinh', 'ủ tóc', 'phục hồi tóc'],
-    'body': ['tắm trắng', 'body', 'wax', 'triệt lông', 'điều trị', 'detox', 'săn chắc', 'tẩy tế bào chết toàn thân', 'giảm béo']
-};
-
-// ==================== HÀM PHÂN LOẠI DỊCH VỤ (ĐÃ SỬA LỖI LOGIC) ====================
-function detectServiceCategory(name, description) {
-    const text = (name + ' ' + (description || '')).toLowerCase();
-    
-    const matchScores = {}; 
-    let bestCategory = 'other';
-    let maxScore = 0;
-
-    // 1. Tính điểm số khớp cho mỗi danh mục
-    for (const [category, keywords] of Object.entries(serviceCategories)) {
-        matchScores[category] = 0;
-        for (const keyword of keywords) {
-            if (text.includes(keyword)) {
-                // Cho điểm cao hơn cho từ khóa dài (> 5 ký tự)
-                matchScores[category] += (keyword.length > 5 ? 2 : 1); 
-            }
-        }
-    }
-
-    // 2. Áp dụng quy tắc ưu tiên cứng cho Nail và Hair (để tránh nhầm với Massage/Facial)
-    if (matchScores['nail'] > 0) return 'nail';
-    if (matchScores['hair'] > 0) return 'hair';
-    
-    // 3. Chọn danh mục có điểm số cao nhất trong các danh mục còn lại
-    for (const category in matchScores) {
-        if (matchScores[category] > maxScore) {
-            maxScore = matchScores[category];
-            bestCategory = category;
-        }
-    }
-
-    if (maxScore === 0) {
-        return 'other';
-    }
-    return bestCategory;
-}
-
-// =================================================================================
-
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Services page loaded');
-    restoreCatalogFilters();
-    loadAllServices();
-});
-
-function restoreCatalogFilters() {
-    if (!window.CustomerCatalog) return;
-    const params = new URLSearchParams(location.search);
-    const category = params.get('category') || 'all';
-    currentCategory = ['all', ...Object.keys(serviceCategories), 'other'].includes(category) ? category : 'all';
-    document.getElementById('searchInput').value = params.get('search') || '';
-    const sort = document.getElementById('sortSelect');
-    sort.value = [...sort.options].some(o => o.value === params.get('sort')) ? params.get('sort') : 'default';
-    markCatalogCategory();
-}
-window.addEventListener?.('popstate', () => { restoreCatalogFilters(); filterServices(); });
-
-function markCatalogCategory() {
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        const active = btn.getAttribute('onclick') === `filterByCategory('${currentCategory}')`;
-        btn.classList.toggle('active', active);
-        btn.setAttribute('aria-pressed', String(active));
+// Server owns persisted categories, filtering, ranking and opt-in pagination.
+let currentCategory='all',catalogPage=1,catalogRequest=0,catalogController,catalogTimer;
+const catalogRanges=['min_price','max_price','min_duration','max_duration'];
+const catalogEsc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const catalogFetch=(url,options)=>window.CustomerAuth?window.CustomerAuth.fetch(url,options):fetch(url,options);
+document.addEventListener('DOMContentLoaded',()=>{
+    setupCatalogFilterDrawer();
+    restoreCatalogFilters();loadCategories();loadAllServices();
+    document.getElementById('searchInput').addEventListener('input',()=>{
+        clearTimeout(catalogTimer);catalogController?.abort();++catalogRequest;
+        catalogTimer=setTimeout(()=>filterServices(),300);
     });
+    document.querySelectorAll('[data-catalog-range]').forEach(i=>i.addEventListener('change',()=>filterServices()));
+});
+function setupCatalogFilterDrawer(){
+    const group=document.querySelector('.catalog-range-grid'),desktop=document.querySelector('.catalog-advanced'),mobile=document.getElementById('catalogMobileRanges'),dialog=document.getElementById('catalogFilterDialog');
+    const media=window.matchMedia('(max-width: 639px)');
+    const sync=()=>{if(dialog.open)dialog.close();(media.matches?mobile:desktop).append(group);};
+    sync();media.addEventListener('change',sync);
 }
-
-function clearServiceFilters() {
-    currentCategory = 'all';
-    document.getElementById('searchInput').value = '';
-    document.getElementById('sortSelect').value = 'default';
-    markCatalogCategory();
-    filterServices();
+window.addEventListener('popstate',()=>{clearTimeout(catalogTimer);restoreCatalogFilters();loadAllServices();});
+function restoreCatalogFilters(){
+    const p=new URLSearchParams(location.search);currentCategory=p.get('category')||'all';catalogPage=Math.max(1,Number(p.get('page'))||1);
+    document.getElementById('searchInput').value=p.get('search')||'';
+    const sort=document.getElementById('sortSelect');sort.value=[...sort.options].some(o=>o.value===p.get('sort'))?p.get('sort'):'default';
+    catalogRanges.forEach(k=>{document.getElementById(k).value=p.get(k)||'';});markCatalogCategory();
 }
-
-// ==================== LOAD SERVICES ====================
-async function loadAllServices() {
-    try {
-        showSkeletonLoading();
-        
-        const response = await (window.CustomerAuth ? window.CustomerAuth.fetch('/api/services') : fetch('/api/services'));
-        if (!response.ok) throw new Error('Services unavailable');
-        const data = await response.json();
-        
-        
-        if (data.success && data.services) {
-            servicesPageAllServices = data.services;
-            servicesPageDefaultOrder.clear();
-            servicesPageAllServices.forEach((s, index) => servicesPageDefaultOrder.set(s.madv, index));
-            
-            console.log(`Loaded ${servicesPageAllServices.length} services`);
-            filterServices();
-        } else {
-            showError('Không thể tải danh sách dịch vụ');
-        }
-    } catch (error) {
-        console.error('Error loading services:', error);
-        showError('Có lỗi xảy ra khi tải dịch vụ');
-    }
+async function loadCategories(){
+    const root=document.getElementById('catalogCategories');
+    try{
+        const r=await catalogFetch('/api/services/categories');if(!r.ok)throw Error();const d=await r.json();root.replaceChildren();
+        for(const c of [{slug:'all',name:'Tất cả'},...d.categories]){
+            const b=document.createElement('button');b.type='button';b.className='filter-btn';b.dataset.category=c.slug;
+            b.textContent=c.name+(c.service_count==null?'':` (${c.service_count})`);b.onclick=()=>filterByCategory(c.slug);root.append(b);
+        }markCatalogCategory();
+    }catch(e){root.innerHTML='<span role="alert">Chưa tải được danh mục.</span><button type="button" class="filter-btn" onclick="loadCategories()">Thử lại</button>';}
 }
-
-// ==================== DISPLAY SERVICES ====================
-function displayServices(services) {
-    const servicesGrid = document.getElementById('servicesGrid');
-    const noResults = document.getElementById('noResults');
-    
-    if (!servicesGrid) {
-        console.error('servicesGrid element not found');
-        return;
-    }
-    
-    console.log(`Displaying ${services.length} services`);
-    
-    if (services.length === 0) {
-        servicesGrid.innerHTML = '';
-        if (noResults) noResults.style.display = 'block';
-        return;
-    }
-    
-    if (noResults) noResults.style.display = 'none';
-    
-    servicesGrid.innerHTML = services.map(service => {
-        const category = servicePageCategory(service);
-        const categoryLabel = getCategoryLabel(category);
-        if (window.CustomerCatalog) return window.CustomerCatalog.serviceCard(service, categoryLabel);
-        
-        console.log(`Service: ${service.tendv} -> Category: ${category}`);
-        
-        return `
-            <div class="service-card" data-service-id="${service.madv}" onclick="viewServiceDetail(${service.madv})">
-                <div class="service-image-container">
-                    <img src="${service.anhdichvu ? 'data:image/jpeg;base64,' + service.anhdichvu : '/static/images/default-service.jpg'}" 
-                            alt="${service.tendv}" 
-                            class="service-image"
-                            onerror="this.src='/static/images/default-service.jpg'">
-                    ${service.thoiluong ? `<div class="service-badge">${service.thoiluong} phút</div>` : ''}
-                </div>
-                <div class="service-content">
-                    <span class="service-category">${categoryLabel}</span>
-                    <h3 class="service-name">${service.tendv}</h3>
-                    <p class="service-description">${service.mota || 'Dịch vụ chất lượng cao tại Bin Spa'}</p>
-                    <div class="service-meta">
-                        <div class="service-price">${formatPrice(service.gia)}</div>
-                        ${service.thoiluong ? `
-                            <div class="service-duration">
-                                <i class="fas fa-clock"></i>
-                                <span>${service.thoiluong} phút</span>
-                            </div>
-                        ` : ''}
-                    </div>
-                    <div class="service-actions">
-                        <a href="/appointments/create?service=${service.madv}" class="btn btn-primary" onclick="event.stopPropagation()">
-                            <i class="fas fa-calendar-check"></i> Đặt lịch
-                        </a>
-                        <button class="btn btn-outline" onclick="event.stopPropagation(); viewServiceDetail(${service.madv})">
-                            Chi tiết
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
+function markCatalogCategory(){document.querySelectorAll('[data-category]').forEach(b=>{const active=b.dataset.category===currentCategory;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});}
+function catalogParams(){
+    const p=new URLSearchParams({page:String(catalogPage),per_page:'9'});
+    if(currentCategory!=='all')p.set('category',currentCategory);
+    const s=document.getElementById('searchInput').value.trim();if(s)p.set('search',s);
+    const sort=document.getElementById('sortSelect').value;if(sort!=='default')p.set('sort',sort);
+    catalogRanges.forEach(k=>{const v=document.getElementById(k).value;if(v!=='')p.set(k,v);});return p;
+}
+function syncCatalogUrl(){
+    const p=catalogParams(),url=new URL(location.href);
+    for(const k of ['page','per_page','category','search','sort',...catalogRanges])url.searchParams.delete(k);
+    p.delete('per_page');if(catalogPage===1)p.delete('page');p.forEach((v,k)=>url.searchParams.set(k,v));
+    if(url.href!==location.href)history.pushState(null,'',url.pathname+url.search+url.hash);
+}
+function filterServices(){catalogPage=1;syncCatalogUrl();return loadAllServices();}
+function filterByCategory(c){currentCategory=c;markCatalogCategory();return filterServices();}
+function sortServices(){return filterServices();}
+function clearServiceFilters(){currentCategory='all';document.getElementById('searchInput').value='';document.getElementById('sortSelect').value='default';catalogRanges.forEach(k=>{document.getElementById(k).value='';});markCatalogCategory();return filterServices();}
+async function loadAllServices(){
+    const request=++catalogRequest;catalogController?.abort();catalogController=new AbortController();
+    const root=document.getElementById('servicesGrid'),count=document.getElementById('catalogResultCount');
+    root.setAttribute('aria-busy','true');root.innerHTML=Array.from({length:9},()=>'<div class="service-skeleton" aria-hidden="true"><div class="skeleton-image"></div><div class="skeleton-content">Đang tải…</div></div>').join('');
+    document.getElementById('noResults').hidden=true;document.getElementById('catalogPagination').replaceChildren();count.textContent='Đang tải dịch vụ…';
+    try{
+        const r=await catalogFetch('/api/services?'+catalogParams(),{signal:catalogController.signal}),d=await r.json();if(request!==catalogRequest)return;
+        if(!r.ok||!d.success)throw Error(d.message||d.msg||'Không thể tải dịch vụ.');
+        if(d.total_pages&&catalogPage>d.total_pages){catalogPage=d.total_pages;syncCatalogUrl();return loadAllServices();}
+        displayServices(d.services);document.getElementById('noResults').hidden=d.total!==0;
+        const first=d.total?(catalogPage-1)*9+1:0;count.textContent=`Hiển thị ${first}–${first?first+d.services.length-1:0} / ${d.total} dịch vụ`;renderCatalogPagination(d.total_pages);
+        document.getElementById('catalogActiveFilters').textContent=[currentCategory!=='all'?`Danh mục: ${document.querySelector('[data-category="'+CSS.escape(currentCategory)+'"]')?.textContent||currentCategory}`:'',...catalogRanges.filter(k=>document.getElementById(k).value).map(k=>`${document.querySelector('label[for="'+k+'"]').textContent}: ${document.getElementById(k).value}`)].filter(Boolean).join(' · ');
+    }catch(e){if(request!==catalogRequest||e.name==='AbortError')return;root.innerHTML=`<div class="catalog-state" role="alert"><p>${catalogEsc(e.message)}</p><button type="button" class="btn btn-outline" onclick="loadAllServices()">Thử lại</button></div>`;count.textContent='Chưa tải được kết quả.';
+    }finally{if(request===catalogRequest)root.setAttribute('aria-busy','false');}
+}
+function displayServices(services){
+    document.getElementById('servicesGrid').innerHTML=services.map(s=>{
+        if(window.CustomerCatalog)return window.CustomerCatalog.serviceCard(s,s.category_name||'Chưa phân loại');
+        const id=Number(s.madv),name=catalogEsc(s.tendv);
+        return `<article class="service-card" data-service-id="${id}"><a class="service-image-container" href="/services/${id}" tabindex="-1" aria-hidden="true"><img class="service-image" src="${s.anhdichvu?'data:image/jpeg;base64,'+catalogEsc(s.anhdichvu):'/static/images/default-service.jpg'}" alt="" width="640" height="480" loading="lazy" onerror="this.onerror=null;this.src='/static/images/default-service.jpg'"></a><div class="service-content"><span class="service-category">${catalogEsc(s.category_name||'Chưa phân loại')}</span><h3 class="service-name"><a href="/services/${id}">${name}</a></h3><p class="service-description">${catalogEsc(s.mota)}</p><div class="service-meta"><span class="service-price">${formatPrice(s.gia)}</span><span>${Number(s.thoiluong)||0} phút</span></div><div class="service-actions"><a class="btn btn-primary" href="/appointments/create?service=${id}">Đặt lịch</a><a class="btn btn-outline" href="/services/${id}">Chi tiết</a></div></div></article>`;
     }).join('');
-
-    if (typeof changeLang === 'function') {
-        changeLang(localStorage.getItem('spa_lang') || 'vi');
-    }
 }
-
-// ==================== FILTER BY CATEGORY ====================
-function servicePageCategory(service) {
-    const slug = service.category_slug;
-    if (slug) return ({acne: 'facial', 'body-care': 'body'})[slug] || slug;
-    // Preserve the existing visual filter for legacy rows without a category FK.
-    // Recommendation scoring itself always uses the persisted category.
-    return detectServiceCategory(service.tendv, service.mota);
+function renderCatalogPagination(total){
+    const root=document.getElementById('catalogPagination');root.replaceChildren();if(total<=1)return;
+    const pages=[1,...Array.from({length:5},(_,i)=>catalogPage+i-2).filter(p=>p>1&&p<total),total];
+    const add=(text,p,disabled,current=false)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.disabled=disabled;b.className='btn btn-outline';if(current)b.setAttribute('aria-current','page');b.onclick=()=>{catalogPage=p;syncCatalogUrl();loadAllServices().then(()=>{const el=document.getElementById('catalogResultCount');el.focus({preventScroll:true});el.scrollIntoView({block:'start',behavior:'instant'});});};root.append(b);};
+    add('Trước',catalogPage-1,catalogPage===1);let last=0;
+    for(const p of pages){if(p===last)continue;if(last&&p>last+1)root.append(document.createTextNode('…'));add(String(p),p,false,p===catalogPage);last=p;}
+    add('Sau',catalogPage+1,catalogPage===total);
 }
-
-function filterByCategory(category) {
-    currentCategory = category;
-    markCatalogCategory();
-    filterServices();
-}
-
-// Get category label
-function getCategoryLabel(category) {
-    const labels = {
-        'massage': 'Massage',
-        'facial': 'Chăm sóc da',
-        'nail': 'Nail & Móng',
-        'hair': 'Tóc & Đầu',
-        'body': 'Điều trị cơ thể',
-        'other': 'Khác'
-    };
-    return labels[category] || 'Khác';
-}
-
-// ==================== SEARCH FILTER ====================
-function filterServices() {
-    const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-    // Filter candidates first. Scores are independent of candidate membership, so
-    // restricting the server order produces exactly the same personalized ranking.
-    servicesPageFilteredServices = servicesPageAllServices.filter(service =>
-        (currentCategory === 'all' || servicePageCategory(service) === currentCategory) &&
-        (!searchTerm || service.tendv.toLowerCase().includes(searchTerm) ||
-            (service.mota || '').toLowerCase().includes(searchTerm)));
-    const sort = document.getElementById('sortSelect')?.value || 'default';
-    const comparators = {
-        'name-asc': (a, b) => a.tendv.localeCompare(b.tendv, 'vi'),
-        'name-desc': (a, b) => b.tendv.localeCompare(a.tendv, 'vi'),
-        'price-asc': (a, b) => Number(a.gia) - Number(b.gia),
-        'price-desc': (a, b) => Number(b.gia) - Number(a.gia),
-        'default': (a, b) => servicesPageDefaultOrder.get(a.madv) - servicesPageDefaultOrder.get(b.madv)
-    };
-    servicesPageFilteredServices.sort(comparators[sort] || comparators.default);
-    displayServices(servicesPageFilteredServices);
-    const result = document.getElementById('catalogResultCount');
-    if (result) result.textContent = `${servicesPageFilteredServices.length} dịch vụ`;
-    if (window.CustomerCatalog) {
-        const url = new URL(location.href);
-        for (const [key, value, fallback] of [['search', searchTerm, ''], ['category', currentCategory, 'all'], ['sort', sort, 'default']]) {
-            value === fallback ? url.searchParams.delete(key) : url.searchParams.set(key, value);
-        }
-        history.replaceState(null, '', url.pathname + url.search + url.hash);
-    }
-}
-
-function sortServices() {
-    filterServices();
-}
-
-// ==================== VIEW SERVICE DETAIL ====================
-function viewServiceDetail(serviceId) {
-    window.location.href = `/services/${serviceId}`;
-}
-
-// ==================== UTILITY FUNCTIONS ====================
-function formatPrice(price) {
-    return new Intl.NumberFormat('vi-VN', { 
-        style: 'currency', 
-        currency: 'VND' 
-    }).format(parseFloat(price));
-}
-
-function showSkeletonLoading() {
-    const servicesGrid = document.getElementById('servicesGrid');
-    if (!servicesGrid) return;
-    
-    servicesGrid.innerHTML = Array(6).fill(0).map(() => `
-        <div class="service-skeleton">
-            <div class="skeleton-image"></div>
-            <div class="skeleton-content">
-                <div class="skeleton-line"></div>
-                <div class="skeleton-line short"></div>
-                <div class="skeleton-line"></div>
-            </div>
-        </div>
-    `).join('');
-}
-
-function showError(message) {
-    const servicesGrid = document.getElementById('servicesGrid');
-    if (!servicesGrid) return;
-    
-    servicesGrid.innerHTML = `
-        <div role="alert" style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
-            <i class="fas fa-exclamation-circle" style="font-size: 64px; color: #ddd; margin-bottom: 20px; display: block;"></i>
-            <p style="font-size: 18px; color: #999;">${message}</p>
-            <button onclick="loadAllServices()" class="btn btn-primary" style="margin-top: 20px;">
-                <i class="fas fa-redo"></i> Thử lại
-            </button>
-        </div>
-    `;
-}
+function viewServiceDetail(id){location.href=`/services/${Number(id)}`;}
+function formatPrice(v){return v==null?'Liên hệ':new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(Number(v));}

@@ -25,7 +25,7 @@ export default function Reviews({ me }: { me: Me }) {
   const [q, query] = useQuery(); const [selected, select] = useState<Review | null>(null); const { modal, message } = App.useApp();
   const allowed = ['admin', 'manager', 'staff'].includes(me.user.role);
   // Render the role gate before mounting the data component, so forbidden accounts make no API request.
-  return allowed ? <ReviewList me={me} q={q} query={query} selected={selected} select={select} modal={modal} message={message} /> : <Result status="403" title="Bạn không có quyền xem đánh giá" />;
+  return allowed ? <ReviewList me={me} q={q} query={query} selected={selected} select={select} modal={modal} message={message} /> : <Result status="403" title="Bạn không có quyền xem đánh giá" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
 }
 function ReviewList({ me, q, query, selected, select, modal, message }: { me: Me; q: URLSearchParams; query: ReturnType<typeof useQuery>[1]; selected: Review | null; select: (r: Review | null) => void; modal: ReturnType<typeof App.useApp>['modal']; message: ReturnType<typeof App.useApp>['message'] }) {
   const params = new URLSearchParams(); ['rating', 'service', 'staff', 'replied', 'search', 'page'].forEach(k => { if (q.get(k)) params.set(k, q.get(k)!); });

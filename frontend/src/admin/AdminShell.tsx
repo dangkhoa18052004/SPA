@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Breadcrumb, Button, Drawer, Dropdown, Menu, Tag } from 'antd';
+import { Badge, Breadcrumb, Button, Drawer, Dropdown, Menu, Tag } from 'antd';
 import type { MenuProps } from 'antd';
 import type { Me } from '../types';
 import { isPlainClick, navigate } from '../router';
 import { logout } from '../session';
+import { useChatConversations } from '../chat-state';
 import { accountMenu, adminMenu, findPage, isAppPath, roleLabel } from './navigation';
 import './admin.css';
 
@@ -11,6 +12,7 @@ const COLLAPSE_KEY = 'binspa_admin_nav_collapsed';
 const readCollapsed = () => { try { return localStorage.getItem(COLLAPSE_KEY) === '1'; } catch { return false; } };
 
 export function AdminShell({ me, path, children }: { me: Me; path: string; children: React.ReactNode }) {
+  const chat = useChatConversations(me);
   const groups = adminMenu(me);
   const { group, item } = findPage(me, path);
   const [collapsed, setCollapsed] = useState(readCollapsed);
@@ -26,7 +28,7 @@ export function AdminShell({ me, path, children }: { me: Me; path: string; child
       event.preventDefault(); navigate(href);
     };
   }
-  const link = (href: string, label: string) => <a href={href} onClick={follow(href)}>{label}</a>;
+  const link = (href: string, label: string) => <a href={href} onClick={follow(href)}>{label}{href === '/admin/chat' && <Badge className="chat-menu-unread" count={chat.totalUnread} overflowCount={99} />}</a>;
   const toggle = () => setCollapsed(value => {
     try { localStorage.setItem(COLLAPSE_KEY, value ? '0' : '1'); } catch { /* Preference only. */ }
     return !value;
@@ -51,12 +53,14 @@ export function AdminShell({ me, path, children }: { me: Me; path: string; child
           aria-label={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}>☰</Button>
         <a className="brand" href="/admin/dashboard" onClick={follow('/admin/dashboard')}><span className="brand-mark">B</span><b>Bin Spa</b></a>
       </div>
+      <div className="admin-topbar-actions">
+      {me.features.admin_care && <a className="chat-inbox-link" href="/admin/chat" onClick={follow('/admin/chat')} aria-label={`Tin nhắn${chat.totalUnread ? `, ${chat.totalUnread} tin chưa đọc` : ''}`}>Tin nhắn <Badge count={chat.totalUnread} overflowCount={99} /></a>}
       <Dropdown menu={{ items: account }} trigger={['click']} placement="bottomRight">
         <Button type="text" className="admin-account" aria-label="Tài khoản">
           <span className="admin-avatar" aria-hidden>{me.user.name.trim().charAt(0).toUpperCase() || 'B'}</span>
           <span className="admin-account-name">{me.user.name}</span><Tag className="admin-role">{roleLabel[me.user.role] || me.user.role}</Tag>
         </Button>
-      </Dropdown>
+      </Dropdown></div>
     </header>
     <aside className="admin-sidebar" aria-label="Menu quản trị">{menu(false)}</aside>
     <Drawer title="Bin Spa · Quản trị" placement="left" open={drawer} onClose={() => setDrawer(false)} width={300} className="admin-drawer">

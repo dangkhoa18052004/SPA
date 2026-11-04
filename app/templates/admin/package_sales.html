@@ -1,7 +1,7 @@
 {% extends "admin/layout.html" %}
 {% block title %}Bán gói dịch vụ - Bin Spa{% endblock %}
 {% block page_title %}Bán gói dịch vụ / Phiếu bán gói{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.1"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin/invoice-receipt.css') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css', v='1.2') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin/packages.css') }}?v=1.1"><link rel="stylesheet" href="{{ url_for('static', filename='css/admin/invoice-receipt.css') }}">{% endblock %}
 {% block content %}
 <section class="package-section" data-package-page="sales">
     <nav class="package-tabs" aria-label="Khu vực quản lý gói">
@@ -45,4 +45,4 @@
     </dialog>
 </section>
 {% endblock %}
-{% block extra_js %}<script src="{{ url_for('static', filename='js/packages.js') }}?v=1.1"></script><script src="{{ url_for('static', filename='js/admin/package-sales.js') }}?v=1.1"></script>{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/packages.js', v='1.5') }}"></script><script src="{{ url_for('static', filename='js/admin/package-sales.js') }}?v=1.2"></script>{% endblock %}

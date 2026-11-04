@@ -1,10 +1,10 @@
-export type PublicService = { madv: number; tendv: string; mota?: string; gia: number | string | null; thoiluong?: number; anhdichvu?: string };
+export type PublicService = { madv: number; tendv: string; mota?: string; gia: number | string | null; thoiluong?: number; anhdichvu?: string; category_name?: string | null };
 export const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export function price(value: PublicService['gia']) {
   return value === null || value === undefined || value === '' || !Number.isFinite(Number(value))
     ? 'Liên hệ' : new Intl.NumberFormat('vi-VN', {style:'currency',currency:'VND'}).format(Number(value));
 }
-export function serviceCard(service: PublicService, category = '') {
+export function serviceCard(service: PublicService, category = service.category_name || 'Chưa phân loại') {
   const id = Number(service.madv), name = escapeHtml(service.tendv);
   const image = service.anhdichvu ? `data:image/jpeg;base64,${escapeHtml(service.anhdichvu)}` : '/static/images/default-service.jpg';
   return `<article class="service-card" data-service-id="${id}">

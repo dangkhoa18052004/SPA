@@ -6,10 +6,10 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/customers/profile.css', v='1.4') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css', v='1.2') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/reviews.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/change-services.css', v='1.2') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css', v='2.2') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css', v='2.3') }}">
 {% endblock %}
 
 {% block content %}
@@ -38,6 +38,7 @@
                 <li><a href="#invoices" class="menu-link" data-section="invoices"><i class="fas fa-receipt" aria-hidden="true"></i> Hóa đơn</a></li>
                 <li><a href="#reviews" class="menu-link" data-section="reviews"><i class="fas fa-star" aria-hidden="true"></i> Đánh giá</a></li>
                 <li><a href="#info" class="menu-link" data-section="info"><i class="fas fa-user" aria-hidden="true"></i> Tài khoản</a></li>
+                {% if config.get('SKIN_ANALYSIS_ENABLED') %}<li><a href="/skin-analysis"><i class="fas fa-camera" aria-hidden="true"></i> Soi da bằng AI</a></li>{% endif %}
                 {% if config.get('CRM_ENABLED') or config.get('CUSTOMER_CONSENT_ENABLED') %}<li><a href="#communication" class="menu-link" data-section="communication"><i class="fas fa-bell" aria-hidden="true"></i> Thông báo & quyền riêng tư</a></li>{% endif %}
             </ul>
         </div>
@@ -217,7 +218,7 @@
 <script src="{{ url_for('static', filename='js/reviews.js') }}"></script>
 <script src="{{ url_for('static', filename='js/change-services.js', v='1.0') }}"></script>
 <script src="{{ url_for('static', filename='js/customers/profile.js', v='1.7') }}"></script>
-<script src="{{ url_for('static', filename='js/packages.js', v='1.2') }}"></script>
+<script src="{{ url_for('static', filename='js/packages.js', v='1.5') }}"></script>
 <script src="{{ url_for('static', filename='js/customers/loyalty.js', v='2.4') }}"></script>
 {% if config.get('CRM_ENABLED') or config.get('CUSTOMER_CONSENT_ENABLED') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/communication-preferences.css') }}"><script src="{{ url_for('static', filename='js/customers/communication-preferences.js') }}"></script>{% endif %}
 {% endblock %}

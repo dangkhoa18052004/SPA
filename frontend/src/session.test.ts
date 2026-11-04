@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from './api';
-import { loginUrl, safeNext } from './session';
+import { loginUrl, logout, safeNext } from './session';
 
 describe('post-login destination', () => {
   it('accepts only staff pages on this site', () => {
@@ -41,5 +41,9 @@ describe('expired session', () => {
   it('reports a non-JSON error page by its status', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 413, json: async () => { throw new SyntaxError('html'); } }));
     await expect(api('/api/profile/upload-avatar', { method: 'POST' })).rejects.toMatchObject({ status: 413, message: 'Tệp quá lớn.' });
+  });
+  it('clears credentials and returns to login when logout is offline',async()=>{
+    vi.stubGlobal('fetch',vi.fn().mockRejectedValue(new TypeError('offline')));
+    await logout();expect(values.size).toBe(0);expect(assign).toHaveBeenCalledWith('/admin/login');
   });
 });

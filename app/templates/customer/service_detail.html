@@ -7,7 +7,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/reviews.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/packages.css') }}?v=1.2">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/related-recommendations.css') }}">
 {% endblock %}
 {% block content %}
@@ -41,5 +41,5 @@
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/packages.js') }}?v=1.5"></script>
 <script src="{{ url_for('static', filename='js/reviews.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/customers/service-detail.js') }}?v=2.0"></script>
+    <script src="{{ url_for('static', filename='js/customers/service-detail.js') }}?v=2.1"></script>
 {% endblock %}

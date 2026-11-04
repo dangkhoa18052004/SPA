@@ -127,13 +127,14 @@
         open.focus();
     }
 
+    const issuanceLabel=o=>({welcome:'Quà chào mừng',staff_gift:'Được spa tặng',points_redemption:'Đổi bằng điểm'}[o.issuance_source||'points_redemption']||'Đổi bằng điểm');
     function openDetail(offer){
         const d=dialog(),r=offer.reward;
         dialogTrigger=document.activeElement;
         d.innerHTML=`<h3 id="loyaltyDialogTitle">${esc(r.name)}</h3><span class="loyalty-badge">${isGift(offer)?'Quà tặng':'Voucher'}</span> <span class="loyalty-status loyalty-status--${esc(offer.status)}">${esc(statusLabel(offer))}</span>${r.description?`<p class="loyalty-muted">${esc(r.description)}</p>`:''}`+
-            facts([...terms(r),['Mã ưu đãi',`<code>${esc(offer.code)}</code>`],['Điểm đã đổi',`${points(offer.points_spent)} điểm`],['Ngày đổi',date(offer.redeemed_at)],['Hạn sử dụng',date(offer.expires_at)],
+            facts([...terms(r),['Mã ưu đãi',`<code>${esc(offer.code)}</code>`],['Nguồn nhận',issuanceLabel(offer)],offer.points_spent>0&&['Điểm đã đổi',`${points(offer.points_spent)} điểm`],['Ngày nhận',date(offer.issued_at||offer.redeemed_at)],['Hạn sử dụng',date(offer.expires_at)],
                 offer.used_at&&['Đã sử dụng',date(offer.used_at)],offer.fulfilled_at&&['Đã nhận quà',date(offer.fulfilled_at)],offer.status==='reserved'&&['Đang áp dụng cho',esc(targetRef(offer))]])+
-            `<p>${esc(guide(offer))}</p><p data-copy-feedback class="loyalty-copy-feedback" role="status"></p><div class="loyalty-actions">${['available','reserved'].includes(offer.status)?`<button type="button" class="btn btn-outline" data-copy="${esc(offer.code)}">Sao chép mã</button>`:''}<button type="button" class="btn btn-primary" data-close>Đóng</button></div>`;
+            `${offer.customer_message?`<p class="loyalty-muted">${esc(offer.customer_message)}</p>`:''}<p>${esc(guide(offer))}</p><p data-copy-feedback class="loyalty-copy-feedback" role="status"></p><div class="loyalty-actions">${['available','reserved'].includes(offer.status)?`<button type="button" class="btn btn-outline" data-copy="${esc(offer.code)}">Sao chép mã</button>`:''}<button type="button" class="btn btn-primary" data-close>Đóng</button></div>`;
         d.querySelector('[data-close]').onclick=()=>d.close();
         bindCopy(d);d.showModal();d.querySelector('[data-close]').focus();
     }
@@ -209,8 +210,8 @@
         const active=['available','reserved'].includes(o.status);
         const resume=o.status==='reserved'?(o.target_type==='service_invoice'?`<button type="button" class="btn btn-outline" data-resume-invoice="${o.target_id}">Tiếp tục thanh toán</button>`:o.target_type==='package_purchase'?`<a class="btn btn-outline" href="/packages?purchase=${o.target_id}">Tiếp tục thanh toán</a>`:''):'';
         return `<article class="loyalty-card loyalty-offer${o.id===state.highlight?' is-new':''}" data-offer="${o.id}" tabindex="-1"><div class="loyalty-offer-head"><span class="loyalty-badge">${isGift(o)?'Quà tặng':'Voucher'}</span><span class="loyalty-status loyalty-status--${esc(o.status)}">${esc(statusLabel(o))}</span></div>`+
-            `<h3>${esc(o.reward.name)}</h3><p class="loyalty-code">Mã ưu đãi: <code>${esc(o.code)}</code>${active?` <button type="button" class="btn btn-outline btn-sm" data-copy="${esc(o.code)}">Sao chép</button>`:''}</p>`+
-            facts([...terms(o.reward),['Ngày đổi',date(o.redeemed_at)],['Hạn dùng',date(o.expires_at)],o.used_at&&['Ngày sử dụng',date(o.used_at)],o.fulfilled_at&&['Ngày nhận quà',date(o.fulfilled_at)]])+`<p>${esc(guide(o))}</p><div class="loyalty-actions"><button type="button" class="btn btn-outline" data-detail="${o.id}">Chi tiết</button>${resume}</div></article>`;
+            `<h3>${esc(o.reward.name)}</h3><p>${issuanceLabel(o)}</p>${o.customer_message?`<p class="loyalty-muted">${esc(o.customer_message)}</p>`:''}<p class="loyalty-code">Mã ưu đãi: <code>${esc(o.code)}</code>${active?` <button type="button" class="btn btn-outline btn-sm" data-copy="${esc(o.code)}">Sao chép</button>`:''}</p>`+
+            facts([...terms(o.reward),[o.issuance_source&&o.issuance_source!=='points_redemption'?'Ngày nhận':'Ngày đổi',date(o.issued_at||o.redeemed_at)],['Hạn dùng',date(o.expires_at)],o.used_at&&['Ngày sử dụng',date(o.used_at)],o.fulfilled_at&&['Ngày nhận quà',date(o.fulfilled_at)]])+`<p>${esc(guide(o))}</p><div class="loyalty-actions"><button type="button" class="btn btn-outline" data-detail="${o.id}">Chi tiết</button>${resume}</div></article>`;
     }
 
     function query(){

@@ -1,13 +1,14 @@
 {% extends "admin/layout.html" %}
 {% block title %}Điểm thưởng - Bin Spa{% endblock %}
 {% block page_title %}Điểm thưởng{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css', v='2.2') }}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/loyalty.css', v='2.3') }}">{% endblock %}
 {% block content %}
 <section id="adminLoyalty" class="loyalty-page">
     <p id="loyaltyMessage" role="status" aria-live="polite"></p>
     <nav class="loyalty-tabs" aria-label="Quản lý điểm thưởng">
         <button class="btn btn-primary" data-tab="overview">Tổng quan</button>
         <button class="btn btn-secondary" data-tab="config">Quy tắc</button>
+        <button class="btn btn-secondary" data-tab="welcome-config">Voucher chào mừng</button>
         <button class="btn btn-secondary" data-tab="customers">Khách hàng</button>
         <button class="btn btn-secondary" data-tab="transactions">Lịch sử điểm</button>
         <button class="btn btn-secondary" data-tab="rewards">Quà đổi thưởng</button>
@@ -15,7 +16,7 @@
     </nav>
     <div id="loyaltyContent" aria-live="polite">Đang tải...</div>
     <dialog id="giftHandover" class="loyalty-dialog" aria-labelledby="giftHandoverTitle">
-        <h3 id="giftHandoverTitle">Xác nhận đã giao quà</h3>
+        <h3 id="giftHandoverTitle">Xác nhận đã trao quà</h3>
         <div id="giftHandoverDetail"></div>
         <p>Chỉ xác nhận sau khi đã kiểm tra mã và trao quà tận tay khách.</p>
         <button type="button" class="btn btn-primary" id="giftHandoverConfirm">Xác nhận đã giao</button>
@@ -36,7 +37,10 @@
             <label>Loại quà<select name="reward_type"><option value="voucher_amount">Voucher giảm tiền</option><option value="voucher_percent">Voucher giảm %</option><option value="physical_gift">Quà tại cửa hàng</option></select></label>
             <label><span data-name-label>Tên voucher</span><input name="name" maxlength="200" required></label>
             <label>Mô tả<textarea name="description"></textarea></label>
-            <label>Điểm cần đổi<input name="points_cost" type="number" min="1" step="1" required></label>
+            <label><input name="allow_points_redemption" type="checkbox" checked> Cho mọi khách đủ điểm đổi mẫu này</label>
+            <label><input name="for_new_customers" type="checkbox"> Dành cho khách hàng mới</label>
+            <p>Tự tặng một lần sau OTP, kể cả mẫu tắt hoạt động. Chọn mẫu này sẽ thay mẫu chào mừng hiện tại.</p>
+            <label>Điểm cần đổi<input name="points_cost" type="number" min="1" step="1" value="0" required></label>
             <fieldset data-amount-fields class="loyalty-fieldset">
                 <label>Giá trị giảm (VNĐ)<input name="reward_value" type="number" min="1" step="1" required></label>
             </fieldset>
@@ -50,10 +54,11 @@
             </fieldset>
             <label>Số lượng (để trống nếu không giới hạn)<input name="stock" type="number" min="0" step="1"></label>
             <label>Hiệu lực (ngày, để trống nếu không hết hạn)<input name="validity_days" type="number" min="1" step="1"></label>
-            <label><input name="active" type="checkbox" checked> Đang cho đổi</label>
+            <label><input name="active" type="checkbox" checked> Mẫu đang hoạt động</label>
+            <p>Tắt hoạt động chỉ ngừng đổi điểm; vẫn tặng thủ công, tự tặng cho khách mới và dùng voucher đã nhận.</p>
             <button type="submit" class="btn btn-primary">Lưu quà</button><button type="button" class="btn btn-secondary" data-close>Đóng</button>
         </form>
     </dialog>
 </section>
 {% endblock %}
-{% block extra_js %}<script src="{{ url_for('static', filename='js/admin/loyalty.js', v='2.5') }}"></script>{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/admin/loyalty.js', v='20261024-voucher-audience') }}"></script>{% endblock %}

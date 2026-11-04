@@ -264,6 +264,8 @@ def gift_service(record_id, data, staff):
         raise AppointmentValidationError('Liệu trình đã bị hủy')
     if data.get('makh', record.makh) != record.makh:
         raise AppointmentValidationError('Khách hàng không khớp liệu trình')
+    if record.customer.trangthai != 'active':
+        raise AppointmentValidationError('Khách hàng không tồn tại hoặc đã ngừng hoạt động')
     service = db.session.get(DichVu, positive_int(data.get('madv')))
     if not service or not service.active:
         raise AppointmentValidationError('Dịch vụ không tồn tại hoặc đã ngừng hoạt động')

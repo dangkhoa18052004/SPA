@@ -225,5 +225,7 @@ export function Account({ me }: { me: Me }) {
   return <><div className="page-heading"><h1>Tài khoản</h1></div><Card><h2>{me.user.name}</h2>
     <p>Cơ sở: {me.branches.map(b => b.name).join(', ') || 'Chưa được phân cơ sở'}</p>
     <p>GPS chỉ được lấy khi nhấn chấm vào/ra. Khi từ chối quyền vị trí, bật lại trong cài đặt trình duyệt hoặc gửi yêu cầu chỉnh công cho quản lý.</p>
-    <Space wrap><Button href="/admin/profile">Hồ sơ và mật khẩu</Button>{me.features.staff_security && <Button href="/admin/security">Bảo mật tài khoản</Button>}<Button onClick={() => { void logout(); }}>Đăng xuất</Button></Space></Card></>;
+    <Space wrap><Button href="/admin/profile">Hồ sơ và mật khẩu</Button>
+      {me.features.admin_catalog && ['admin', 'manager', 'staff'].includes(me.user.role) && <Button href="/admin/packages?tab=treatments">Liệu trình / tặng dịch vụ</Button>}
+      {me.features.staff_security && <Button href="/admin/security">Bảo mật tài khoản</Button>}<Button onClick={() => { void logout(); }}>Đăng xuất</Button></Space></Card></>;
 }

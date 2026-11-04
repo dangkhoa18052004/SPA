@@ -140,6 +140,11 @@ def employee_appointments():
     if start and end and end < start:
         raise att.OperationsError('Ngày kết thúc phải từ ngày bắt đầu trở đi')
     query = own
+    if request.args.get('id'):
+        # Deep link from the dashboard; still limited to this staff member's own appointments.
+        if not request.args['id'].isdecimal():
+            raise att.OperationsError('Mã lịch hẹn không hợp lệ')
+        query = query.filter(LichHen.malh == int(request.args['id']))
     if start:
         query = query.filter(LichHen.ngaygio >= datetime.combine(start, time.min))
     if end:

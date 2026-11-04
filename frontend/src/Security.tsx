@@ -5,7 +5,7 @@ import { ResourceState, useResource } from './components';
 import type { Me } from './types';
 import './security.css';
 
-type SecurityStatus = { enabled: boolean; verified_until: string | null; recovery_codes_remaining: number; sensitive_actions_required: boolean };
+type SecurityStatus = { enabled: boolean; verified_until: string | null; recovery_codes_remaining: number; sensitive_actions_required: boolean; elevation_seconds: number };
 type Setup = { secret: string; provisioning_uri: string; expires_in: number };
 type Proof = { recovery_codes?: string[] };
 const help = 'Dùng mã 6 số từ ứng dụng xác thực hoặc một mã dự phòng. Mỗi mã chỉ dùng một lần.';
@@ -47,7 +47,7 @@ export default function Security({ me }: { me: Me }) {
     {!resource.loading && !resource.error && state && <div className="security-content">
       <Card><div className="section-toolbar"><h2>Ứng dụng xác thực</h2><Tag color={state.enabled ? 'green' : 'default'}>{state.enabled ? 'Đã bật' : 'Chưa thiết lập'}</Tag></div>
         <p>Dùng ứng dụng Authenticator trên điện thoại. Mã được tạo trong ứng dụng, không gửi qua email.</p>
-        {state.sensitive_actions_required && <Alert type="info" showIcon message="Cần xác minh trước khi chốt công/lương, điều chỉnh hoặc xuất lương, đổi quyền nhân viên và cấu hình GPS. Xác minh có hiệu lực 10 phút; quyền truy cập vẫn được kiểm tra ở từng thao tác." />}
+        {state.sensitive_actions_required && <Alert type="info" showIcon message={`Cần xác minh trước khi chốt công/lương, điều chỉnh hoặc xuất lương, đổi quyền nhân viên và cấu hình GPS. Xác minh có hiệu lực tối đa ${Math.round(state.elevation_seconds/60)} phút hoặc đến khi phiên đăng nhập hết hạn; quyền truy cập vẫn được kiểm tra ở từng thao tác.`} />}
         {state.enabled && <p>Còn {state.recovery_codes_remaining} mã dự phòng. {verified ? 'Phiên này đã xác minh đến ' + new Date(state.verified_until!).toLocaleTimeString('vi-VN') + '.' : 'Phiên này chưa xác minh hoặc đã hết thời hạn.'}</p>}
         {!codes.length && <form className="security-form" onSubmit={e => { e.preventDefault(); void perform(setup ? 'confirm' : state.enabled ? action : 'enroll'); }}>
           {!state.enabled && !setup && <><p>Mở ứng dụng xác thực trên điện thoại, rồi nhập mật khẩu hiện tại để bắt đầu.</p><label htmlFor="security-password">Mật khẩu hiện tại<Input.Password id="security-password" autoComplete="current-password" maxLength={1024} value={password} onChange={e => setPassword(e.target.value)} disabled={busy} required /></label></>}
@@ -57,7 +57,7 @@ export default function Security({ me }: { me: Me }) {
           {(setup || state.enabled) && <label htmlFor="security-code">{setup ? 'Mã 6 số từ ứng dụng' : 'Mã xác thực hoặc mã dự phòng'}<Input id="security-code" autoComplete="one-time-code" maxLength={setup ? 6 : 32} value={code} onChange={e => setCode(e.target.value)} disabled={busy} required aria-describedby="security-code-help" /></label>}
           {(setup || state.enabled) && <p id="security-code-help" className="muted">{setup ? 'Chỉ bật sau khi xác nhận đúng mã.' : help + ' Nếu vừa dùng mã này, chờ ứng dụng đổi mã mới.'}</p>}
           {error && <Alert type="error" role="alert" showIcon message={error} />}
-          <Space wrap><Button type="primary" danger={state.enabled && action === 'disable'} htmlType="submit" loading={busy}>{setup ? 'Xác nhận và bật' : !state.enabled ? 'Thiết lập ứng dụng' : action === 'verify' ? 'Xác minh 10 phút' : action === 'disable' ? 'Xác nhận tắt' : 'Tạo bộ mã mới'}</Button>
+          <Space wrap><Button type="primary" danger={state.enabled && action === 'disable'} htmlType="submit" loading={busy}>{setup ? 'Xác nhận và bật' : !state.enabled ? 'Thiết lập ứng dụng' : action === 'verify' ? `Xác minh ${Math.round(state.elevation_seconds/60)} phút` : action === 'disable' ? 'Xác nhận tắt' : 'Tạo bộ mã mới'}</Button>
             {setup && <Button disabled={busy} onClick={() => { setSetup(null); setCode(''); setPassword(''); setError(''); }}>Hủy thiết lập</Button>}
             {state.enabled && verified && <Button disabled={busy} onClick={() => void perform('lock')}>Kết thúc xác minh</Button>}</Space>
         </form>}

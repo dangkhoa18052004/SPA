@@ -11,8 +11,9 @@ from sqlalchemy import func
 from ..extensions import db
 from ..models import (KhachHang, HoaDon, GoiDichVuPurchase, LoyaltyWallet,
     LoyaltyConfig, LoyaltyPointTransaction, LoyaltyRedemptionReservation,
-    LoyaltyReward, LoyaltyRewardRedemption)
+    LoyaltyReward, LoyaltyRewardRedemption, WelcomeVoucherConfig)
 from ..loyalty_models import VOUCHER_TYPES
+from . import voucher_observability as voucher_events
 
 
 class LoyaltyError(ValueError):
@@ -294,6 +295,7 @@ def finalize_payment(target):
     if voucher:
         # A voucher already reserved for this payment remains valid on resume.
         voucher.status, voucher.used_at = 'used', datetime.utcnow()
+        voucher_events.after_commit('used', source=voucher.issuance_source, operation='payment', redemption_id=voucher.id, reward_id=voucher.reward_id)
     elif money(target.reward_discount or 0) and not LoyaltyRewardRedemption.query.filter_by(target_type=target_kind(target), target_id=target_id(target), status='used').first():
         raise LoyaltyError('Thiếu voucher cho thanh toán')
     award_points(target, wallet)
@@ -337,6 +339,7 @@ def serialize_reward(reward):
     return dict(id=reward.id, name=reward.name, description=reward.description,
         reward_type=reward.reward_type, points_cost=reward.points_cost,
         reward_value=str(reward.reward_value), stock=reward.stock, validity_days=reward.validity_days, active=reward.active,
+        allow_points_redemption=reward.allow_points_redemption, allow_manual_gift=reward.allow_manual_gift,
         minimum_spend=optional_str(reward.minimum_spend), apply_to=reward.apply_to,
         percentage_value=optional_str(reward.percentage_value), max_discount_amount=optional_str(reward.max_discount_amount))
 
@@ -362,9 +365,17 @@ def save_reward(data, reward=None):
     name = values.get('name')
     if not isinstance(name, str) or not name.strip() or len(name) > 200 or values.get('reward_type') not in REWARD_TYPES:
         raise LoyaltyError('Tên hoặc loại quà không hợp lệ')
-    values['points_cost'] = integer(values.get('points_cost'), 1)
+    for flag, default in (('allow_points_redemption', True), ('allow_manual_gift', False)):
+        values.setdefault(flag, default)
+        if not isinstance(values[flag], bool):
+            raise LoyaltyError('Quy tắc đổi điểm/tặng voucher phải là boolean')
+    values['points_cost'] = integer(values.get('points_cost', 0), 1 if values['allow_points_redemption'] else 0)
     values['reward_value'] = money(values.get('reward_value') or 0)
     kind = values['reward_type']
+    if reward and is_welcome_reward(reward.id) and (kind not in VOUCHER_TYPES or not values.get('validity_days')):
+        raise LoyaltyError('Voucher dành cho khách mới phải là voucher có hạn dùng')
+    if values['allow_manual_gift'] and kind not in VOUCHER_TYPES:
+        raise LoyaltyError('Chỉ voucher được phép tặng thủ công')
     if kind == 'voucher_percent':
         # The percentage replaces the fixed value; the optional cap is a VND amount.
         values['reward_value'] = Decimal(0)
@@ -402,7 +413,7 @@ def save_reward(data, reward=None):
         raise LoyaltyError('Quà không hợp lệ')
     reward = reward or LoyaltyReward()
     for key in ('description', 'reward_type', 'points_cost', 'reward_value', 'stock', 'validity_days', 'active', 'minimum_spend', 'apply_to',
-                'percentage_value', 'max_discount_amount'):
+                'percentage_value', 'max_discount_amount', 'allow_points_redemption', 'allow_manual_gift'):
         setattr(reward, key, values.get(key, '' if key == 'description' else True if key == 'active' else None))
     reward.name = name.strip()
     db.session.add(reward)
@@ -418,23 +429,54 @@ def redeem_reward(makh, reward_id, idempotency_key):
         if existing.reward_id != reward_id:
             raise LoyaltyError('Khóa chống trùng không khớp quà')
         return existing
-    if not LoyaltyReward.query.filter_by(id=reward_id).update({LoyaltyReward.id: LoyaltyReward.id}, synchronize_session=False):
-        raise LoyaltyError('Không tìm thấy quà')
-    reward = LoyaltyReward.query.filter_by(id=reward_id).populate_existing().one()
+    reward = lock_reward(reward_id)
+    if is_welcome_reward(reward_id):
+        raise LoyaltyError('Voucher chào mừng chỉ tự động cấp khi khách mới đăng ký và xác thực OTP')
     if not reward.active or reward.stock == 0:
         raise LoyaltyError('Quà đã hết hoặc ngừng đổi')
+    if not reward.allow_points_redemption:
+        raise LoyaltyError('Mẫu này không cho đổi bằng điểm')
     if wallet.available_points < reward.points_cost:
         raise LoyaltyError('Không đủ điểm đổi quà')
-    redemption = LoyaltyRewardRedemption(makh=makh, reward_id=reward_id, points_spent=reward.points_cost,
-        reward_snapshot_json=serialize_reward(reward), status='available', code='BIN-'+uuid4().hex[:16].upper(),
-        expires_at=datetime.utcnow()+timedelta(days=reward.validity_days) if reward.validity_days else None, idempotency_key=key)
-    db.session.add(redemption)
-    db.session.flush()
+    redemption = issue_reward(makh, reward, key, points_spent=reward.points_cost)
     post(wallet, -reward.points_cost, 'reward_redeem', 'reward', redemption.id, key,
         redemption.code+' · Đổi '+reward.name)
+    return redemption
+
+
+def lock_reward(reward_id):
+    if not LoyaltyReward.query.filter_by(id=reward_id).update({LoyaltyReward.id: LoyaltyReward.id}, synchronize_session=False):
+        raise LoyaltyError('Không tìm thấy quà')
+    return LoyaltyReward.query.filter_by(id=reward_id).populate_existing().one()
+
+
+def is_welcome_reward(reward_id):
+    return WelcomeVoucherConfig.query.filter_by(id=1, enabled=True, reward_id=reward_id).first() is not None
+
+
+def exclude_welcome_reward(query):
+    # The configured audience is authoritative even if old/template data has an
+    # inconsistent points/manual flag. Keep the restriction when the program is off.
+    return query.filter(~LoyaltyReward.id.in_(db.session.query(WelcomeVoucherConfig.reward_id).filter(
+        WelcomeVoucherConfig.id == 1, WelcomeVoucherConfig.enabled.is_(True), WelcomeVoucherConfig.reward_id.isnot(None))))
+
+
+def issue_reward(makh, reward, key, *, points_spent, **audit):
+    """Caller holds customer then catalog locks. Stock, snapshot and audit are atomic."""
+    if reward.stock == 0 or (points_spent > 0 and not reward.active):
+        raise LoyaltyError('Quà đã hết hoặc ngừng phát hành')
+    now = datetime.utcnow()
+    row = LoyaltyRewardRedemption(makh=makh, reward_id=reward.id, points_spent=points_spent,
+        reward_snapshot_json=serialize_reward(reward), status='available', code='BIN-'+uuid4().hex[:16].upper(),
+        redeemed_at=now, expires_at=now+timedelta(days=reward.validity_days) if reward.validity_days else None,
+        idempotency_key=key, **audit)
     if reward.stock is not None:
         reward.stock -= 1
-    return redemption
+    db.session.add(row)
+    db.session.flush()
+    if reward.reward_type in VOUCHER_TYPES:
+        voucher_events.after_commit('issued', source=row.issuance_source, operation='issue', redemption_id=row.id, reward_id=reward.id)
+    return row
 
 
 def vnd(amount):
@@ -593,6 +635,8 @@ def filter_redemptions(query, group='all', reward_type=None, search=None, now=No
 def serialize_redemption(row, now=None):
     status = redemption_status(row, now)
     return dict(id=row.id, makh=row.makh, reward_id=row.reward_id, points_spent=row.points_spent,
+        issuance_source=row.issuance_source, customer_message=row.customer_message,
+        issued_at=row.redeemed_at.isoformat()+'Z',
         reward=row.reward_snapshot_json, status=status, code=row.code,
         expires_at=row.expires_at.isoformat()+'Z' if row.expires_at else None,
         redeemed_at=row.redeemed_at.isoformat()+'Z', used_at=row.used_at.isoformat()+'Z' if row.used_at else None,

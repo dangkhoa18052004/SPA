@@ -4,6 +4,9 @@
     const el=id=>document.getElementById(id);
     const note=text=>el('packageMessage').textContent=text;
     const date=value=>value?new Date(value).toLocaleString('vi-VN'):'';
+    const legacyQuery = new URLSearchParams(location.search).get('ui')==='legacy' ? '&ui=legacy' : '';
+    const canGift =['admin','manager'].includes(localStorage.getItem('admin_role'));
+    const giftLink=p=>canGift && p.status==='paid' && p.mathe ? `<a class="btn btn-secondary no-print" data-gift-link="${Number(p.mathe)}" href="/admin/packages?tab=treatments&mathe=${Number(p.mathe)}&gift=1${legacyQuery}">Tặng thêm dịch vụ</a>` : '';
     const method=value=>({cash:'Tiền mặt',vietqr:'VietQR',points:'Điểm thưởng'}[value]||value);
     let packages=[],currentCash=null,searchVersion=0;
     async function customers(){
@@ -31,10 +34,12 @@
     function change(){if(!currentCash)return;const received=Number(el('cashReceived').value),expected=Number(currentCash.payable_amount ?? currentCash.amount);el('cashChange').textContent=received>=expected?'Tiền thối: '+price(received-expected):'Chưa đủ: '+price(expected-received);el('confirmPackageCash').disabled=received<expected;}
     async function receipt(id){
         try { const r=await api(`/api/admin/billing/transactions/package/${id}`); el('saleReceipt').innerHTML=BillingReceipt.render(r.transaction);el('saleReceiptDialog').showModal();el('printSaleReceipt').onclick=()=>{el('saleReceiptDialog').close();BillingReceipt.print(r.transaction);el('saleReceiptDialog').showModal();}; }
-        catch(e){note(e.message);}
+        catch(e){note(e.message);return;}
+        if(!canGift)return;
+        try { const p=(await api(`/api/admin/package-sales/${id}`)).purchase; el('saleReceipt').insertAdjacentHTML('beforeend',giftLink(p)); } catch(e){ /* Nút tặng là hành động phụ; phiếu vẫn xem/in được. */ }
     }
     async function history(){
-        try{const r=await api('/api/admin/package-sales?search='+encodeURIComponent(el('saleHistorySearch').value)+'&status='+el('saleHistoryStatus').value);el('saleHistory').innerHTML=r.purchases.map(p=>`<tr><td>${esc(p.receipt_code)}</td><td>${esc(p.customer_name)}<br>${esc(p.phone)}</td><td>${esc(p.tengoi)}</td><td>${price(p.payable_amount ?? p.amount)}</td><td>${esc(method(p.payment_method))}</td><td>${esc(status(p.status))}</td><td>${date(p.created_at)}<br>${date(p.paid_at)}</td><td>${esc(p.staff_name||'Online')}</td><td><button type="button" class="btn btn-secondary" data-receipt="${p.id}">Xem phiếu</button>${p.status==='pending'?`<button type="button" class="btn btn-primary" data-collect="${p.id}">Thanh toán</button>`:''}</td></tr>`).join('')||'<tr><td colspan="9">Chưa có phiếu bán gói.</td></tr>';el('saleHistory').querySelectorAll('[data-receipt]').forEach(b=>b.onclick=()=>receipt(b.dataset.receipt));el('saleHistory').querySelectorAll('[data-collect]').forEach(b=>b.onclick=async()=>{try{const p=(await api(`/api/admin/package-sales/${b.dataset.collect}`)).purchase;p.payment_method==='cash'?cash(p):await showPayment(p);}catch(e){note(e.message);}});}catch(e){note(e.message);}
+        try{const r=await api('/api/admin/package-sales?search='+encodeURIComponent(el('saleHistorySearch').value)+'&status='+el('saleHistoryStatus').value);el('saleHistory').innerHTML=r.purchases.map(p=>`<tr><td>${esc(p.receipt_code)}</td><td>${esc(p.customer_name)}<br>${esc(p.phone)}</td><td>${esc(p.tengoi)}</td><td>${price(p.payable_amount ?? p.amount)}</td><td>${esc(method(p.payment_method))}</td><td>${esc(status(p.status))}</td><td>${date(p.created_at)}<br>${date(p.paid_at)}</td><td>${esc(p.staff_name||'Online')}</td><td><button type="button" class="btn btn-secondary" data-receipt="${p.id}">Xem phiếu</button>${giftLink(p)}${p.status==='pending'?`<button type="button" class="btn btn-primary" data-collect="${p.id}">Thanh toán</button>`:''}</td></tr>`).join('')+(r.has_more?'<tr><td colspan="9">Đang hiển thị 200 phiếu mới nhất. Tìm theo tên, SĐT hoặc mã phiếu để xem phiếu cũ hơn.</td></tr>':'')||'<tr><td colspan="9">Chưa có phiếu bán gói.</td></tr>';el('saleHistory').querySelectorAll('[data-receipt]').forEach(b=>b.onclick=()=>receipt(b.dataset.receipt));el('saleHistory').querySelectorAll('[data-collect]').forEach(b=>b.onclick=async()=>{try{const p=(await api(`/api/admin/package-sales/${b.dataset.collect}`)).purchase;p.payment_method==='cash'?cash(p):await showPayment(p);}catch(e){note(e.message);}});}catch(e){note(e.message);}
     }
     document.addEventListener('DOMContentLoaded',async()=>{
         el('createPackageSale').disabled=true;

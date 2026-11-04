@@ -86,6 +86,10 @@ export default function Appointments({ me }: { me: Me }) {
 
   const [creating, setCreating] = useState(query.get('new') === '1');
   const [detail, setDetail] = useState<number | null>(null);
+  const requestedDetail = Number(query.get('view'));
+  useEffect(() => {
+    setDetail(Number.isSafeInteger(requestedDetail) && requestedDetail > 0 ? requestedDetail : null);
+  }, [requestedDetail]);
   const [changing, setChanging] = useState<number | null>(null);
   const [paying, setPaying] = useState<number | null>(null);
   const [receipt, setReceipt] = useState<number | null>(null);
@@ -193,7 +197,7 @@ export default function Appointments({ me }: { me: Me }) {
     {desk && <BookingDrawer open={creating} services={services} initialCustomer={customerId}
       onClose={() => { setCreating(false); if (query.get('new')) setQuery({ new: null }, true); }}
       onCreated={malh => { setCreating(false); if (query.get('new')) setQuery({ new: null }, true); reload(); setDetail(malh); }} />}
-    <Detail malh={detail} revision={revision} onClose={() => setDetail(null)} actions={row => actions(row)} />
+    <Detail malh={detail} revision={revision} onClose={() => { setDetail(null); if (query.has('view')) setQuery({ view: null }); }} actions={row => actions(row)} />
     <ChangeServices malh={changing} canUseTreatments={desk} services={services} onClose={() => setChanging(null)} onSaved={reload} />
     <InvoicePayment invoiceId={paying} onClose={() => { setPaying(null); reload(); }} onPaid={reload} />
     <ReceiptModal target={receipt !== null ? { kind: 'service', id: receipt } : null} onClose={() => setReceipt(null)} onPay={t => setPaying(t.id)} />
@@ -201,6 +205,6 @@ export default function Appointments({ me }: { me: Me }) {
 }
 
 export function AppointmentsGate({ me }: { me: Me }) {
-  if (!['admin', 'manager', 'letan', 'staff'].includes(me.user.role)) return <Result status="403" title="Không có quyền xem lịch hẹn" />;
+  if (!['admin', 'manager', 'letan', 'staff'].includes(me.user.role)) return <Result status="403" title="Không có quyền xem lịch hẹn" extra={<Button href="/admin/dashboard">Về tổng quan</Button>} />;
   return <Appointments me={me} />;
 }

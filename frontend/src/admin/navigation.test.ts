@@ -49,11 +49,18 @@ describe('shared admin menu', () => {
 
 describe('in-app navigation', () => {
   it('opens care screens in the same shell only with the care rollout enabled', () => {
-    for (const path of ['/admin/loyalty?tab=redemptions', '/admin/reviews', '/admin/chat?conversation=1']) {
+    for (const path of ['/admin/loyalty?tab=redemptions', '/admin/reviews', '/admin/chat?conversation=1', '/admin/skin-service-map']) {
       expect(isAppPath(path, me('admin', { admin_care: true }))).toBe(true);
       expect(isAppPath(path, me('admin', { admin_care: false }))).toBe(false);
     }
     expect(hrefs(me('staff', { admin_care: true }))).toContain('/admin/chat');
+  });
+  it('offers acne service approval only to admins and managers in the care menu', () => {
+    for (const role of ['admin', 'manager']) {
+      expect(adminMenu(me(role)).find(group => group.key === 'care')?.items).toContainEqual({ href: '/admin/skin-service-map', label: 'Dịch vụ theo loại mụn' });
+      expect(findPage(me(role), '/admin/skin-service-map')).toMatchObject({ group: { key: 'care' }, item: { label: 'Dịch vụ theo loại mụn' } });
+    }
+    for (const role of ['letan', 'staff']) expect(hrefs(me(role))).not.toContain('/admin/skin-service-map');
   });
   it('only skips the page load for screens this entry renders', () => {
     expect(isAppPath('/admin/operations/payroll?x=1', me('manager'))).toBe(true);

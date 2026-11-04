@@ -4,7 +4,6 @@
 let allAppointments = [];
 let allCustomers = [];
 let allServices = [];
-let allStaff = [];
 let availableStaff = [];
 let currentPage = 1;
 const itemsPerPage = 10;
@@ -44,7 +43,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentUserRole !== 'staff') {
             loadCustomers();
             loadServices();
-            loadStaff();
             
             // Select ngày/trạng thái đã có onchange trong template; chỉ bổ sung phím Enter.
             document.getElementById('filter-start-date')?.addEventListener('keypress', function(e) {
@@ -352,17 +350,6 @@ async function loadServices() {
         renderServiceList(); 
     } catch (error) {
         console.error('Lỗi tải dịch vụ:', error);
-    }
-}
-
-async function loadStaff() {
-    try {
-        const response = await fetch('/api/admin/staff/list-all', { headers: getAuthHeaders(false) });
-        const data = await response.json(); 
-        allStaff = Array.isArray(data) ? data.filter(s => s.role === 'staff' || s.chucvu === 'Kỹ thuật viên') : [];  // cùng tiêu chí với server 
-    } catch (error) {
-        console.error('Lỗi tải nhân viên:', error);
-        allStaff = [];
     }
 }
 

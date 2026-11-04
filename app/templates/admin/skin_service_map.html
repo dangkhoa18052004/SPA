@@ -1,0 +1,39 @@
+{% extends 'admin/layout.html' %}
+{% block title %}Dịch vụ theo loại mụn - Bin Spa{% endblock %}
+{% block page_title %}Dịch vụ theo loại mụn{% endblock %}
+{% block extra_css %}
+<style>
+    .skin-map-intro, .skin-map-type { background: var(--bg-primary, white); border: 1px solid var(--border-color, #ddd); border-radius: var(--radius-md, 12px); padding: 20px; margin-bottom: 20px; }
+    .skin-map-intro p { margin: 8px 0; }
+    .skin-map-actions { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+    .skin-map-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 20px; }
+    .skin-map-type { min-width: 0; margin: 0; }
+    .skin-map-type legend { font-weight: 600; padding: 0 8px; }
+    .skin-map-service { display: flex; gap: 10px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border-color, #ddd); overflow-wrap: anywhere; }
+    .skin-map-service input { margin-top: 5px; flex: 0 0 auto; }
+    .skin-map-service small { display: block; color: var(--text-secondary, #666); }
+    .skin-map-diff { font-weight: 600; color: #80520b; }
+    #skin-map-status { padding: 12px 0; white-space: pre-line; }
+    #skin-map-status[data-error="true"] { color: #b42318; }
+    #skin-map-draft { font-weight: 600; color: #80520b; }
+    .skin-map-actions button:disabled { opacity: .6; cursor: wait; }
+</style>
+{% endblock %}
+{% block content %}
+<section class="skin-map-intro" aria-label="Map đang sử dụng">
+    <p>Chọn dịch vụ được phép gợi ý sau khi soi da. Gemini chỉ tạo đề xuất để quản lý xem và chỉnh sửa.</p>
+    <p id="skin-map-source">Đang tải map…</p>
+    <p id="skin-map-approved"></p>
+    <p>Mỗi loại tối đa 10 dịch vụ khi duyệt. Lưu map rỗng sẽ quay về dùng SKIN_SERVICE_MAP trong .env.</p>
+    <div class="skin-map-actions">
+        <button type="button" class="btn btn-secondary" id="skin-map-propose" disabled>Nhờ Gemini đề xuất</button>
+        <button type="button" class="btn btn-primary" id="skin-map-save" disabled>Lưu và duyệt</button>
+    </div>
+    <p id="skin-map-draft" hidden>Đây là bản nháp, chưa được lưu</p>
+    <p id="skin-map-status" role="status" aria-live="polite"></p>
+</section>
+<div id="skin-map-groups" class="skin-map-grid" aria-busy="true"></div>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin/skin-service-map.js', v='20261024-schema-readiness') }}"></script>
+{% endblock %}

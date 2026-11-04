@@ -113,7 +113,9 @@ async function applySalaryFilter() {
 
     } catch (error) {
         console.error('Lỗi tải lương:', error);
-        showError(error.message || 'Không thể tải danh sách lương');
+        const message = error.message || 'Không thể tải danh sách lương';
+        showError(message);
+        showLoadError(message);
     } finally {
         showLoading(false);
     }
@@ -535,6 +537,27 @@ function showLoading(show) {
         thead.innerHTML = ''; 
         tbody.innerHTML = '<tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>';
     }
+}
+
+// Replace the spinner so a failed load does not look like it is still loading.
+function showLoadError(message) {
+    const tbody = document.querySelector('#salaries-table-body');
+    const cell = document.createElement('td');
+    cell.colSpan = 7;
+    cell.className = 'text-center';
+    cell.textContent = message;
+    const payroll = '/admin/operations/payroll';
+    if (message.includes(payroll)) {
+        const link = document.createElement('a');
+        link.href = payroll;
+        link.className = 'btn btn-primary';
+        link.style.marginLeft = '12px';
+        link.textContent = 'Mở kỳ công và lương';
+        cell.append(link);
+    }
+    const row = document.createElement('tr');
+    row.append(cell);
+    tbody.replaceChildren(row);
 }
 
 // ====== HỆ THỐNG TOAST ======

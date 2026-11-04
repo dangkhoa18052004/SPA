@@ -156,6 +156,9 @@ def register():
             otp_expire=otp_expire
         )
         db.session.add(user)
+        db.session.flush()
+        from ..models import CustomerOtpRegistration
+        db.session.add(CustomerOtpRegistration(makh=user.makh, registered_at=user.ngaytao))
         db.session.commit()
 
         email_subject = "Bin Spa - Xác nhận đăng ký tài khoản"
@@ -204,15 +207,30 @@ def verify_otp():
     if user.trangthai != 'pending': 
         return jsonify({"success": False, "message": "Tài khoản không ở trạng thái chờ kích hoạt"}), 400
     
-    if user.otp_expire < datetime.utcnow(): 
+    if not user.otp_expire or user.otp_expire < datetime.utcnow():
         return jsonify({"success": False, "message": "Mã OTP đã hết hạn"}), 400
 
-    user.trangthai = 'active'
-    user.otp_code = None
-    user.otp_expire = None
-    db.session.commit()
-    
-    return jsonify({"success": True, "message": "Kích hoạt tài khoản thành công"}), 200
+    try:
+        # Compare-and-set obtains the customer write lock, including on SQLite.
+        # A retry/racing request cannot activate or issue a second time.
+        changed = KhachHang.query.filter_by(makh=user.makh, trangthai='pending', otp_code=otp_code).filter(
+            KhachHang.otp_expire >= datetime.utcnow()).update(
+                {KhachHang.trangthai: 'active', KhachHang.otp_code: None, KhachHang.otp_expire: None},
+                synchronize_session=False)
+        if not changed:
+            db.session.rollback()
+            return jsonify(success=False, message='Mã OTP đã được dùng hoặc hết hạn'), 400
+        db.session.refresh(user)
+        from ..services.voucher_issuance_service import issue_welcome
+        welcome = issue_welcome(user)
+        db.session.commit()
+        return jsonify(success=True, message='Kích hoạt tài khoản thành công', welcome_voucher=welcome), 200
+    except Exception as error:
+        db.session.rollback()
+        from ..services.voucher_observability import record
+        record('failed', source='welcome', operation='activation', reason='database_or_server_error', error_type=type(error).__name__, status=500)
+        current_app.logger.error('Không thể hoàn tất kích hoạt tài khoản; giao dịch đã rollback')
+        return jsonify(success=False, message='Chưa thể kích hoạt tài khoản. Vui lòng thử lại OTP.'), 500
 
 @auth_bp.route("/login/customer", methods=["POST"])
 def customer_login():

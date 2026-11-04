@@ -105,7 +105,7 @@ try:
     b.navigate('/admin/loyalty?tab=config')
     b.wait("document.body.textContent.includes('Khăn spa kiểm thử')")
     assert not b.js("document.body.textContent.includes('Lưu quy tắc')")
-    b.button('Xác nhận giao quà'); b.button('Đã trao quà cho khách', "document.querySelector('.ant-modal')")
+    b.button('Trao quà'); b.button('Đã trao quà cho khách', "document.querySelector('.ant-modal')")
     b.wait("document.body.textContent.includes('Đã giao quà')")
     b.screenshot('gift-handover-1440')
     app.config['BROWSER_ROLE'] = 'staff'

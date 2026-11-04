@@ -287,7 +287,7 @@ def test_overloaded_model_falls_back(ai_app, app, client, customer_auth_headers,
     monkeypatch.setattr(ai_service.time, 'sleep', lambda s: None)
     r = chat(client, customer_auth_headers, 'Xin chào')
     assert r.status_code == 200 and 'dự phòng' in r.json['reply']
-    assert calls[-1] == 'backup-model' and len(calls) == 3
+    assert calls == [app.config['GEMINI_MODEL'], 'backup-model']
 
 
 def test_chat_deadline_bounds_retries_across_provider_calls(ai_app, app, client, monkeypatch):
