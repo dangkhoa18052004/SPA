@@ -1,237 +1,256 @@
-# SPA – WebApp quản lý Spa
+<div align="center">
+
+<img src="app/static/images/logo.jpg" alt="Biểu trưng Bin Spa" width="88" />
+
+# Bin Spa
+
+**Đặt lịch thuận tiện cho khách hàng. Vận hành tập trung cho spa.**
+
+Ứng dụng web kết nối lịch hẹn, dịch vụ, liệu trình, thanh toán và nhân sự trong cùng một hệ thống.
+
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3.1-173F35?style=flat-square&logo=flask&logoColor=white)
+![React](https://img.shields.io/badge/React-18-087EA4?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+
+[Giao diện](#giao-diện) · [Tính năng](#tính-năng) · [Cài đặt](#cài-đặt-và-chạy-local) · [Kiến trúc](#kiến-trúc) · [Tài liệu](#tài-liệu)
+
+</div>
+
+![Trang chủ Bin Spa với tông xanh và giao diện giới thiệu dịch vụ](docs/images/readme/01-customer-home.png)
 
 ## Giới thiệu
 
-Nâng cấp chấm công GPS, cổng nhân viên React và bảng lương có phê duyệt: xem [hướng dẫn cấu hình và vận hành](docs/GPS_ATTENDANCE_PAYROLL.md). Các chức năng mới được bật bằng feature flag sau migration và đối soát.
+Bin Spa là sản phẩm **demo phục vụ đồ án tốt nghiệp**, mô phỏng quy trình từ khi khách tìm hiểu dịch vụ, đặt lịch và mua gói đến khi nhân viên phục vụ, thu tiền và quản lý theo dõi hoạt động.
 
-**SPA** là dự án xây dựng **web application quản lý spa** nhằm hỗ trợ số hóa các nghiệp vụ vận hành trong spa như quản lý khách hàng, nhân viên, dịch vụ, lịch hẹn, hóa đơn, thanh toán và theo dõi hoạt động kinh doanh.
+Dự án có ba không gian làm việc: website khách hàng, cổng nhân viên và trang quản trị theo vai trò. Giao diện kết hợp **React + TypeScript** cho các luồng tương tác với **Jinja** cho các trang nội dung; Flask cung cấp API và xử lý nghiệp vụ, PostgreSQL lưu dữ liệu.
 
-Hệ thống được phát triển chủ yếu bằng **Python Flask**, kết hợp với:
-- **PostgreSQL** để lưu trữ dữ liệu
-- **Flask-SQLAlchemy** để thao tác cơ sở dữ liệu
-- **Flask-Migrate** để quản lý migration
-- **Flask-JWT-Extended** để xác thực và phân quyền
-- **Flask-Mail / Resend** để gửi email xác thực và thông báo
-- **MoMo Sandbox** để hỗ trợ thanh toán trực tuyến
+> Bộ ảnh giới thiệu được chụp từ bản phát triển ngày **08/11/2026**, bằng dữ liệu minh họa trong môi trường riêng. Một số màn hình phản ánh thay đổi ở nhánh phát triển và có thể chưa có trong nhánh `main`. Xem [ghi chú bộ ảnh](docs/images/readme/README.md).
 
----
+## Giao diện
 
-## Mục tiêu dự án
+### Trải nghiệm khách hàng
 
-Mục tiêu của hệ thống là xây dựng một nền tảng giúp spa có thể:
+Khách xem giá và thời lượng dịch vụ, nhận ưu đãi phù hợp với hạng thành viên, sau đó chọn dịch vụ để đặt lịch.
 
-- Quản lý thông tin khách hàng và nhân viên
-- Quản lý dịch vụ và lịch hẹn
-- Theo dõi ca làm và lương nhân viên
-- Hỗ trợ thanh toán và quản lý hóa đơn
-- Tăng trải nghiệm người dùng với email xác nhận, OTP và chat
-- Hỗ trợ quản trị viên theo dõi thống kê hoạt động của spa
+| Danh mục dịch vụ | Đặt lịch trực tuyến |
+| :---: | :---: |
+| [![Danh mục dịch vụ với giá gốc và giá ưu đãi](docs/images/readme/02-service-catalog.png)](docs/images/readme/02-service-catalog.png) | [![Khách chọn dịch vụ và xem tóm tắt lịch hẹn](docs/images/readme/03-customer-booking.png)](docs/images/readme/03-customer-booking.png) |
+| Tìm kiếm, phân loại và xem giá dịch vụ. | Chọn dịch vụ → chọn giờ/nhân viên → kiểm tra và xác nhận. |
 
----
+### Điều hành spa
 
-## Tính năng chính
+Trang quản trị tập trung các công việc hằng ngày, từ tiếp nhận lịch hẹn đến theo dõi kết quả kinh doanh.
 
-### 1. Xác thực và quản lý tài khoản
-- Đăng ký tài khoản khách hàng
-- Đăng nhập hệ thống
-- Xác thực bằng **JWT**
-- Gửi **OTP qua email** để kích hoạt tài khoản
-- Hỗ trợ quản lý thông tin hồ sơ người dùng
+![Tổng quan công việc với các lịch hẹn và trạng thái phục vụ trong ngày](docs/images/readme/04-admin-dashboard.png)
 
-### 2. Quản lý khách hàng
-- Lưu trữ thông tin khách hàng
-- Theo dõi lịch sử lịch hẹn
-- Quản lý tài khoản và trạng thái hoạt động
+| Quản lý lịch hẹn | Cấu hình ưu đãi dịch vụ |
+| :---: | :---: |
+| [![Danh sách lịch hẹn theo khách hàng, nhân viên và trạng thái](docs/images/readme/05-admin-appointments.png)](docs/images/readme/05-admin-appointments.png) | [![Thiết lập mức giảm, hạng thành viên và ngày kết thúc tùy chọn](docs/images/readme/06-service-discounts.png)](docs/images/readme/06-service-discounts.png) |
+| Tra cứu, phân công và theo dõi tiến trình phục vụ. | Giảm theo phần trăm, theo thời gian hoặc đúng hạng được chọn. |
 
-### 3. Quản lý nhân viên
-- Quản lý danh sách nhân viên
-- Quản lý vai trò / chức vụ
-- Quản lý ca làm việc
-- Theo dõi lương và bảng lương chi tiết
+### Chấm công và đối chiếu
 
-### 4. Quản lý dịch vụ spa
-- Thêm / sửa / xóa dịch vụ
-- Lưu mô tả, giá, thời lượng và trạng thái dịch vụ
-- Hỗ trợ hiển thị danh sách dịch vụ cho khách hàng
+Giờ nhân viên đề nghị, giờ vào/ra đã ghi nhận và giờ ca được xếp hiển thị cạnh nhau để quản lý có cơ sở xử lý yêu cầu.
 
-### 5. Đặt lịch hẹn
-- Khách hàng có thể tạo lịch hẹn trực tuyến
-- Chọn dịch vụ và thời gian đặt lịch
-- Kiểm tra nhân viên có rảnh hay không
-- Gửi email xác nhận lịch hẹn
+| Yêu cầu chỉnh công | Bảng công |
+| :---: | :---: |
+| [![Đối chiếu giờ đề nghị, giờ thực tế và giờ ca làm](docs/images/readme/07-attendance-requests.png)](docs/images/readme/07-attendance-requests.png) | [![Bảng công với giờ vào ra, thời lượng và trạng thái phê duyệt](docs/images/readme/08-attendance-review.png)](docs/images/readme/08-attendance-review.png) |
 
-### 6. Hóa đơn và thanh toán
-- Tạo và quản lý hóa đơn
-- Theo dõi trạng thái thanh toán
-- Hỗ trợ thanh toán trực tuyến qua **MoMo Sandbox**
-- Tạo QR / link thanh toán cho khách hàng
+<details>
+<summary><strong>Xem giao diện trên điện thoại</strong></summary>
 
-### 7. Chat và tương tác
-- Hỗ trợ hội thoại giữa khách hàng và nhân viên
-- Lưu trữ tin nhắn
-- Theo dõi trạng thái đã đọc
+<p align="center">
+  <img src="docs/images/readme/09-mobile-booking.png" alt="Chọn dịch vụ và đặt lịch trên điện thoại" width="280" />
+  &nbsp;&nbsp;
+  <img src="docs/images/readme/10-mobile-attendance.png" alt="Đối chiếu yêu cầu chấm công trên điện thoại" width="280" />
+</p>
 
-### 8. Dashboard và thống kê
-- Thống kê lịch hẹn theo trạng thái
-- Thống kê doanh thu
-- Thống kê số lượng khách hàng
-- Theo dõi nhân viên đang làm việc trong ngày
+</details>
 
----
+*Bấm vào ảnh để xem kích thước đầy đủ.*
 
-## Kiến trúc hệ thống
+## Tính năng
 
-Dự án được tổ chức theo kiến trúc Flask application package.
+| Nhóm | Chức năng tiêu biểu |
+| --- | --- |
+| **Khách hàng** | Đăng ký/đăng nhập, quản lý hồ sơ, tìm dịch vụ, đặt và theo dõi lịch hẹn, xem gói/liệu trình đã mua, đánh giá và nhắn tin. |
+| **Lễ tân** | Tiếp nhận lịch, quản lý khách hàng, bán dịch vụ/gói, thu tiền, theo dõi hóa đơn và chăm sóc khách hàng theo quyền. |
+| **Kỹ thuật viên** | Xem lịch được phân công, thông tin phục vụ và gói dịch vụ được phép xem; theo dõi lịch ca, chấm công và thu nhập. |
+| **Quản lý / quản trị** | Điều phối lịch, quản lý nhân sự và danh mục theo quyền, duyệt công, xử lý kỳ lương, xem doanh thu và báo cáo. |
+| **Gói và liệu trình** | Quản lý số buổi, thời hạn, lịch sử sử dụng và dịch vụ tặng; quyền tặng dành cho lễ tân/quản lý/quản trị. |
+| **Ưu đãi và thành viên** | Điểm thưởng, voucher, hạng thành viên; giảm giá dịch vụ công khai hoặc chỉ dành cho hạng được chọn. |
+| **Thanh toán** | Thu tiền mặt, tạo VietQR và tiếp nhận xác nhận qua SePay khi đã cấu hình. Tích hợp MoMo Sandbox được giữ cho luồng thử nghiệm. |
+| **Chăm sóc và AI** | Chat, email xác nhận/dặn dò, gợi ý dịch vụ, trợ lý đặt lịch và phân tích da khi bật các tích hợp tương ứng. |
 
-### Backend
-Phần backend được xây dựng bằng **Flask** với mô hình chia module rõ ràng theo:
-- `routes`: các API chính của hệ thống
-- `admin`: các module quản trị
-- `services`: các dịch vụ xử lý nghiệp vụ
-- `models`: các model dữ liệu
+### Quy tắc nghiệp vụ nổi bật
 
-### Giao diện
-Dự án không chỉ có API mà còn có giao diện web được tổ chức với:
-- `templates/admin`
-- `templates/customer`
-- `static/css`
-- `static/js`
-- `static/images`
+- **Chốt giá tại lúc đặt lịch:** thay đổi chương trình giảm giá sau đó không tự đổi giá dịch vụ đã đặt. Voucher và điểm thưởng được áp dụng tiếp trên số tiền sau giảm, theo điều kiện sử dụng.
+- **Ưu đãi đúng đối tượng:** chương trình chỉ chọn hạng Vàng thì các hạng khác không được hưởng hoặc thấy ưu đãi riêng đó. Có thể chọn ngày dừng hoặc để chương trình không giới hạn thời gian.
+- **Đối chiếu trước khi duyệt công:** phân biệt giờ đề nghị, giờ đã ghi nhận và giờ ca; ghi rõ trường hợp thiếu giờ vào/ra. Duyệt yêu cầu sửa giờ và duyệt công trả lương là hai bước riêng.
+- **Phân quyền tại API:** giao diện hiển thị theo vai trò và server tiếp tục kiểm tra quyền khi đọc/ghi dữ liệu.
 
-Điều này cho thấy hệ thống được xây dựng theo hướng **web app hoàn chỉnh**, kết hợp giữa giao diện hiển thị và API backend.
+## Công nghệ
 
----
+| Thành phần | Công nghệ |
+| --- | --- |
+| Backend | Python 3.12, Flask 3.1, SQLAlchemy, Flask-Migrate / Alembic |
+| Frontend | React 18, TypeScript, Vite, Ant Design, Tailwind CSS, Jinja |
+| Dữ liệu | PostgreSQL; SQLite dùng cho các fixture kiểm thử độc lập |
+| Xác thực | JWT, mật khẩu băm và kiểm quyền theo vai trò |
+| Tích hợp | VietQR / SePay, MoMo Sandbox, Resend / SMTP, Gemini, ESP32 / RFID tùy cấu hình |
+| Kiểm thử | pytest, Vitest, Node test runner, Playwright CLI và các bộ kiểm tra trình duyệt |
 
-## Công nghệ sử dụng
+## Cài đặt và chạy local
 
-### Backend Framework
-- Python
-- Flask
-- Flask-CORS
-- Flask-SQLAlchemy
-- Flask-Migrate
-- Flask-JWT-Extended
-- Flask-Mail
+### 1. Chuẩn bị
 
-### Database
-- PostgreSQL
-
-### Authentication & Security
-- JWT
-- Password Hashing
-
-### Email & Notification
-- Flask-Mail
-- Resend
-
-### Payment
-- MoMo Sandbox
-
-### Frontend / Giao diện
-- HTML
-- CSS
-- JavaScript
-- Jinja2 Templates
-
----
-
-## Cấu trúc thư mục
+Cài **Python 3.12**, **Node.js 22.12 trở lên trong nhánh 22**, **npm**, **PostgreSQL** và **Git**. Tạo một database riêng cho bản demo trước khi chạy migration.
 
 ```bash
-SPA/
-├── app/
-│   ├── admin/                 # Các module quản trị
-│   ├── routes/                # Các API route chính
-│   ├── services/              # Các service xử lý nghiệp vụ
-│   ├── static/                # CSS, JS, images
-│   ├── templates/             # Giao diện admin và customer
-│   ├── __init__.py            # Hàm create_app và đăng ký blueprint
-│   ├── config.py              # Cấu hình ứng dụng
-│   ├── decorators.py          # Decorator phân quyền / kiểm tra truy cập
-│   ├── extensions.py          # Khởi tạo db, migrate, jwt, mail
-│   ├── models.py              # Các bảng dữ liệu
-│   └── utils.py               # Hàm hỗ trợ
-│
-├── uploads/                   # File upload
-├── CSDL.sql                   # Script cơ sở dữ liệu
-├── create_admin.py            # Tạo tài khoản admin mặc định
-├── requirements.txt           # Danh sách thư viện
-├── run.py                     # File chạy ứng dụng
-├── wsgi.py                    # WSGI entry point
-├── build.sh                   # Script build/deploy
-└── README.md
-
-Cách chạy dự án
-1. Clone project
 git clone https://github.com/dangkhoa18052004/SPA.git
 cd SPA
-2. Tạo môi trường ảo
-python -m venv venv
+python -m venv .venv
+```
+
 Kích hoạt môi trường ảo:
-Windows
-venv\\Scripts\\activate
-macOS / Linux
-source venv/bin/activate
-3. Cài đặt thư viện
-pip install -r requirements.txt
-4. Cấu hình biến môi trường
 
-Tạo file .env và cấu hình các biến cần thiết, ví dụ:
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+```
 
-DATABASE_URL=postgresql://user:password@localhost:5432/Spa1
-SECRET_KEY=your_secret_key
-JWT_SECRET_KEY=your_jwt_secret
-MAIL_SERVER=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=your_email
-MAIL_PASSWORD=your_password
-MAIL_USE_TLS=True
-MAIL_FROM=your_email
-GEMINI_API_KEY=your_gemini_key   # tùy chọn; để trống thì tắt trợ lý AI (xem docs/AI_BOOKING_AGENT.md)
-GEMINI_MODEL=gemini-3.8-flash
-GEMINI_FALLBACK_MODELS=gemini-flash-latest,gemini-3.5-flash-lite
-MOMO_PARTNER_CODE_SANDBOX=your_partner_code
-MOMO_ACCESS_KEY_SANDBOX=your_access_key
-MOMO_SECRET_KEY_SANDBOX=your_secret_key
-MOMO_API_ENDPOINT_SANDBOX=your_api_endpoint
-YOUR_REDIRECT_URL=http://127.0.0.1:5000/payment/return
-YOUR_IPN_URL=http://127.0.0.1:5000/api/payment/momo-ipn
-YOUR_BASE_DOMAIN=http://127.0.0.1:5000
-5. Chạy migrate database
-flask db upgrade
+```bash
+# macOS / Linux
+source .venv/bin/activate
+```
 
-Database cũ chưa có bảng `alembic_version`: xem [hướng dẫn migration](docs/DATABASE_MIGRATIONS.md)
-để nhận diện revision và `flask db stamp` trước khi upgrade.
-6. Chạy ứng dụng
-python run.py
+### 2. Cài thư viện và build giao diện
 
-Lệnh này chạy Flask web, notification-worker và worker AI chat thành ba process riêng. Ctrl+C dừng các process con.
-`python run.py` tự khởi động tiến trình gửi email cùng website. Sau khi hoàn thành
-lịch hẹn, email dặn dò được xử lý tự động trong chu kỳ kế tiếp (khoảng 15 giây).
-`python run_dev.py` vẫn dùng được nếu cần tùy chỉnh chu kỳ hoặc giới hạn lịch thử.
-Xem [hướng dẫn notification worker](docs/NOTIFICATION_WORKER.md) để cấu hình Render,
-kiểm tra job và thử email thật mà không xử lý các lịch hẹn khác.
+```bash
+python -m pip install -r requirements.txt
+npm --prefix frontend ci
+npm --prefix frontend run build
+```
 
-Đặt lịch theo URL, tặng dịch vụ trong liệu trình và quản lý đánh giá:
-xem [báo cáo triển khai và kiểm thử](docs/BOOKING_GIFTS_REVIEWS.md).
+Giao diện React được build vào `app/static/portal/`. Cần build lại sau khi sửa mã trong `frontend/src/`.
 
-Dashboard theo vai trò và giao diện đặt lịch React:
-xem [giai đoạn 4 UI](docs/UI_PHASE4.md) để build, bật giao diện và kiểm thử.
+### 3. Cấu hình môi trường
 
-Chăm sóc khách hàng, quyền chọn nhận email và đo hiệu quả đề xuất:
-xem [giai đoạn 5 Recommendation và CRM](docs/RECOMMENDATION_CRM_PHASE5.md).
+Sao chép `.env.example` thành `.env`, rồi điền cấu hình của máy đang chạy. Các giá trị dưới đây chỉ là mẫu:
 
-AI vẫn trả lời khi khách chuyển trang, giữ lịch sử và bản nháp:
-xem [AI chat xử lý nền và phục hồi khi chuyển trang](docs/AI_CHAT_NAVIGATION.md).
+```dotenv
+APP_ENV=development
+DATABASE_URL=postgresql://DB_USER:DB_PASSWORD@localhost:5432/binspa_demo
+SECRET_KEY=replace-with-a-random-secret
+JWT_SECRET_KEY=replace-with-another-random-secret
+ADMIN_INITIAL_USERNAME=admin
+ADMIN_INITIAL_PASSWORD=replace-with-your-own-password
 
-Báo cáo BI, giám sát vận hành, giới hạn đăng nhập, thử khôi phục và lỗi kết nối AI local:
-xem [BI và chuẩn bị phát hành giai đoạn 6](docs/BI_RELEASE_PHASE6.md).
+# Tắt các tích hợp nền khi chỉ xem giao diện local.
+SEPAY_POLL_ENABLED=false
+AI_CHAT_JOBS_ENABLED=false
+```
 
-Xác thực hai bước khi duyệt công/lương, đổi quyền nhân viên và cấu hình quan trọng:
-xem [Bảo mật tài khoản và mã dự phòng](docs/STAFF_SECURITY_PHASE6.md).
+Mật khẩu quản trị khởi tạo cần ít nhất **12 ký tự**. Không đưa `.env`, khóa API hoặc bản sao dữ liệu cá nhân vào Git. Email, ngân hàng và AI cần cấu hình riêng khi muốn thử các luồng tương ứng.
 
+### 4. Khởi tạo database và quản trị viên
 
+Với **database mới** đã tạo ở bước chuẩn bị:
 
+```bash
+python -m flask --app wsgi:app db upgrade
+python create_admin.py
+```
 
+Nếu dùng database đã có dữ liệu, xem [hướng dẫn migration](docs/DATABASE_MIGRATIONS.md) và sao lưu trước khi nâng cấp. Không dùng `db.create_all()` thay cho lịch sử migration.
 
+### 5. Chạy ứng dụng
 
+```bash
+# Chỉ chạy website để xem demo local.
+python run.py --web-only
+```
+
+Mở `http://127.0.0.1:5000`. Đăng nhập quản trị ở `/admin/login`; khách đặt lịch tại `/appointments/create`.
+
+| Nhu cầu | Lệnh / tài liệu |
+| --- | --- |
+| Chạy web cùng notification worker và AI chat worker | `python run.py` — xem [hướng dẫn worker](docs/NOTIFICATION_WORKER.md). |
+| Thử GPS qua mạng LAN | `python run.py --web-only --https` — dùng HTTPS và cấp quyền vị trí trên thiết bị. |
+| Bật cổng nhân viên, GPS và quy trình công/lương | [Cấu hình chấm công và bảng lương](docs/GPS_ATTENDANCE_PAYROLL.md). |
+| Chạy qua WSGI | Entry point `wsgi:app`; tham khảo `render.yaml` cho web và worker riêng. |
+
+Sau khi khởi tạo, thêm nhân viên, dịch vụ và ca làm qua giao diện quản trị. Bộ dữ liệu dùng chụp ảnh không phải dữ liệu mặc định của ứng dụng.
+
+## Kiến trúc
+
+```mermaid
+flowchart LR
+    C[Website khách hàng] --> F[Flask · API và nghiệp vụ]
+    E[Cổng nhân viên] --> F
+    A[Trang quản trị] --> F
+    F --> DB[(PostgreSQL)]
+    W[Worker thông báo và AI] --> DB
+    W -. tích hợp tùy chọn .-> P[Email · Gemini]
+    F -. tích hợp tùy chọn .-> Q[VietQR · SePay · MoMo Sandbox]
+```
+
+```text
+SPA/
+├── app/
+│   ├── admin/               # Route quản trị
+│   ├── routes/              # API, khách hàng và tích hợp
+│   ├── services/            # Xử lý nghiệp vụ
+│   ├── templates/           # Trang Jinja và shell React
+│   ├── static/              # Ảnh, CSS, JS và frontend đã build
+│   ├── models.py            # Model nghiệp vụ chính
+│   └── operations_models.py # Model chấm công và lương
+├── frontend/src/            # React, TypeScript và các entry frontend
+├── migrations/              # Lịch sử thay đổi schema
+├── tests/                   # Kiểm thử backend, frontend và browser
+├── scripts/                 # Công cụ kiểm thử và vận hành
+├── docs/                    # Tài liệu và bộ ảnh giao diện
+├── iot/                     # Firmware ESP32 / RFID
+├── run.py                   # Chạy local
+├── wsgi.py                  # Entry WSGI
+└── .env.example             # Mẫu cấu hình, không chứa khóa thật
+```
+
+## Kiểm thử
+
+Cài thêm công cụ bằng `python -m pip install -r requirements-dev.txt`, sau đó chọn phạm vi cần kiểm tra:
+
+| Phạm vi | Lệnh |
+| --- | --- |
+| Backend | `python -m pytest -q` |
+| Frontend | `npm --prefix frontend test` |
+| Kiểm tra TypeScript và build | `npm --prefix frontend run build` |
+| Bộ test JavaScript | `node --test tests/*.test.cjs` |
+| Backend với PostgreSQL kiểm thử riêng | `python scripts/test_with_postgres.py -- -q` |
+| Hành trình nhân viên, công và lương trên browser | `python tests/operations_browser_check.py` |
+
+Các bộ browser có yêu cầu công cụ riêng; xem hướng dẫn trong runner trước khi chạy. Việc gửi email, nhận webhook ngân hàng và sử dụng AI thật cần được kiểm chứng riêng với cấu hình của môi trường đó.
+
+## Tài liệu
+
+| Chủ đề | Hướng dẫn |
+| --- | --- |
+| Database | [Migration và database cũ](docs/DATABASE_MIGRATIONS.md) |
+| Nhân sự | [Chấm công GPS và bảng lương](docs/GPS_ATTENDANCE_PAYROLL.md) |
+| Gói và chăm sóc | [Đặt lịch, tặng dịch vụ và đánh giá](docs/BOOKING_GIFTS_REVIEWS.md) |
+| Thành viên | [Điểm thưởng và đổi thưởng](docs/LOYALTY_REWARDS_3A.md) · [Voucher](docs/VOUCHER_ISSUANCE.md) |
+| Thông báo | [Notification worker](docs/NOTIFICATION_WORKER.md) |
+| AI | [Trợ lý đặt lịch](docs/AI_BOOKING_AGENT.md) · [Chat xử lý nền](docs/AI_CHAT_NAVIGATION.md) · [Phân tích da](docs/SKIN_ANALYSIS_AI.md) |
+| Hình ảnh | [Nguồn ảnh, môi trường chụp và danh mục màn hình](docs/images/readme/README.md) |
+
+---
+
+<div align="center">
+
+**Bin Spa · Đồ án tốt nghiệp**
+
+Thiết kế trải nghiệm khách hàng gắn liền với quy trình vận hành spa.
+
+</div>
